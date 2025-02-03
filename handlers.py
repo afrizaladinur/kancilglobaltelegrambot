@@ -93,21 +93,20 @@ class CommandHandler:
                 return
 
             for importer in results:
-                # Calculate credit cost based on available contact info
+                # Prepare credit cost
                 has_whatsapp = importer.get('wa_available', False)
                 has_website = bool(importer.get('website'))
                 has_email = bool(importer.get('email'))
                 has_phone = bool(importer.get('contact'))
 
-                # Determine credit cost
                 if has_whatsapp and has_website and has_email and has_phone:
-                    credit_cost = "2.0"
+                    credit_cost = "2\\.0"
                 elif not has_whatsapp and has_website and has_email and has_phone:
-                    credit_cost = "1.0"
+                    credit_cost = "1\\.0"
                 else:
-                    credit_cost = "0.5"
+                    credit_cost = "0\\.5"
 
-                # Prepare contact info with proper censoring
+                # Prepare censored information
                 name = importer['name']
                 name_censored = f"{name[0]}\\{'*' * 45}" if name else '\\*' * 46
 
@@ -115,7 +114,7 @@ class CommandHandler:
                 if contact:
                     if '+' in contact:
                         parts = contact.split(' ', 1)
-                        contact_censored = f"\\{parts[0]} {parts[1][:2]}\\{'*' * 9}" if len(parts) > 1 else f"\\{parts[0]} {'*' * 9}"
+                        contact_censored = f"\\{parts[0]} {parts[1][:2]}\\{'*' * 9}" if len(parts) > 1 else f"\\{parts[0]} \\{'*' * 9}"
                     else:
                         contact_censored = f"\\+1 65\\{'*' * 9}"
                 else:
@@ -138,7 +137,7 @@ class CommandHandler:
                     message_parts.append(f"🌐 Website: {website_censored}")
 
                 message_parts.append(f"📱 WhatsApp: {wa_status}")
-                message_parts.append(f"\n💡 Simpan kontak untuk melihat informasi lengkap \\(kredit terpakai: {credit_cost}\\)")
+                message_parts.append(f"💡 Simpan kontak untuk melihat informasi lengkap \\(kredit terpakai: {credit_cost}\\)")
 
                 message_text = '\n'.join(message_parts)
 

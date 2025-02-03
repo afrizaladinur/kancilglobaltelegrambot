@@ -190,8 +190,8 @@ class DataStore:
             search_sql = f"""
             SELECT 
                 name, country, phone as contact, website, 
-                email_1, email_2, wa_availability,
-                product,
+                email_1 as email, wa_availability,
+                product as hs_code,
                 role as product_description
             FROM importers
             WHERE {where_clause}
@@ -208,9 +208,9 @@ class DataStore:
                         'country': row.country,
                         'contact': row.contact,
                         'website': row.website,
-                        'email': row.email_1 or row.email_2,
+                        'email': row.email,
                         'wa_available': row.wa_availability == 'Available',
-                        'hs_code': row.product,
+                        'hs_code': row.hs_code.strip() if row.hs_code else '',
                         'product_description': row.product_description
                     }
                     for row in result
