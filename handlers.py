@@ -188,21 +188,20 @@ class CommandHandler:
                     importer_name = query.data[5:]  # Remove 'save_' prefix
                     user_id = query.from_user.id
 
-                    # Check credits before saving
-                    credits = self.data_store.get_user_credits(user_id)
-                    if credits <= 0:
-                        await query.message.reply_text(Messages.NO_CREDITS)
-                        return
-
-                    logging.info(f"Attempting to save contact {importer_name} for user {user_id}")
-
                     # Search for the importer details
                     results = self.data_store.search_importers(importer_name)
                     if results:
                         importer = next((imp for imp in results if imp['name'] == importer_name), None)
-                        if importer and self.data_store.save_contact(user_id, importer):
-                            # Use credit after successful save
-                            if self.data_store.use_credit(user_id):
+                        if importer:
+                            # Calculate credit cost before saving
+                            credit_cost = self.data_store.calculate_credit_cost(importer)
+                            credits = self.data_store.get_user_credits(user_id)
+
+                            if credits < credit_cost:
+                                await query.message.reply_text(Messages.NO_CREDITS)
+                                return
+
+                            if self.data_store.save_contact(user_id, importer):
                                 remaining_credits = self.data_store.get_user_credits(user_id)
                                 await query.message.reply_text(
                                     Messages.CONTACT_SAVED.format(remaining_credits)

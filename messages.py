@@ -12,7 +12,12 @@ Silakan pilih menu di bawah ini:
 - 📊 Statistik - untuk melihat statistik penggunaan
 - ❓ Bantuan - untuk melihat panduan lengkap
 
-Note: Menyimpan kontak membutuhkan 1 kredit. Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
+Sistem Kredit:
+• 2 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
+• 1 kredit - Kontak lengkap tanpa WhatsApp (email + website + telepon)
+• 0.5 kredit - Kontak tidak lengkap tanpa WhatsApp
+
+Note: Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
 """
     HELP = """
 Daftar perintah yang tersedia:
@@ -40,7 +45,14 @@ Note:
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
     SEARCH_ERROR = "Data importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
-    NO_CREDITS = "⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak. Silakan beli kredit tambahan."
+    NO_CREDITS = """⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini.
+
+Biaya kredit untuk kontak ini:
+• 2 kredit - jika memiliki WhatsApp dan semua kontak lengkap
+• 1 kredit - jika tidak ada WhatsApp tapi kontak lengkap
+• 0.5 kredit - jika tidak ada WhatsApp dan kontak tidak lengkap
+
+Silakan beli kredit tambahan dengan mengetik /credits"""
     CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
     BUY_CREDITS_INFO = """
 💰 Paket Kredit:

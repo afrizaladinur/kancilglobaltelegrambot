@@ -91,15 +91,39 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error getting user credits: {str(e)}", exc_info=True)
             return 3  # Return 3 credits as fallback
+    
+    def calculate_credit_cost(self, importer: Dict) -> float:
+        """Calculate credit cost based on contact information availability"""
+        try:
+            has_whatsapp = importer.get('wa_available', False)
+            has_website = bool(importer.get('website'))
+            has_email = bool(importer.get('email'))
+            has_phone = bool(importer.get('contact'))
 
-    def use_credit(self, user_id: int) -> bool:
-        """Use one credit for the user. Returns True if successful."""
+            # All contact methods including WhatsApp
+            if has_whatsapp and has_website and has_email and has_phone:
+                return 2.0
+            # All contact methods except WhatsApp
+            elif not has_whatsapp and has_website and has_email and has_phone:
+                return 1.0
+            # Missing some contact methods and no WhatsApp
+            else:
+                return 0.5
+        except Exception as e:
+            logging.error(f"Error calculating credit cost: {str(e)}", exc_info=True)
+            return 0.5  # Default to minimum cost if error occurs
+
+    def use_credit(self, user_id: int, amount: float) -> bool:
+        """Use specified amount of credits for the user. Returns True if successful."""
         try:
             use_credit_sql = """
             UPDATE user_credits
-            SET credits = credits - 1,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE user_id = :user_id AND credits > 0
+            SET credits = CASE 
+                WHEN credits >= :amount THEN credits - :amount
+                ELSE credits
+            END,
+            last_updated = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id AND credits >= :amount
             RETURNING credits;
             """
 
@@ -107,9 +131,9 @@ class DataStore:
                 with conn.begin():
                     result = conn.execute(
                         text(use_credit_sql),
-                        {"user_id": user_id}
+                        {"user_id": user_id, "amount": amount}
                     ).scalar()
-                    logging.info(f"Credit used for user {user_id}. Remaining credits: {result}")
+                    logging.info(f"Credit used for user {user_id}. Amount: {amount}, Remaining credits: {result}")
                     return result is not None
         except Exception as e:
             logging.error(f"Error using credit: {str(e)}", exc_info=True)
@@ -121,7 +145,7 @@ class DataStore:
             add_credits_sql = """
             UPDATE user_credits
             SET credits = credits + :amount,
-                last_updated = CURRENT_TIMESTAMP
+            last_updated = CURRENT_TIMESTAMP
             WHERE user_id = :user_id
             RETURNING credits;
             """
@@ -201,12 +225,16 @@ class DataStore:
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
+            # Calculate credit cost for this contact
+            credit_cost = self.calculate_credit_cost(importer)
+            logging.info(f"Calculated credit cost for contact: {credit_cost}")
+
             # First check credits
             credits = self.get_user_credits(user_id)
             logging.info(f"Checking credits for user {user_id}. Current credits: {credits}")
 
-            if credits <= 0:
-                logging.warning(f"User {user_id} has insufficient credits ({credits}) to save contact")
+            if credits < credit_cost:
+                logging.warning(f"User {user_id} has insufficient credits ({credits}) to save contact (cost: {credit_cost})")
                 return False
 
             save_sql = """
@@ -217,7 +245,8 @@ class DataStore:
                 :user_id, :name, :country, :phone, :email,
                 :website, :wa_available, :hs_code, :product_description
             )
-            ON CONFLICT (user_id, importer_name) DO NOTHING;
+            ON CONFLICT (user_id, importer_name) DO NOTHING
+            RETURNING id;
             """
             with self.engine.connect() as conn:
                 with conn.begin():
@@ -235,8 +264,19 @@ class DataStore:
                             "product_description": importer.get('product_description', '')
                         }
                     )
-                    logging.info(f"Contact save attempt for user {user_id}: {result.rowcount} rows affected")
-                    return result.rowcount > 0
+
+                    if result.rowcount > 0:
+                        # Only use credits if the contact was actually saved
+                        if self.use_credit(user_id, credit_cost):
+                            logging.info(f"Successfully saved contact and used {credit_cost} credits")
+                            return True
+                        else:
+                            # Rollback if we couldn't use the credits
+                            conn.rollback()
+                            logging.error("Failed to use credits, rolling back contact save")
+                            return False
+
+                    return False
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             return False
