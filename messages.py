@@ -153,7 +153,6 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             logging.info(f"Formatting importer data: saved={saved}, name={importer.get('name', 'N/A')}")
 
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
-            credit_cost = "2" if importer.get('wa_available') else "1"
 
             # Censor information if not saved
             name = Messages._censor_text(importer.get('name', ''), 'name', saved)
@@ -167,8 +166,6 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._escape_markdown(phone)
             website = Messages._escape_markdown(website)
             country = Messages._escape_markdown(importer.get('country', ''))
-
-            logging.debug(f"Processed fields - Name: {name}, Phone: {phone}, Email: {email}")
 
             # Base message with required fields
             message_text = f"""
@@ -185,24 +182,20 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             message_text += f"\n📱 WhatsApp: {wa_status}"
 
             if not saved:
-                message_text += f"\n\nKredit: {credit_cost}"
                 message_text += "\n\n💡 Simpan kontak untuk melihat informasi lengkap"
             else:
                 message_text += f"\n📅 Disimpan pada: {importer.get('saved_at', '')}"
 
             # Return whatsapp number for button if available and saved
             whatsapp_number = None
-            if importer.get('wa_available') and importer.get('contact') and saved:
+            if importer.get('wa_available') and saved and importer.get('contact'):
                 whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
-                logging.debug(f"WhatsApp number formatted: {whatsapp_number}")
 
             # Generate callback data for save button if not saved
             callback_data = None
             if not saved:
                 callback_data = f"save_{importer['name']}"
-                logging.debug(f"Generated callback data: {callback_data}")
 
-            logging.info(f"Successfully formatted message for importer {name}")
             return message_text, whatsapp_number, callback_data
 
         except Exception as e:
