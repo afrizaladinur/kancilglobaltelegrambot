@@ -83,29 +83,27 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
     @staticmethod
     def _censor_contact(text: str, field_type: str, saved: bool = False) -> str:
-        """Guarantee exact censoring patterns"""
+        """Censor sensitive contact information"""
         if saved or not text:
             return text or ""
 
-        # Use exactly five asterisks for all censored fields
-        if field_type == 'name':
-            # Show first 3 chars + *****
-            return f"{text[:3]}*****"
+        # Show first 3 chars + ***** for most fields
+        if field_type in ['name', 'email']:
+            return f"{text[:3]}*****" if len(text) > 3 else text
+
+        # Special format for phone numbers
         elif field_type == 'phone':
-            # +XX XX***** format
             if '+' not in text:
                 return "+1 65*****"
             parts = text.split(' ', 1)
-            country_code = parts[0]  # Keep +X part
+            country_code = parts[0]
             return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*****"
-        elif field_type == 'email':
-            # Show first 3 chars + *****
-            return f"{text[:3]}*****"
+
+        # Website always shows www.*****
         elif field_type == 'website':
-            # Always return www.***** pattern
             return "www.*****"
 
-        return "*****"  # Default fallback pattern
+        return "*****"  # Default mask
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
@@ -122,7 +120,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         except Exception as e:
             logging.error(f"Error formatting phone number: {str(e)}", exc_info=True)
             return ""
-    
+
     @staticmethod
     def _calculate_credit_cost(importer: dict) -> float:
         """Calculate credit cost based on available contact information"""
@@ -208,7 +206,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         except Exception as e:
             logging.error(f"Error formatting importer data: {str(e)}", exc_info=True)
             raise
-            
+
     @staticmethod
     def format_stats(stats):
         total = stats['total_commands']
