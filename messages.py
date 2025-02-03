@@ -7,8 +7,12 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 Silakan pilih menu di bawah ini:
 - 🔍 Cari Importir - untuk mencari importir
 - 📁 Kontak Tersimpan - untuk melihat kontak yang disimpan
+- 💳 Kredit Saya - untuk melihat sisa kredit
+- 💰 Beli Kredit - untuk menambah kredit
 - 📊 Statistik - untuk melihat statistik penggunaan
 - ❓ Bantuan - untuk melihat panduan lengkap
+
+Note: Menyimpan kontak membutuhkan 1 kredit. Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
 """
     HELP = """
 Daftar perintah yang tersedia:
@@ -16,6 +20,7 @@ Daftar perintah yang tersedia:
 📍 /start - Mulai bot
 🔍 /search <kata kunci> - Cari importir berdasarkan nama, negara, atau HS code
 📁 /saved - Lihat kontak yang tersimpan
+💳 /credits - Lihat sisa kredit Anda
 📊 /stats - Lihat statistik penggunaan Anda
 ❓ /help - Tampilkan pesan ini
 
@@ -25,14 +30,27 @@ Contoh pencarian:
 /search 0302  (untuk mencari HS code)
 /search 0302 Malaysia (untuk mencari HS code dari negara tertentu)
 
-Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat informasi lengkap.
+Note: 
+- Kontak yang belum disimpan akan disensor
+- Menyimpan kontak membutuhkan 1 kredit
+- Kredit gratis: 3 kredit untuk pengguna baru
 """
     SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search Indonesia"
     SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
     SEARCH_ERROR = "Data importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
-    CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap."
+    NO_CREDITS = "⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak. Silakan beli kredit tambahan."
+    CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
+    BUY_CREDITS_INFO = """
+💰 Paket Kredit:
+- 10 kredit: Rp 50.000
+- 25 kredit: Rp 100.000
+- 50 kredit: Rp 175.000
+
+Untuk membeli kredit, silakan hubungi admin: @admin
+"""
+    CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
     NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
 

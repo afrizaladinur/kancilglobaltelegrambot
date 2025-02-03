@@ -28,21 +28,26 @@ class CommandHandler:
 
             user_id = update.effective_user.id
             with app.app_context():
+                # Initialize user credits first
+                credits = self.data_store.get_user_credits(user_id)
+                # Then track command usage
                 self.data_store.track_user_command(user_id, 'start')
 
             keyboard = [
                 [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                 InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
                  InlineKeyboardButton("❓ Bantuan", callback_data="show_help")]
             ]
 
             await update.message.reply_text(
-                Messages.START,
+                f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}",
                 parse_mode='Markdown',
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
-            logging.info(f"Start command processed for user {user_id}")
+            logging.info(f"Start command processed for user {user_id} with {credits} credits")
         except Exception as e:
             logging.error(f"Error in start command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
@@ -171,9 +176,20 @@ class CommandHandler:
                     await self.stats(update, context)
                 elif query.data == "show_help":
                     await self.help(update, context)
+                elif query.data == "show_credits":
+                    await self.credits(update, context)
+                elif query.data == "buy_credits":
+                    await query.message.reply_text(Messages.BUY_CREDITS_INFO)
                 elif query.data.startswith('save_'):
                     importer_name = query.data[5:]  # Remove 'save_' prefix
                     user_id = query.from_user.id
+
+                    # Check credits before saving
+                    credits = self.data_store.get_user_credits(user_id)
+                    if credits <= 0:
+                        await query.message.reply_text(Messages.NO_CREDITS)
+                        return
+
                     logging.info(f"Attempting to save contact {importer_name} for user {user_id}")
 
                     # Search for the importer details
@@ -181,8 +197,15 @@ class CommandHandler:
                     if results:
                         importer = next((imp for imp in results if imp['name'] == importer_name), None)
                         if importer and self.data_store.save_contact(user_id, importer):
-                            await query.message.reply_text(Messages.CONTACT_SAVED)
-                            logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
+                            # Use credit after successful save
+                            if self.data_store.use_credit(user_id):
+                                remaining_credits = self.data_store.get_user_credits(user_id)
+                                await query.message.reply_text(
+                                    Messages.CONTACT_SAVED.format(remaining_credits)
+                                )
+                                logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
+                            else:
+                                await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                         else:
                             await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                             logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
@@ -214,4 +237,27 @@ class CommandHandler:
             logging.info(f"Stats command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in stats command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /credits command"""
+        try:
+            if not await self.check_rate_limit(update):
+                return
+
+            user_id = update.effective_user.id
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'credits')
+                credits = self.data_store.get_user_credits(user_id)
+
+            # Create keyboard with buy credits button
+            keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
+
+            await update.message.reply_text(
+                f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            logging.info(f"Credits command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in credits command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
