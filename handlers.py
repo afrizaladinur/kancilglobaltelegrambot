@@ -92,65 +92,26 @@ class CommandHandler:
                 )
                 return
 
+            logging.info(f"Found {len(results)} results for query: {query}")
+
             for importer in results:
-                # Prepare credit cost
-                has_whatsapp = importer.get('wa_available', False)
-                has_website = bool(importer.get('website'))
-                has_email = bool(importer.get('email'))
-                has_phone = bool(importer.get('contact'))
+                try:
+                    # Use the Messages class to format the importer data
+                    message_text, _, callback_data = Messages.format_importer(importer)
 
-                if has_whatsapp and has_website and has_email and has_phone:
-                    credit_cost = "2\\.0"
-                elif not has_whatsapp and has_website and has_email and has_phone:
-                    credit_cost = "1\\.0"
-                else:
-                    credit_cost = "0\\.5"
+                    keyboard = [[InlineKeyboardButton(
+                        "💾 Simpan Kontak",
+                        callback_data=f"save_{importer['name']}"
+                    )]]
 
-                # Prepare censored information
-                name = importer['name']
-                name_censored = f"{name[0]}\\{'*' * 45}" if name else '\\*' * 46
-
-                contact = importer.get('contact', '')
-                if contact:
-                    if '+' in contact:
-                        parts = contact.split(' ', 1)
-                        contact_censored = f"\\{parts[0]} {parts[1][:2]}\\{'*' * 9}" if len(parts) > 1 else f"\\{parts[0]} \\{'*' * 9}"
-                    else:
-                        contact_censored = f"\\+1 65\\{'*' * 9}"
-                else:
-                    contact_censored = ""
-
-                website = importer.get('website', '')
-                website_censored = f"http://www\\.b\\{'*' * 19}" if website else ""
-
-                wa_status = "✅ Tersedia" if has_whatsapp else "❌ Tidak Tersedia"
-
-                # Build message with exact format
-                message_parts = [
-                    f"🏢 {name_censored}",
-                    f"🌏 Negara: {importer['country']}",
-                ]
-
-                if contact_censored:
-                    message_parts.append(f"📱 Kontak: {contact_censored}")
-                if website_censored:
-                    message_parts.append(f"🌐 Website: {website_censored}")
-
-                message_parts.append(f"📱 WhatsApp: {wa_status}")
-                message_parts.append(f"💡 Simpan kontak untuk melihat informasi lengkap \\(kredit terpakai: {credit_cost}\\)")
-
-                message_text = '\n'.join(message_parts)
-
-                keyboard = [[InlineKeyboardButton(
-                    "💾 Simpan Kontak",
-                    callback_data=f"save_{importer['name']}"
-                )]]
-
-                await update.message.reply_text(
-                    message_text,
-                    parse_mode='MarkdownV2',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                    await update.message.reply_text(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                except Exception as e:
+                    logging.error(f"Error formatting importer {importer.get('name')}: {str(e)}", exc_info=True)
+                    continue
 
             logging.info(f"Successfully sent search results to user {user_id}")
         except Exception as e:

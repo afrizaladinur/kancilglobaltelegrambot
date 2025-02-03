@@ -170,55 +170,72 @@ class DataStore:
         try:
             # Clean and prepare search terms
             search_term = query.strip().lower()
-            logging.info(f"Searching with term: {search_term}")
+            logging.info(f"Starting search with term: '{search_term}'")
 
             search_sql = """
-            SELECT DISTINCT
-                name, 
-                country, 
-                phone as contact, 
-                website, 
-                email_1 as email, 
-                wa_availability,
-                product as hs_code,
-                role as product_description
-            FROM importers
-            WHERE 
-                LOWER(name) LIKE :search_term OR 
-                LOWER(country) LIKE :search_term OR 
-                LOWER(product) LIKE :search_term OR
-                LOWER(role) LIKE :search_term
-            ORDER BY 
+            WITH ranked_results AS (
+                SELECT 
+                    name, 
+                    country, 
+                    phone as contact, 
+                    website, 
+                    email_1 as email, 
+                    wa_availability,
+                    product as hs_code,
+                    role as product_description,
+                    CASE 
+                        WHEN LOWER(country) LIKE :search_term THEN 0
+                        WHEN LOWER(name) LIKE :search_term THEN 1
+                        ELSE 2 
+                    END as match_type
+                FROM importers
+                WHERE 
+                    LOWER(name) LIKE :search_term OR 
+                    LOWER(country) LIKE :search_term OR 
+                    LOWER(product) LIKE :search_term OR
+                    LOWER(role) LIKE :search_term
+            )
+            SELECT 
+                name, country, contact, website, email,
                 CASE 
-                    WHEN LOWER(country) LIKE :search_term THEN 0
-                    WHEN LOWER(name) LIKE :search_term THEN 1
-                    ELSE 2 
-                END,
-                country, name
+                    WHEN wa_availability = 'Available' THEN true
+                    ELSE false
+                END as wa_available,
+                hs_code,
+                product_description
+            FROM ranked_results
+            ORDER BY match_type, country, name
             LIMIT 10;
             """
 
             with self.engine.connect() as conn:
+                # Log the actual SQL and parameters being used
+                logging.info(f"Executing search with parameters: {{'search_term': '%{search_term}%'}}")
+
                 result = conn.execute(
                     text(search_sql), 
                     {"search_term": f"%{search_term}%"}
                 ).fetchall()
 
-                logging.info(f"Search found {len(result)} results for query: {query}")
+                logging.info(f"Search found {len(result)} results for query: '{query}'")
 
-                return [
-                    {
+                # Convert result to list of dicts with proper boolean conversion for wa_available
+                formatted_results = []
+                for row in result:
+                    importer_dict = {
                         'name': row.name,
                         'country': row.country,
                         'contact': row.contact,
-                        'website': row.website,
-                        'email': row.email,
-                        'wa_available': row.wa_availability == 'Available',
+                        'website': row.website or '',
+                        'email': row.email or '',
+                        'wa_available': row.wa_available,  # Already a boolean from the SQL CASE
                         'hs_code': row.hs_code.strip() if row.hs_code else '',
-                        'product_description': row.product_description
+                        'product_description': row.product_description or ''
                     }
-                    for row in result
-                ]
+                    logging.debug(f"Formatted result: {importer_dict}")
+                    formatted_results.append(importer_dict)
+
+                return formatted_results
 
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
