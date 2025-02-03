@@ -1,168 +1,157 @@
 import csv
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 from sqlalchemy import create_engine, text
-from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG  # Changed to DEBUG for more detailed logs
+    level=logging.DEBUG
 )
 logger = logging.getLogger(__name__)
 
 def create_importers_table(engine) -> None:
     """Create the importers table if it doesn't exist"""
-    create_table_sql = """
-    CREATE TABLE IF NOT EXISTS importers (
-        id SERIAL PRIMARY KEY,
-        role VARCHAR(50),
-        product VARCHAR(50),
-        name VARCHAR(255) NOT NULL,
-        country VARCHAR(100),
-        phone VARCHAR(50),
-        website TEXT,
-        email_1 VARCHAR(255) NULL,
-        email_2 VARCHAR(255) NULL,
-        last_contact DATE NULL,
-        status VARCHAR(50),
-        wa_availability VARCHAR(50),
-        email_sent VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """
-    with engine.connect() as conn:
-        conn.execute(text(create_table_sql))
-        conn.commit()
-        logger.info("importers table created or already exists")
+    try:
+        # Drop existing table to ensure clean import
+        drop_table_sql = """
+        DROP TABLE IF EXISTS importers;
+        """
 
-def map_csv_columns(row: dict) -> dict:
-    """Map CSV columns to database columns"""
-    column_mapping = {
-        'Role': 'role',
-        'Product': 'product',
-        'Name': 'name',
-        'Country': 'country',
-        'Phone': 'phone',
-        'Website': 'website',
-        'E-mail 1': 'email_1',
-        'E-mail 2': 'email_2',
-        'Last Contact': 'last_contact',
-        'Status': 'status',
-        'WA Availability': 'wa_availability',
-        'E-mail Sent': 'email_sent'
-    }
+        create_table_sql = """
+        CREATE TABLE importers (
+            id SERIAL PRIMARY KEY,
+            role VARCHAR(50),
+            product_code VARCHAR(50),
+            name VARCHAR(255) NOT NULL,
+            country VARCHAR(100),
+            phone VARCHAR(50),
+            website TEXT,
+            email_1 VARCHAR(255),
+            email_2 VARCHAR(255),
+            last_contact DATE,
+            status VARCHAR(50),
+            wa_availability VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
 
-    return {
-        column_mapping.get(k, k.lower().replace(' ', '_')): (v.strip() if v and v.strip() else None)
-        for k, v in row.items()
-    }
+        with engine.connect() as conn:
+            conn.execute(text(drop_table_sql))
+            conn.execute(text(create_table_sql))
+            conn.commit()
+            logger.info("Importers table created successfully")
 
-def import_csv_to_postgres(
-    csv_file_path: str,
-    database_url: Optional[str] = None
-) -> bool:
-    """
-    Import data from CSV file to PostgreSQL database
-    Returns True if successful, False otherwise
-    """
+    except Exception as e:
+        logger.error(f"Error creating table: {str(e)}", exc_info=True)
+        raise
+
+def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = None) -> bool:
+    """Import data from CSV file to PostgreSQL database"""
     if not os.path.exists(csv_file_path):
         logger.error(f"CSV file not found: {csv_file_path}")
         return False
 
     try:
-        # Use the DATABASE_URL from environment if not provided
         if database_url is None:
             database_url = os.environ.get('DATABASE_URL')
             if not database_url:
                 raise ValueError("DATABASE_URL environment variable not set")
 
-        logger.debug(f"Connecting to database...")
+        logger.info(f"Connecting to database: {database_url.split('@')[1] if '@' in database_url else 'local'}")
         engine = create_engine(database_url)
 
-        # Create table if it doesn't exist
+        # Create table
         create_importers_table(engine)
 
+        # Process CSV file
         logger.info(f"Reading CSV file: {csv_file_path}")
-        # Read and process CSV file
-        with open(csv_file_path, 'r', encoding='utf-8-sig') as csvfile:
-            csv_reader = csv.DictReader(csvfile)
-            rows = []
-            for i, row in enumerate(csv_reader, 1):
+        valid_rows = []
+
+        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+            csv_reader = csv.reader(csvfile)
+            next(csv_reader)  # Skip header row
+
+            for i, row in enumerate(csv_reader, 2):  # Start from 2 since we skipped header
                 try:
-                    processed_row = map_csv_columns(row)
-                    rows.append(processed_row)
-                    if i % 1000 == 0:  # Log progress every 1000 rows
-                        logger.debug(f"Processed {i} rows from CSV")
+                    # Log raw data for debugging
+                    logger.debug(f"Processing row {i}: {row}")
+
+                    if not row or len(row) < 3:  # We expect at least role, code, and name
+                        logger.warning(f"Row {i} has insufficient columns: {row}")
+                        continue
+
+                    data = {
+                        'role': row[0],
+                        'product_code': row[1],
+                        'name': row[2],
+                        'country': row[3] if len(row) > 3 else None,
+                        'phone': row[4] if len(row) > 4 else None,
+                        'website': row[5] if len(row) > 5 else None,
+                        'email_1': row[6] if len(row) > 6 else None,
+                        'email_2': row[7] if len(row) > 7 else None,
+                        'status': row[9] if len(row) > 9 else None,
+                        'wa_availability': row[10] if len(row) > 10 else None,
+                        'last_contact': None
+                    }
+
+                    # Clean the data
+                    data = {k: (v.strip() if isinstance(v, str) else v) for k, v in data.items()}
+                    data = {k: (v if v else None) for k, v in data.items()}
+
+                    if data['name']:  # Only include rows with a valid name
+                        valid_rows.append(data)
+                        if len(valid_rows) % 100 == 0:
+                            logger.info(f"Processed {len(valid_rows)} valid rows")
+
                 except Exception as e:
-                    logger.error(f"Error processing row {i}: {str(e)}")
+                    logger.error(f"Error processing row {i}: {str(e)}", exc_info=True)
                     continue
 
-        if not rows:
-            logger.warning("No data found in CSV file")
+        if not valid_rows:
+            logger.error("No valid data found in CSV file")
             return False
 
-        logger.info(f"Found {len(rows)} rows to import")
+        logger.info(f"Found {len(valid_rows)} valid rows to import")
 
-        # Insert data using SQLAlchemy
+        # Insert data in batches
         insert_sql = """
         INSERT INTO importers (
-            role, product, name, country, phone, website,
+            role, product_code, name, country, phone, website,
             email_1, email_2, last_contact, status,
-            wa_availability, email_sent
+            wa_availability
         ) VALUES (
-            :role, :product, :name, :country, :phone, :website,
+            :role, :product_code, :name, :country, :phone, :website,
             :email_1, :email_2, :last_contact, :status,
-            :wa_availability, :email_sent
+            :wa_availability
         )
         """
 
-        with engine.connect() as conn:
-            inserted_count = 0
-            for i, row in enumerate(rows, 1):
+        with engine.begin() as conn:
+            for i, row in enumerate(valid_rows, 1):
                 try:
-                    # Convert date string to proper format if it exists
-                    if row.get('last_contact'):
-                        try:
-                            date_str = row['last_contact']
-                            # Try different date formats
-                            for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
-                                try:
-                                    parsed_date = datetime.strptime(date_str, fmt)
-                                    row['last_contact'] = parsed_date.date()
-                                    break
-                                except ValueError:
-                                    continue
-                        except Exception as e:
-                            logger.warning(f"Could not parse date {row['last_contact']}: {e}")
-                            row['last_contact'] = None
-
                     conn.execute(text(insert_sql), row)
-                    inserted_count += 1
-
-                    if i % 1000 == 0:  # Commit every 1000 rows
-                        conn.commit()
-                        logger.debug(f"Inserted {i} rows")
+                    if i % 100 == 0:
+                        logger.info(f"Inserted {i} rows")
                 except Exception as e:
-                    logger.error(f"Error inserting row {i}: {str(e)}")
-                    logger.debug(f"Problematic row data: {row}")
-                    continue
+                    logger.error(f"Error inserting row {i}: {str(e)}", exc_info=True)
+                    logger.error(f"Problematic row data: {row}")
+                    raise
 
-            conn.commit()  # Final commit for remaining rows
-
-        logger.info(f"Successfully imported {inserted_count} rows to importers table")
-        return True
+            logger.info(f"Successfully imported {len(valid_rows)} rows")
+            return True
 
     except Exception as e:
         logger.error(f"Error importing CSV data: {str(e)}", exc_info=True)
         return False
 
 if __name__ == "__main__":
-    # Import the new WW 0303 CSV file
-    csv_file = "attached_assets/I - WW 0303.csv"
+    csv_file = "attached_assets/I - WW 0302.csv"  # Updated file path
     logger.info(f"Starting import process for {csv_file}")
+
     if import_csv_to_postgres(csv_file):
-        print("CSV import completed successfully")
+        logger.info("CSV import completed successfully")
     else:
-        print("CSV import failed")
+        logger.error("CSV import failed")
+        exit(1)
