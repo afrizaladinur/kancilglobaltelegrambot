@@ -159,13 +159,17 @@ class DataStore:
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
-            
+
             search_sql = f"""
             SELECT name, country, phone, website, email_1, email_2, wa_availability,
                    CASE 
                        WHEN product LIKE 'WW %' THEN SUBSTRING(product, 4)
                        ELSE product 
-                   END as product
+                   END as product,
+                   CASE 
+                       WHEN product_description IS NULL THEN ''
+                       ELSE product_description
+                   END as product_description
             FROM importers
             WHERE {where_clause}
             ORDER BY 
@@ -185,7 +189,8 @@ class DataStore:
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
-                        'product': row.product
+                        'product': row.product,
+                        'product_description': row.product_description
                     }
                     for row in result
                 ]
@@ -241,7 +246,7 @@ class DataStore:
         try:
             get_saved_sql = """
             SELECT importer_name, country, phone, email, website, 
-                   wa_availability, saved_at
+                   wa_availability, saved_at, hs_code, product_description
             FROM saved_contacts
             WHERE user_id = :user_id
             ORDER BY saved_at DESC;
@@ -260,7 +265,9 @@ class DataStore:
                         'email': row.email,
                         'website': row.website,
                         'wa_available': row.wa_availability,
-                        'saved_at': row.saved_at.strftime("%Y-%m-%d %H:%M")
+                        'saved_at': row.saved_at.strftime("%Y-%m-%d %H:%M"),
+                        'hs_code': row.hs_code,
+                        'product_description': row.product_description
                     }
                     for row in result
                 ]
