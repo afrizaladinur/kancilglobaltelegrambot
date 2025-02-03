@@ -82,25 +82,25 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         if saved or not text:
             return text or ""
 
-        # Guarantee exact patterns for each field type
+        # Use exactly five asterisks for all censored fields
         if field_type == 'name':
-            # Show first 3 chars + exactly 25 asterisks
-            return f"{text[:3]}***********************"
+            # Show first 3 chars + exactly five asterisks
+            return f"{text[:3]}*****"
         elif field_type == 'phone':
             # +XX XX***** format
             if '+' not in text:
-                return "+1 65*********"
+                return "+1 65*****"
             parts = text.split(' ', 1)
             country_code = parts[0]  # Keep +X part
-            return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*********"
+            return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*****"
         elif field_type == 'email':
-            # Show first 3 chars + exactly 20 asterisks
-            return f"{text[:3]}********************"
+            # Show first 3 chars + exactly five asterisks
+            return f"{text[:3]}*****"
         elif field_type == 'website':
-            # Always return www.**** pattern
-            return "www.********************"
+            # Always return www.***** pattern
+            return "www.*****"
 
-        return "*" * 30  # Default fallback pattern
+        return "*****"  # Default fallback pattern
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
