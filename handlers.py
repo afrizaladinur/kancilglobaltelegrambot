@@ -1,9 +1,10 @@
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
-import logging
+from app import app
 
 class CommandHandler:
     def __init__(self):
@@ -26,11 +27,12 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
-            self.data_store.track_user_command(user_id, 'start')
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'start')
             await update.message.reply_text(Messages.START, parse_mode='Markdown')
             logging.info(f"Start command processed for user {user_id}")
         except Exception as e:
-            logging.error(f"Error in start command: {e}")
+            logging.error(f"Error in start command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -40,11 +42,12 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
-            self.data_store.track_user_command(user_id, 'help')
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'help')
             await update.message.reply_text(Messages.HELP, parse_mode='Markdown')
             logging.info(f"Help command processed for user {user_id}")
         except Exception as e:
-            logging.error(f"Error in help command: {e}")
+            logging.error(f"Error in help command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,14 +57,20 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
-            self.data_store.track_user_command(user_id, 'search')
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'search')
 
             if not context.args:
                 await update.message.reply_text(Messages.SEARCH_NO_QUERY)
                 return
 
             query = ' '.join(context.args)
-            results = self.data_store.search_importers(query)
+            logging.info(f"Processing search request from user {user_id} with query: {query}")
+
+            with app.app_context():
+                results = self.data_store.search_importers(query)
+
+            logging.info(f"Search results for query '{query}': {len(results)} matches found")
 
             if not results:
                 await update.message.reply_text(Messages.SEARCH_NO_RESULTS)
@@ -72,9 +81,9 @@ class CommandHandler:
                 response += Messages.format_importer(importer)
 
             await update.message.reply_text(response, parse_mode='Markdown')
-            logging.info(f"Search command processed for user {user_id}, query: {query}")
+            logging.info(f"Successfully sent search results to user {user_id}")
         except Exception as e:
-            logging.error(f"Error in search command: {e}")
+            logging.error(f"Error in search command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,13 +93,14 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
-            self.data_store.track_user_command(user_id, 'stats')
-            stats = self.data_store.get_user_stats(user_id)
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'stats')
+                stats = self.data_store.get_user_stats(user_id)
             await update.message.reply_text(
                 Messages.format_stats(stats),
                 parse_mode='Markdown'
             )
             logging.info(f"Stats command processed for user {user_id}")
         except Exception as e:
-            logging.error(f"Error in stats command: {e}")
+            logging.error(f"Error in stats command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
