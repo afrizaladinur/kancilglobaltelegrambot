@@ -166,7 +166,7 @@ class DataStore:
             return False
     
     def search_importers(self, query: str) -> List[Dict]:
-        """Search importers by name, country, or HS code products"""
+        """Search importers by name, country, or product"""
         try:
             # Split the query into terms and remove empty strings
             search_terms = [term.strip() for term in query.split() if term.strip()]
@@ -180,8 +180,7 @@ class DataStore:
                 where_conditions.append(f"""(
                     LOWER(name) LIKE '%' || LOWER(:{param_name}) || '%' OR 
                     LOWER(country) LIKE '%' || LOWER(:{param_name}) || '%' OR 
-                    LOWER(product) LIKE '%' || LOWER(:{param_name}) || '%' OR
-                    LOWER(product_description) LIKE '%' || LOWER(:{param_name}) || '%'
+                    LOWER(product) LIKE '%' || LOWER(:{param_name}) || '%'
                 )""")
                 params[param_name] = term
 
@@ -192,8 +191,8 @@ class DataStore:
             SELECT 
                 name, country, phone as contact, website, 
                 email_1, email_2, wa_availability,
-                product as hs_code,
-                product_description
+                product,
+                role as product_description
             FROM importers
             WHERE {where_clause}
             LIMIT 10;
@@ -211,7 +210,7 @@ class DataStore:
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
-                        'hs_code': row.hs_code,
+                        'hs_code': row.product,
                         'product_description': row.product_description
                     }
                     for row in result

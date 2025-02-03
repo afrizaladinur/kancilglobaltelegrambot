@@ -17,14 +17,16 @@ def create_importers_table(engine) -> None:
         create_table_sql = """
         CREATE TABLE IF NOT EXISTS importers (
             id SERIAL PRIMARY KEY,
+            role VARCHAR(50),
+            product VARCHAR(50),
             name VARCHAR(255) NOT NULL,
             country VARCHAR(100),
             phone VARCHAR(50),
             website TEXT,
             email_1 VARCHAR(255),
             email_2 VARCHAR(255),
-            product VARCHAR(50),
-            product_description TEXT,
+            last_contact VARCHAR(100),
+            status VARCHAR(50),
             wa_availability VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -85,15 +87,17 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                         continue
 
                     data = {
-                        'name': row.get('company_name', '').strip(),
-                        'country': row.get('country_of_origin', '').strip(),
-                        'product': row.get('hs_code', '').strip(),
-                        'product_description': row.get('product_description', '').strip(),
-                        'wa_availability': 'Available',  # Default to available for demo
-                        'phone': '',  # These fields are not in the CSV but required by the schema
-                        'website': '',
-                        'email_1': '',
-                        'email_2': ''
+                        'role': row.get('Role', '').strip(),
+                        'product': row.get('Product', '').strip(),
+                        'name': row.get('Name', '').strip(),
+                        'country': row.get('Country', '').strip(),
+                        'phone': row.get('Phone', '').strip(),
+                        'website': row.get('Website', '').strip(),
+                        'email_1': row.get('E-mail 1', '').strip(),
+                        'email_2': row.get('E-mail 2', '').strip(),
+                        'last_contact': row.get('Last Contact', '').strip(),
+                        'status': row.get('Status', '').strip(),
+                        'wa_availability': row.get('WA Availability', 'Not Available').strip()
                     }
 
                     # Log processed data
@@ -114,7 +118,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
 
         logger.info(f"Found {len(valid_rows)} valid rows to import")
 
-        # Insert data in smaller batches with explicit transaction
+        # Insert data in smaller batches
         batch_size = 50
         inserted_count = 0
 
@@ -132,13 +136,11 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                         for row in batch:
                             insert_sql = """
                             INSERT INTO importers (
-                                name, country, phone, website,
-                                email_1, email_2, product, product_description,
-                                wa_availability
+                                role, product, name, country, phone, website,
+                                email_1, email_2, last_contact, status, wa_availability
                             ) VALUES (
-                                :name, :country, :phone, :website,
-                                :email_1, :email_2, :product, :product_description,
-                                :wa_availability
+                                :role, :product, :name, :country, :phone, :website,
+                                :email_1, :email_2, :last_contact, :status, :wa_availability
                             )
                             """
                             conn.execute(text(insert_sql), row)
@@ -163,7 +165,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         return False
 
 if __name__ == "__main__":
-    csv_file = "trade_data.csv"
+    csv_file = "data/I - WW 0302.csv"  # Updated path to the new CSV file
     logger.info(f"Starting import process for {csv_file}")
 
     if import_csv_to_postgres(csv_file):
