@@ -14,11 +14,20 @@ class CommandHandler:
 
     async def check_rate_limit(self, update: Update) -> bool:
         """Check rate limit for user"""
-        user_id = update.effective_user.id
-        if not self.rate_limiter.can_proceed(user_id):
-            await update.message.reply_text(Messages.RATE_LIMIT_EXCEEDED)
-            return False
-        return True
+        try:
+            user_id = update.effective_user.id
+            if not self.rate_limiter.can_proceed(user_id):
+                await update.message.reply_text(Messages.RATE_LIMIT_EXCEEDED)
+                return False
+            # Initialize user credits if not exists
+            with app.app_context():
+                credits = self.data_store.get_user_credits(user_id)
+                if credits is None:
+                    self.data_store.initialize_user_credits(user_id)
+            return True
+        except Exception as e:
+            logging.error(f"Rate limit check error: {str(e)}")
+            return True  # Allow operation on error to prevent blocking
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""

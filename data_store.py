@@ -64,41 +64,30 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error creating tables: {str(e)}", exc_info=True)
 
-    def get_user_credits(self, user_id: int) -> int:
-        """Get remaining credits for a user"""
+    def get_user_credits(self, user_id: int) -> float:
+        """Get user's remaining credits"""
         try:
             with self.engine.connect() as conn:
-                with conn.begin():
-                    # Try to insert a new user with default credits
-                    insert_sql = """
-                    INSERT INTO user_credits (user_id, credits)
-                    VALUES (:user_id, 3)
-                    ON CONFLICT (user_id) DO 
-                    UPDATE SET credits = 
-                        CASE 
-                            WHEN user_credits.credits = 0 THEN 3
-                            ELSE user_credits.credits
-                        END,
-                        last_updated = 
-                        CASE 
-                            WHEN user_credits.credits = 0 THEN CURRENT_TIMESTAMP
-                            ELSE user_credits.last_updated
-                        END
-                    RETURNING credits;
-                    """
-
-                    result = conn.execute(
-                        text(insert_sql),
-                        {"user_id": user_id}
-                    ).scalar()
-
-                    logging.info(f"Credits for user {user_id}: {result}")
-                    return result or 3
-
+                result = conn.execute(text(
+                    "SELECT credits FROM user_credits WHERE user_id = :user_id"
+                ), {"user_id": user_id}).first()
+                return result[0] if result else None
         except Exception as e:
-            logging.error(f"Error getting user credits: {str(e)}", exc_info=True)
-            return 3  # Return 3 credits as fallback
-    
+            logging.error(f"Error getting user credits: {str(e)}")
+            return None
+
+    def initialize_user_credits(self, user_id: int, initial_credits: float = 3.0) -> None:
+        """Initialize credits for new user"""
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO user_credits (user_id, credits) 
+                    VALUES (:user_id, :credits)
+                    ON CONFLICT (user_id) DO NOTHING
+                """), {"user_id": user_id, "credits": initial_credits})
+        except Exception as e:
+            logging.error(f"Error initializing user credits: {str(e)}")
+
     def calculate_credit_cost(self, importer: Dict) -> float:
         """Calculate credit cost based on contact information availability"""
         try:
@@ -171,7 +160,7 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error adding credits: {str(e)}", exc_info=True)
             return False
-    
+
     def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name, country, product/HS code"""
         try:
@@ -272,7 +261,7 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
             return []
-    
+
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
@@ -283,6 +272,10 @@ class DataStore:
             # First check credits
             credits = self.get_user_credits(user_id)
             logging.info(f"Checking credits for user {user_id}. Current credits: {credits}")
+
+            if credits is None or credits < credit_cost:
+                self.initialize_user_credits(user_id) # Initialize credits if none exist.
+                logging.warning(f"User {user_id} had insufficient credits. Credits initialized")
 
             if credits < credit_cost:
                 logging.warning(f"User {user_id} has insufficient credits ({credits}) to save contact (cost: {credit_cost})")
