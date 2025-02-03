@@ -23,14 +23,14 @@ def create_importers_table(engine) -> None:
         CREATE TABLE importers (
             id SERIAL PRIMARY KEY,
             role VARCHAR(50),
-            product_code VARCHAR(50),
+            product VARCHAR(50),
             name VARCHAR(255) NOT NULL,
             country VARCHAR(100),
             phone VARCHAR(50),
             website TEXT,
             email_1 VARCHAR(255),
             email_2 VARCHAR(255),
-            last_contact DATE,
+            last_contact VARCHAR(50),
             status VARCHAR(50),
             wa_availability VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -70,35 +70,44 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         valid_rows = []
 
         with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
-            csv_reader = csv.reader(csvfile)
-            next(csv_reader)  # Skip header row
+            # Read and log the first few lines to debug
+            logger.info("First few lines of CSV:")
+            for i, line in enumerate(csvfile):
+                if i < 5:  # Log first 5 lines
+                    logger.info(f"Line {i}: {line.strip()}")
+                else:
+                    break
+            csvfile.seek(0)  # Reset file pointer to start
 
-            for i, row in enumerate(csv_reader, 2):  # Start from 2 since we skipped header
+            csv_reader = csv.DictReader(csvfile)
+            logger.info(f"CSV Headers: {csv_reader.fieldnames}")
+
+            for i, row in enumerate(csv_reader, 1):
                 try:
                     # Log raw data for debugging
                     logger.debug(f"Processing row {i}: {row}")
 
-                    if not row or len(row) < 3:  # We expect at least role, code, and name
-                        logger.warning(f"Row {i} has insufficient columns: {row}")
+                    # Skip empty rows
+                    if not any(row.values()):
+                        logger.debug(f"Skipping empty row {i}")
                         continue
 
                     data = {
-                        'role': row[0],
-                        'product_code': row[1],
-                        'name': row[2],
-                        'country': row[3] if len(row) > 3 else None,
-                        'phone': row[4] if len(row) > 4 else None,
-                        'website': row[5] if len(row) > 5 else None,
-                        'email_1': row[6] if len(row) > 6 else None,
-                        'email_2': row[7] if len(row) > 7 else None,
-                        'status': row[9] if len(row) > 9 else None,
-                        'wa_availability': row[10] if len(row) > 10 else None,
-                        'last_contact': None
+                        'role': row.get('Role', '').strip(),
+                        'product': row.get('Product', '').strip(),
+                        'name': row.get('Name', '').strip(),
+                        'country': row.get('Country', '').strip() or None,
+                        'phone': row.get('Phone', '').strip() or None,
+                        'website': row.get('Website', '').strip() or None,
+                        'email_1': row.get('E-mail 1', '').strip() or None,
+                        'email_2': row.get('E-mail 2', '').strip() or None,
+                        'last_contact': row.get('Last Contact', '').strip() or None,
+                        'status': row.get('Status', '').strip() or None,
+                        'wa_availability': row.get('WA Availability', '').strip() or None
                     }
 
-                    # Clean the data
-                    data = {k: (v.strip() if isinstance(v, str) else v) for k, v in data.items()}
-                    data = {k: (v if v else None) for k, v in data.items()}
+                    # Log processed data
+                    logger.debug(f"Processed data for row {i}: {data}")
 
                     if data['name']:  # Only include rows with a valid name
                         valid_rows.append(data)
@@ -115,39 +124,51 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
 
         logger.info(f"Found {len(valid_rows)} valid rows to import")
 
-        # Insert data in batches
-        insert_sql = """
-        INSERT INTO importers (
-            role, product_code, name, country, phone, website,
-            email_1, email_2, last_contact, status,
-            wa_availability
-        ) VALUES (
-            :role, :product_code, :name, :country, :phone, :website,
-            :email_1, :email_2, :last_contact, :status,
-            :wa_availability
-        )
-        """
+        # Insert data in smaller batches with explicit transaction
+        batch_size = 50
+        inserted_count = 0
 
-        with engine.begin() as conn:
-            for i, row in enumerate(valid_rows, 1):
-                try:
-                    conn.execute(text(insert_sql), row)
-                    if i % 100 == 0:
-                        logger.info(f"Inserted {i} rows")
-                except Exception as e:
-                    logger.error(f"Error inserting row {i}: {str(e)}", exc_info=True)
-                    logger.error(f"Problematic row data: {row}")
-                    raise
+        try:
+            with engine.connect() as conn:
+                for batch_start in range(0, len(valid_rows), batch_size):
+                    batch = valid_rows[batch_start:batch_start + batch_size]
 
-            logger.info(f"Successfully imported {len(valid_rows)} rows")
+                    # Start transaction for this batch
+                    with conn.begin():
+                        for row in batch:
+                            insert_sql = """
+                            INSERT INTO importers (
+                                role, product, name, country, phone, website,
+                                email_1, email_2, last_contact, status, wa_availability
+                            ) VALUES (
+                                :role, :product, :name, :country, :phone, :website,
+                                :email_1, :email_2, :last_contact, :status, :wa_availability
+                            )
+                            """
+                            conn.execute(text(insert_sql), row)
+
+                        inserted_count += len(batch)
+                        logger.info(f"Inserted batch of {len(batch)} rows. Total inserted: {inserted_count}")
+
+            logger.info(f"Successfully imported all {inserted_count} rows")
+
+            # Verify the import
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM importers")).scalar()
+                logger.info(f"Total rows in database after import: {result}")
+
             return True
+
+        except Exception as e:
+            logger.error(f"Error during batch insert: {str(e)}", exc_info=True)
+            raise
 
     except Exception as e:
         logger.error(f"Error importing CSV data: {str(e)}", exc_info=True)
         return False
 
 if __name__ == "__main__":
-    csv_file = "attached_assets/I - WW 0302.csv"  # Updated file path
+    csv_file = "attached_assets/I - WW 0302.csv"
     logger.info(f"Starting import process for {csv_file}")
 
     if import_csv_to_postgres(csv_file):
