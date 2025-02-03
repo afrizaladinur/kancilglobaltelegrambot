@@ -5,12 +5,17 @@ class Messages:
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
 Silakan pilih menu di bawah ini:
-- 🔍 Cari Importir - untuk mencari importir
+- 🔍 Cari Importir - untuk mencari importir berdasarkan nama, negara, atau HS code
 - 📁 Kontak Tersimpan - untuk melihat kontak yang disimpan
 - 💳 Kredit Saya - untuk melihat sisa kredit
 - 💰 Beli Kredit - untuk menambah kredit
 - 📊 Statistik - untuk melihat statistik penggunaan
 - ❓ Bantuan - untuk melihat panduan lengkap
+
+Contoh pencarian:
+• /search malaysia - cari importir dari Malaysia
+• /search 0303 - cari importir dengan HS code 0303
+• /search 0303 malaysia - cari importir dari Malaysia dengan HS code 0303
 
 Sistem Kredit:
 • 2 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
@@ -32,8 +37,8 @@ Daftar perintah yang tersedia:
 Contoh pencarian:
 /search United States
 /search Indonesia
-/search 0302  (untuk mencari HS code)
-/search 0302 Malaysia (untuk mencari HS code dari negara tertentu)
+/search 0303  (untuk mencari HS code)
+/search 0303 Malaysia (untuk mencari HS code dari negara tertentu)
 
 Note: 
 - Kontak yang belum disimpan akan disensor

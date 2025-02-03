@@ -173,13 +173,26 @@ class DataStore:
             return False
     
     def search_importers(self, query: str) -> List[Dict]:
-        """Search importers by name, country, or product"""
+        """Search importers by name, country, product/HS code"""
         try:
             # Clean and prepare search terms
-            search_term = query.strip().lower()
-            logging.info(f"Starting search with term: '{search_term}'")
+            terms = query.strip().lower().split()
+            logging.info(f"Starting search with terms: {terms}")
 
-            search_sql = """
+            # Build the search conditions
+            conditions = []
+            params = {}
+
+            for i, term in enumerate(terms):
+                param_name = f"term_{i}"
+                # Check if term looks like an HS code (contains digits)
+                if any(c.isdigit() for c in term):
+                    conditions.append(f"LOWER(product) LIKE :{param_name}")
+                else:
+                    conditions.append(f"(LOWER(name) LIKE :{param_name} OR LOWER(country) LIKE :{param_name})")
+                params[param_name] = f"%{term}%"
+
+            search_sql = f"""
             WITH ranked_results AS (
                 SELECT 
                     name, 
@@ -191,16 +204,12 @@ class DataStore:
                     product,
                     role as product_description,
                     CASE 
-                        WHEN LOWER(country) LIKE :search_term THEN 0
-                        WHEN LOWER(name) LIKE :search_term THEN 1
+                        WHEN LOWER(country) LIKE :term_0 THEN 0
+                        WHEN LOWER(name) LIKE :term_0 THEN 1
                         ELSE 2 
                     END as match_type
                 FROM importers
-                WHERE 
-                    LOWER(name) LIKE :search_term OR 
-                    LOWER(country) LIKE :search_term OR 
-                    LOWER(product) LIKE :search_term OR
-                    LOWER(role) LIKE :search_term
+                WHERE {' AND '.join(conditions)}
             )
             SELECT 
                 name, country, contact, website, email,
@@ -217,11 +226,11 @@ class DataStore:
 
             with self.engine.connect() as conn:
                 # Log the actual SQL and parameters being used
-                logging.info(f"Executing search with parameters: {{'search_term': '%{search_term}%'}}")
+                logging.info(f"Executing search with parameters: {params}")
 
                 result = conn.execute(
                     text(search_sql), 
-                    {"search_term": f"%{search_term}%"}
+                    params
                 ).fetchall()
 
                 logging.info(f"Search found {len(result)} results for query: '{query}'")
