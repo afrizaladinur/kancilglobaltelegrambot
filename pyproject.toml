@@ -16,4 +16,5 @@ dependencies = [
     "telegram>=0.0.1",
     "flask-wtf>=1.2.2",
     "openai>=1.61.0",
+    "pymongo>=4.11",
 ]

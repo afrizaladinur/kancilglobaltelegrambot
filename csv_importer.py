@@ -119,7 +119,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         logger.info(f"Found {len(valid_rows)} valid rows to import")
 
         # Insert data in smaller batches
-        batch_size = 50
+        batch_size = 5000
         inserted_count = 0
 
         try:
