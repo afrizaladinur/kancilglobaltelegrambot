@@ -87,7 +87,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         logger.info(f"Processing file: {csv_file_path} (Size: {file_size} bytes)")
 
         engine = create_engine(database_url, pool_pre_ping=True)
-        create_importers_table(engine)
+        create_tables(engine)
 
         valid_rows = []
         with open(csv_file_path, "r", encoding="utf-8") as csvfile:
