@@ -14,31 +14,23 @@ logger = logging.getLogger(__name__)
 def create_importers_table(engine) -> None:
     """Create the importers table if it doesn't exist"""
     try:
-        # Drop existing table to ensure clean import
-        drop_table_sql = """
-        DROP TABLE IF EXISTS importers;
-        """
-
         create_table_sql = """
-        CREATE TABLE importers (
+        CREATE TABLE IF NOT EXISTS importers (
             id SERIAL PRIMARY KEY,
-            role VARCHAR(50),
-            product VARCHAR(50),
             name VARCHAR(255) NOT NULL,
             country VARCHAR(100),
             phone VARCHAR(50),
             website TEXT,
             email_1 VARCHAR(255),
             email_2 VARCHAR(255),
-            last_contact VARCHAR(50),
-            status VARCHAR(50),
+            product VARCHAR(50),
+            product_description TEXT,
             wa_availability VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
 
         with engine.connect() as conn:
-            conn.execute(text(drop_table_sql))
             conn.execute(text(create_table_sql))
             conn.commit()
             logger.info("Importers table created successfully")
@@ -93,17 +85,15 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                         continue
 
                     data = {
-                        'role': row.get('Role', '').strip(),
-                        'product': row.get('Product', '').strip(),
-                        'name': row.get('Name', '').strip(),
-                        'country': row.get('Country', '').strip() or None,
-                        'phone': row.get('Phone', '').strip() or None,
-                        'website': row.get('Website', '').strip() or None,
-                        'email_1': row.get('E-mail 1', '').strip() or None,
-                        'email_2': row.get('E-mail 2', '').strip() or None,
-                        'last_contact': row.get('Last Contact', '').strip() or None,
-                        'status': row.get('Status', '').strip() or None,
-                        'wa_availability': row.get('WA Availability', '').strip() or None
+                        'name': row.get('company_name', '').strip(),
+                        'country': row.get('country_of_origin', '').strip(),
+                        'product': row.get('hs_code', '').strip(),
+                        'product_description': row.get('product_description', '').strip(),
+                        'wa_availability': 'Available',  # Default to available for demo
+                        'phone': '',  # These fields are not in the CSV but required by the schema
+                        'website': '',
+                        'email_1': '',
+                        'email_2': ''
                     }
 
                     # Log processed data
@@ -130,6 +120,10 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
 
         try:
             with engine.connect() as conn:
+                # First, clear existing data
+                conn.execute(text("TRUNCATE TABLE importers RESTART IDENTITY;"))
+                conn.commit()
+
                 for batch_start in range(0, len(valid_rows), batch_size):
                     batch = valid_rows[batch_start:batch_start + batch_size]
 
@@ -138,11 +132,13 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                         for row in batch:
                             insert_sql = """
                             INSERT INTO importers (
-                                role, product, name, country, phone, website,
-                                email_1, email_2, last_contact, status, wa_availability
+                                name, country, phone, website,
+                                email_1, email_2, product, product_description,
+                                wa_availability
                             ) VALUES (
-                                :role, :product, :name, :country, :phone, :website,
-                                :email_1, :email_2, :last_contact, :status, :wa_availability
+                                :name, :country, :phone, :website,
+                                :email_1, :email_2, :product, :product_description,
+                                :wa_availability
                             )
                             """
                             conn.execute(text(insert_sql), row)
@@ -150,14 +146,13 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                         inserted_count += len(batch)
                         logger.info(f"Inserted batch of {len(batch)} rows. Total inserted: {inserted_count}")
 
-            logger.info(f"Successfully imported all {inserted_count} rows")
+                logger.info(f"Successfully imported all {inserted_count} rows")
 
-            # Verify the import
-            with engine.connect() as conn:
+                # Verify the import
                 result = conn.execute(text("SELECT COUNT(*) FROM importers")).scalar()
                 logger.info(f"Total rows in database after import: {result}")
 
-            return True
+                return True
 
         except Exception as e:
             logger.error(f"Error during batch insert: {str(e)}", exc_info=True)
@@ -168,7 +163,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         return False
 
 if __name__ == "__main__":
-    csv_file = "attached_assets/I - WW 0302.csv"
+    csv_file = "trade_data.csv"
     logger.info(f"Starting import process for {csv_file}")
 
     if import_csv_to_postgres(csv_file):

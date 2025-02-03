@@ -180,7 +180,8 @@ class DataStore:
                 where_conditions.append(f"""(
                     LOWER(name) LIKE LOWER(:{param_name}) OR 
                     LOWER(country) LIKE LOWER(:{param_name}) OR 
-                    LOWER(product) LIKE LOWER(:{param_name})
+                    LOWER(product) LIKE LOWER(:{param_name}) OR
+                    LOWER(product_description) LIKE LOWER(:{param_name})
                 )""")
                 params[param_name] = f"%{term}%"
 
