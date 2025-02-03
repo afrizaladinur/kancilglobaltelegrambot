@@ -96,46 +96,51 @@ class CommandHandler:
 
             for importer in results:
                 try:
-                    # Format message parts with proper escaping
-                    name = importer['name'][:3] + "*****"
-                    country = importer['country'].replace('.', '\\.').replace('-', '\\-')
-                    contact = f"+{importer['contact'].split('+')[1][:5]}*****" if importer['contact'] else ''
-                    website = "www\\.*****" if importer['website'] else ''
-                    email = f"{importer['email'][:3]}*****" if importer['email'] else ''
-                    wa_status = "✅ Tersedia" if importer['wa_available'] else "❌ Tidak Tersedia"
+                    # Prepare basic info with proper escaping for MarkdownV2
+                    name = f"{importer['name'][:3]}*****"
+                    country = importer['country']
+                    phone = importer.get('contact', '')
+                    phone_display = f"\\+{phone.split('+')[1][:5]}*****" if phone else ''
+                    website = "www\\.*****" if importer.get('website') else ''
+                    email = f"{importer.get('email', '')[:3]}*****" if importer.get('email') else ''
+                    wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
 
                     # Calculate credit cost
-                    has_whatsapp = importer['wa_available']
-                    has_website = bool(importer['website'])
-                    has_email = bool(importer['email'])
-                    has_phone = bool(importer['contact'])
+                    has_whatsapp = importer.get('wa_available', False)
+                    has_website = bool(importer.get('website'))
+                    has_email = bool(importer.get('email'))
+                    has_phone = bool(phone)
 
-                    if has_whatsapp and has_website and has_email and has_phone:
-                        credit_cost = "2"
-                    elif not has_whatsapp and has_website and has_email and has_phone:
-                        credit_cost = "1"
-                    else:
-                        credit_cost = "0\\.5"
-
-                    # Build message with exact format
+                    # Build message text
                     message_parts = [
                         f"🏢 {name}",
                         f"🌏 Negara: {country}",
                     ]
 
-                    if contact:
-                        message_parts.append(f"📱 Kontak: {contact}")
+                    if phone_display:
+                        message_parts.append(f"📱 Kontak: {phone_display}")
                     if website:
                         message_parts.append(f"🌐 Website: {website}")
                     if email:
                         message_parts.append(f"📧 Email: {email}")
 
                     message_parts.append(f"📱 WhatsApp: {wa_status}")
-                    message_parts.append(f"\n💳 Biaya kredit yang diperlukan:")
-                    message_parts.append(f"{credit_cost} kredit \\- {'Kontak lengkap dengan WhatsApp' if has_whatsapp else 'Kontak lengkap tanpa WhatsApp' if has_website and has_email and has_phone else 'Kontak tidak lengkap'}")
+
+                    # Add credit cost information
+                    if has_whatsapp and has_website and has_email and has_phone:
+                        credit_info = "2 kredit \\- Kontak lengkap dengan WhatsApp"
+                    elif not has_whatsapp and has_website and has_email and has_phone:
+                        credit_info = "1 kredit \\- Kontak lengkap tanpa WhatsApp"
+                    else:
+                        credit_info = "0\\.5 kredit \\- Kontak tidak lengkap"
+
+                    message_parts.append("\n💳 Biaya kredit yang diperlukan:")
+                    message_parts.append(credit_info)
                     message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
 
+                    # Join all parts and escape special characters for MarkdownV2
                     message_text = '\n'.join(message_parts)
+                    message_text = message_text.replace('.', '\\.').replace('-', '\\-')
 
                     keyboard = [[InlineKeyboardButton(
                         "💾 Simpan Kontak",
