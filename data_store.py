@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional
 import logging
+from typing import Dict, List, Optional
 import os
 from sqlalchemy import create_engine, text
 
@@ -27,7 +27,6 @@ class DataStore:
             );
             """
 
-            # Create user_stats table with command_name as VARCHAR
             create_user_stats_sql = """
             CREATE TABLE IF NOT EXISTS user_stats (
                 id SERIAL PRIMARY KEY,
@@ -39,13 +38,13 @@ class DataStore:
             );
             """
 
-            # Create user_credits table
             create_user_credits_sql = """
             CREATE TABLE IF NOT EXISTS user_credits (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL UNIQUE,
-                credits INTEGER DEFAULT 3,
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                credits INTEGER NOT NULL DEFAULT 3 CHECK (credits >= 0),
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT positive_credits CHECK (credits >= 0)
             );
             """
 
@@ -54,9 +53,91 @@ class DataStore:
                 conn.execute(text(create_user_stats_sql))
                 conn.execute(text(create_user_credits_sql))
                 conn.commit()
+                logging.info("User credits table initialized successfully")
         except Exception as e:
             logging.error(f"Error creating tables: {str(e)}", exc_info=True)
 
+    def get_user_credits(self, user_id: int) -> int:
+        """Get remaining credits for a user"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    # Try to insert a new user with default credits
+                    insert_sql = """
+                    INSERT INTO user_credits (user_id, credits)
+                    VALUES (:user_id, 3)
+                    ON CONFLICT (user_id) DO 
+                    UPDATE SET credits = 
+                        CASE 
+                            WHEN user_credits.credits = 0 THEN 3
+                            ELSE user_credits.credits
+                        END,
+                        last_updated = 
+                        CASE 
+                            WHEN user_credits.credits = 0 THEN CURRENT_TIMESTAMP
+                            ELSE user_credits.last_updated
+                        END
+                    RETURNING credits;
+                    """
+
+                    result = conn.execute(
+                        text(insert_sql),
+                        {"user_id": user_id}
+                    ).scalar()
+
+                    logging.info(f"Credits for user {user_id}: {result}")
+                    return result or 3
+
+        except Exception as e:
+            logging.error(f"Error getting user credits: {str(e)}", exc_info=True)
+            return 3  # Return 3 credits as fallback
+
+    def use_credit(self, user_id: int) -> bool:
+        """Use one credit for the user. Returns True if successful."""
+        try:
+            use_credit_sql = """
+            UPDATE user_credits
+            SET credits = credits - 1,
+                last_updated = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id AND credits > 0
+            RETURNING credits;
+            """
+
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(
+                        text(use_credit_sql),
+                        {"user_id": user_id}
+                    ).scalar()
+                    logging.info(f"Credit used for user {user_id}. Remaining credits: {result}")
+                    return result is not None
+        except Exception as e:
+            logging.error(f"Error using credit: {str(e)}", exc_info=True)
+            return False
+
+    def add_credits(self, user_id: int, amount: int) -> bool:
+        """Add credits to user account. Returns True if successful."""
+        try:
+            add_credits_sql = """
+            UPDATE user_credits
+            SET credits = credits + :amount,
+                last_updated = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id
+            RETURNING credits;
+            """
+
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(
+                        text(add_credits_sql),
+                        {"user_id": user_id, "amount": amount}
+                    ).scalar()
+                    logging.info(f"Added {amount} credits for user {user_id}. New total: {result}")
+                    return result is not None
+        except Exception as e:
+            logging.error(f"Error adding credits: {str(e)}", exc_info=True)
+            return False
+    
     def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name, country, or HS code products"""
         try:
@@ -112,29 +193,6 @@ class DataStore:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
             return []
     
-    def use_credit(self, user_id: int) -> bool:
-        """Use one credit for the user. Returns True if successful."""
-        try:
-            use_credit_sql = """
-            UPDATE user_credits
-            SET credits = credits - 1,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE user_id = :user_id AND credits > 0
-            RETURNING credits;
-            """
-
-            with self.engine.connect() as conn:
-                with conn.begin():
-                    result = conn.execute(
-                        text(use_credit_sql),
-                        {"user_id": user_id}
-                    ).scalar()
-                    logging.info(f"Credit used for user {user_id}. Remaining credits: {result}")
-                    return result is not None
-        except Exception as e:
-            logging.error(f"Error using credit: {str(e)}", exc_info=True)
-            return False
-
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
@@ -247,54 +305,3 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error getting user stats: {str(e)}", exc_info=True)
             return {'total_commands': 0, 'commands': {}}
-    
-    def get_user_credits(self, user_id: int) -> int:
-        """Get remaining credits for a user"""
-        try:
-            check_credits_sql = """
-            INSERT INTO user_credits (user_id, credits)
-            VALUES (:user_id, 3)
-            ON CONFLICT (user_id) DO UPDATE 
-            SET credits = CASE 
-                WHEN user_credits.credits IS NULL THEN 3 
-                ELSE user_credits.credits 
-            END,
-            last_updated = CASE 
-                WHEN user_credits.credits IS NULL THEN CURRENT_TIMESTAMP 
-                ELSE user_credits.last_updated 
-            END
-            RETURNING credits;
-            """
-
-            with self.engine.connect() as conn:
-                result = conn.execute(
-                    text(check_credits_sql),
-                    {"user_id": user_id}
-                ).scalar()
-                logging.info(f"User {user_id} credits: {result}")
-                return result or 0
-        except Exception as e:
-            logging.error(f"Error getting user credits: {str(e)}", exc_info=True)
-            return 0
-
-    def add_credits(self, user_id: int, amount: int) -> bool:
-        """Add credits to user account. Returns True if successful."""
-        try:
-            add_credits_sql = """
-            UPDATE user_credits
-            SET credits = credits + :amount,
-                last_updated = CURRENT_TIMESTAMP
-            WHERE user_id = :user_id
-            RETURNING credits;
-            """
-
-            with self.engine.connect() as conn:
-                with conn.begin():
-                    result = conn.execute(
-                        text(add_credits_sql),
-                        {"user_id": user_id, "amount": amount}
-                    ).scalar()
-                    return result is not None
-        except Exception as e:
-            logging.error(f"Error adding credits: {str(e)}", exc_info=True)
-            return False

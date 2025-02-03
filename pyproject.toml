@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "certifi>=2025.1.31",
     "email-validator>=2.2.0",
+    "flask-login>=0.6.3",
     "flask>=3.1.0",
     "flask-sqlalchemy>=3.1.1",
     "gunicorn>=23.0.0",
@@ -14,4 +15,6 @@ dependencies = [
     "python-telegram-bot>=20.0",
     "sqlalchemy>=2.0.37",
     "telegram>=0.0.1",
+    "flask-wtf>=1.2.2",
+    "openai>=1.61.0",
 ]
