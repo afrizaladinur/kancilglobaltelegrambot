@@ -80,6 +80,18 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
     try:
         if database_url is None:
             database_url = os.environ.get("DATABASE_URL")
+        
+        engine = create_engine(database_url, pool_pre_ping=True)
+        # Check if file was already processed
+        with engine.connect() as conn:
+            result = conn.execute(text(
+                "SELECT EXISTS(SELECT 1 FROM processed_files WHERE file_path = :path)"
+            ), {"path": csv_file_path}).scalar()
+            if result:
+                logger.info(f"File {csv_file_path} was already processed, skipping")
+                return True
+        if database_url is None:
+            database_url = os.environ.get("DATABASE_URL")
             if not database_url:
                 raise ValueError("DATABASE_URL environment variable not set")
 
@@ -127,6 +139,18 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
                 conn.execute(text(insert_sql), batch)
                 inserted_count += len(batch)
                 logger.info(f"Inserted batch of {len(batch)} rows. Total inserted: {inserted_count}")
+            
+            # Record the processed file
+            track_file_sql = """
+            INSERT INTO processed_files (file_path, row_count)
+            VALUES (:file_path, :row_count)
+            ON CONFLICT (file_path) DO NOTHING
+            """
+            conn.execute(text(track_file_sql), {
+                "file_path": csv_file_path,
+                "row_count": inserted_count
+            })
+            logger.info(f"Tracked file {csv_file_path} with {inserted_count} rows")
 
         # Verify final count
         with engine.connect() as conn:
