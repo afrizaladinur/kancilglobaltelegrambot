@@ -136,21 +136,25 @@ class CommandHandler:
                 return
 
             for contact in saved_contacts:
-                message_text, whatsapp_number, _ = Messages.format_importer(
-                    contact, saved=True
-                )
-                keyboard = []
-                if whatsapp_number:
-                    keyboard.append([InlineKeyboardButton(
-                        "💬 Chat di WhatsApp",
-                        url=f"https://wa.me/{whatsapp_number}"
-                    )])
+                try:
+                    message_text, whatsapp_number, _ = Messages.format_importer(
+                        contact, saved=True
+                    )
+                    keyboard = []
+                    if whatsapp_number:
+                        keyboard.append([InlineKeyboardButton(
+                            "💬 Chat di WhatsApp",
+                            url=f"https://wa.me/{whatsapp_number}"
+                        )])
 
-                await update.message.reply_text(
-                    message_text,
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                )
+                    await update.message.reply_text(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    )
+                except Exception as e:
+                    logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
+                    continue
 
             logging.info(f"Successfully sent saved contacts to user {user_id}")
         except Exception as e:
