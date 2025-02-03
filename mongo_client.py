@@ -3,9 +3,9 @@ from typing import List, Dict, Any
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
-from urllib.parse import quote_plus
-from config import MONGODB_URI, MONGODB_DB_NAME, SAMPLE_IMPORTERS
+from config import MONGODB_URI, SAMPLE_IMPORTERS
 import time
+import ssl
 
 class MongoDBClient:
     def __init__(self):
@@ -22,20 +22,27 @@ class MongoDBClient:
 
         while retries < self._max_retries:
             try:
-                # Create MongoClient with the complete URI
-                self._client = MongoClient(MONGODB_URI)
-                # Get database from the URI or use the configured name
-                self._db = self._client.get_database()
-
+                logging.info("Attempting to connect to MongoDB...")
+                # Create MongoClient with the complete URI and options
+                self._client = MongoClient(
+                    MONGODB_URI,
+                    serverSelectionTimeoutMS=5000,
+                    retryWrites=True,
+                    w='majority',
+                    ssl=True,
+                    ssl_cert_reqs=ssl.CERT_NONE,
+                    connect=True
+                )
                 # Test the connection
                 self._client.admin.command('ping')
-                logging.info("Successfully connected to MongoDB")
+                # Get database from the URI
+                self._db = self._client.get_database()
+                logging.info(f"Successfully connected to MongoDB database: {self._db.name}")
 
                 # Initialize with sample data if collection is empty
                 if self._db.importers.count_documents({}) == 0:
                     self._db.importers.insert_many(SAMPLE_IMPORTERS)
                     logging.info("Initialized MongoDB with sample importers data")
-
                 return
 
             except Exception as e:

@@ -19,6 +19,14 @@ author = "agent"
 task = "workflow.run"
 args = "Telegram Bot"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MongoDB Test"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "CSV Import"
+
 [[workflows.workflow]]
 name = "Telegram Bot"
 author = "agent"
@@ -32,3 +40,31 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
+
+[[workflows.workflow]]
+name = "MongoDB Test"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python test_mongodb.py"
+
+[[workflows.workflow]]
+name = "CSV Import"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python csv_importer.py"

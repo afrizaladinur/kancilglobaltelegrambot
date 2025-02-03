@@ -4,8 +4,7 @@ import os
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 # MongoDB Configuration
-MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb+srv://kancilglobal:JgnNJe9KBegnH2vk@cluster0.23hro.mongodb.net/master_data')
-MONGODB_DB_NAME = os.getenv('MONGODB_DB_NAME', 'master_data')
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb+srv://kancilglobal:JgnNJe9KBegnH2vk@cluster0.23hro.mongodb.net/master_data?retryWrites=true&w=majority&appName=Cluster0')
 
 # PostgreSQL Configuration is handled via DATABASE_URL environment variable
 
