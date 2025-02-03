@@ -178,13 +178,12 @@ class DataStore:
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
                 where_conditions.append(f"""(
-                    LOWER(name) LIKE LOWER(:%{param_name}%) OR 
-                    LOWER(country) LIKE LOWER(:%{param_name}%) OR 
-                    LOWER(product) LIKE LOWER(:%{param_name}%) OR
-                    LOWER(product_description) LIKE LOWER(:%{param_name}%)
+                    LOWER(name) LIKE '%' || LOWER(:{param_name}) || '%' OR 
+                    LOWER(country) LIKE '%' || LOWER(:{param_name}) || '%' OR 
+                    LOWER(product) LIKE '%' || LOWER(:{param_name}) || '%' OR
+                    LOWER(product_description) LIKE '%' || LOWER(:{param_name}) || '%'
                 )""")
                 params[param_name] = term
-                logging.debug(f"Added search term {i}: {term}")
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
@@ -197,19 +196,14 @@ class DataStore:
                 product_description
             FROM importers
             WHERE {where_clause}
-            ORDER BY 
-                CASE WHEN wa_availability = 'Available' THEN 1 ELSE 2 END,
-                CASE WHEN email_1 IS NOT NULL OR email_2 IS NOT NULL THEN 1 ELSE 2 END
             LIMIT 10;
             """
-
-            logging.debug(f"Executing search SQL: {search_sql} with params: {params}")
 
             with self.engine.connect() as conn:
                 result = conn.execute(text(search_sql), params).fetchall()
                 logging.info(f"Search found {len(result)} results for query: {query}")
 
-                results = [
+                return [
                     {
                         'name': row.name,
                         'country': row.country,
@@ -218,14 +212,10 @@ class DataStore:
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
                         'hs_code': row.hs_code,
-                        'product_description': row.product_description or ''
+                        'product_description': row.product_description
                     }
                     for row in result
                 ]
-
-                # Log found results for debugging
-                logging.debug(f"Processed search results: {results}")
-                return results
 
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)

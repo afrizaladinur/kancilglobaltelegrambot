@@ -87,8 +87,6 @@ class CommandHandler:
             with app.app_context():
                 results = self.data_store.search_importers(query)
 
-            logging.info(f"Search results for query '{query}': {len(results)} matches found")
-
             if not results:
                 await update.message.reply_text(
                     Messages.SEARCH_NO_RESULTS.format(query)
@@ -96,18 +94,16 @@ class CommandHandler:
                 return
 
             for importer in results:
-                logging.info(f"Processing importer before censoring: {importer['name']}")
-                message_text, whatsapp_number, callback_data = Messages.format_importer(
-                    importer, saved=False
-                )
-                logging.info(f"Formatted message with censoring: {message_text}")
-                keyboard = []
-
-                # Add Save Contact button since this is a search result
-                keyboard.append([InlineKeyboardButton(
+                message_text = f"""
+🏢 *{importer['name']}*
+🌏 Negara: {importer['country']}
+📦 HS Code: {importer['hs_code']}
+📝 Deskripsi: {importer['product_description']}
+"""
+                keyboard = [[InlineKeyboardButton(
                     "💾 Simpan Kontak",
-                    callback_data=callback_data
-                )])
+                    callback_data=f"save_{importer['name']}"
+                )]]
 
                 await update.message.reply_text(
                     message_text,
