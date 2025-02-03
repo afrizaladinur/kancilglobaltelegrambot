@@ -84,21 +84,21 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
         # Guarantee exact patterns for each field type
         if field_type == 'name':
-            # Show first 5 chars + exactly 25 asterisks
-            return f"{text[:5]}{'*' * 25}"
+            # Show first 3 chars + exactly 25 asterisks
+            return f"{text[:3]}***********************"
         elif field_type == 'phone':
-            # +1 65********* format
+            # +XX XX***** format
             if '+' not in text:
                 return "+1 65*********"
             parts = text.split(' ', 1)
             country_code = parts[0]  # Keep +X part
             return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*********"
         elif field_type == 'email':
-            # Show first 5 chars + exactly 25 asterisks
-            return f"{text[:5]}{'*' * 25}"
+            # Show first 3 chars + exactly 20 asterisks
+            return f"{text[:3]}********************"
         elif field_type == 'website':
-            # Always return http://www\.c******************* pattern
-            return "http://www\.c" + "*" * 19
+            # Always return www.**** pattern
+            return "www.********************"
 
         return "*" * 30  # Default fallback pattern
 
