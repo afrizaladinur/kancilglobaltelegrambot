@@ -169,37 +169,41 @@ class DataStore:
         """Search importers by name, country, or product"""
         try:
             # Clean and prepare search terms
-            search_terms = [term.strip().lower() for term in query.split() if term.strip()]
-            logging.info(f"Starting search with terms: {search_terms}")
+            search_term = query.strip().lower()
+            logging.info(f"Searching with term: {search_term}")
 
-            # Build dynamic WHERE clause for each term
-            where_conditions = []
-            params = {}
-            for i, term in enumerate(search_terms):
-                param_name = f"term_{i}"
-                params[param_name] = f"%{term}%"
-                where_conditions.append(f"""(
-                    LOWER(name) LIKE :{param_name} OR 
-                    LOWER(country) LIKE :{param_name} OR 
-                    LOWER(product) LIKE :{param_name}
-                )""")
-
-            # Combine conditions with AND
-            where_clause = " AND ".join(where_conditions)
-
-            search_sql = f"""
-            SELECT 
-                name, country, phone as contact, website, 
-                email_1 as email, wa_availability,
+            search_sql = """
+            SELECT DISTINCT
+                name, 
+                country, 
+                phone as contact, 
+                website, 
+                email_1 as email, 
+                wa_availability,
                 product as hs_code,
                 role as product_description
             FROM importers
-            WHERE {where_clause}
+            WHERE 
+                LOWER(name) LIKE :search_term OR 
+                LOWER(country) LIKE :search_term OR 
+                LOWER(product) LIKE :search_term OR
+                LOWER(role) LIKE :search_term
+            ORDER BY 
+                CASE 
+                    WHEN LOWER(country) LIKE :search_term THEN 0
+                    WHEN LOWER(name) LIKE :search_term THEN 1
+                    ELSE 2 
+                END,
+                country, name
             LIMIT 10;
             """
 
             with self.engine.connect() as conn:
-                result = conn.execute(text(search_sql), params).fetchall()
+                result = conn.execute(
+                    text(search_sql), 
+                    {"search_term": f"%{search_term}%"}
+                ).fetchall()
+
                 logging.info(f"Search found {len(result)} results for query: {query}")
 
                 return [
