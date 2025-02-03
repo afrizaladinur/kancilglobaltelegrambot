@@ -27,6 +27,10 @@ args = "CSV Import"
 task = "workflow.run"
 args = "Telegram Bot"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Temp MongoDB Test"
+
 [[workflows.workflow]]
 name = "MongoDB Test"
 author = "agent"
@@ -69,6 +73,20 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "python main.py"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Temp MongoDB Test"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python temp_mongo_test.py"
 
 [[ports]]
 localPort = 5000

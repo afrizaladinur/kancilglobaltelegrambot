@@ -1,7 +1,7 @@
 import csv
 import logging
 import os
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy import create_engine, text
 
 # Configure logging
@@ -164,12 +164,31 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         logger.error(f"Error importing CSV data: {str(e)}", exc_info=True)
         return False
 
-if __name__ == "__main__":
-    csv_file = "data/I - WW 0302.csv"  # Updated path to the new CSV file
-    logger.info(f"Starting import process for {csv_file}")
+def process_all_csv_files(data_dir: str = "data", database_url: Optional[str] = None) -> bool:
+    """Process all CSV files in the specified directory"""
+    try:
+        csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+        if not csv_files:
+            logger.error(f"No CSV files found in {data_dir}")
+            return False
 
-    if import_csv_to_postgres(csv_file):
-        logger.info("CSV import completed successfully")
+        success = True
+        for csv_file in csv_files:
+            file_path = os.path.join(data_dir, csv_file)
+            logger.info(f"Processing file: {file_path}")
+            if not import_csv_to_postgres(file_path, database_url):
+                logger.error(f"Failed to import {file_path}")
+                success = False
+
+        return success
+    except Exception as e:
+        logger.error(f"Error processing CSV files: {str(e)}", exc_info=True)
+        return False
+
+if __name__ == "__main__":
+    logger.info("Starting batch import process for all CSV files")
+    if process_all_csv_files():
+        logger.info("All CSV imports completed successfully")
     else:
-        logger.error("CSV import failed")
+        logger.error("Some CSV imports failed")
         exit(1)

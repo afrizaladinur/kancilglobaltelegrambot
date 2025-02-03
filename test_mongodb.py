@@ -5,39 +5,43 @@ from config import MONGODB_URI
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.DEBUG
 )
 logger = logging.getLogger(__name__)
 
 def test_connection():
+    """Test MongoDB connection with minimal configuration"""
+    client = None
     try:
-        logger.info("Attempting to connect to MongoDB...")
-        logger.info(f"Using URI (masked): {MONGODB_URI.split('@')[1] if '@' in MONGODB_URI else 'local'}")
+        logger.debug("Testing MongoDB connection...")
 
-        # Minimal connection configuration
+        if not MONGODB_URI:
+            logger.error("MONGODB_URI environment variable is not set")
+            return False
+
+        # Mask sensitive information in logs
+        masked_uri = MONGODB_URI.split('@')[1] if '@' in MONGODB_URI else 'local'
+        logger.debug(f"Using MongoDB URI (masked): {masked_uri}")
+
+        # Basic connection with minimal options
         client = MongoClient(
             MONGODB_URI,
-            serverSelectionTimeoutMS=5000,  # Short timeout for quick testing
-            connectTimeoutMS=5000,
-            retryWrites=True
+            serverSelectionTimeoutMS=2000,  # Quick timeout for testing
+            connectTimeoutMS=2000
         )
 
-        # Test the connection without creating data
+        # Simple ping test
         client.admin.command('ping')
-        logger.info("Successfully connected to MongoDB")
-
-        # Just list database names without creating anything
-        db_names = client.list_database_names()
-        logger.info(f"Available databases: {db_names}")
+        logger.info("MongoDB connection test successful!")
 
         return True
 
     except Exception as e:
-        logger.error(f"Connection test failed: {str(e)}", exc_info=True)
+        logger.error(f"MongoDB connection test failed: {str(e)}")
         return False
 
     finally:
-        if 'client' in locals():
+        if client:
             client.close()
             logger.info("MongoDB connection closed")
 
