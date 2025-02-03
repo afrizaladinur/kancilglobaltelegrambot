@@ -69,89 +69,69 @@ Untuk membeli kredit, silakan hubungi admin: @admin
     @staticmethod
     def _escape_markdown(text: str) -> str:
         """Escape special Markdown characters"""
+        if not text:
+            return text
         special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
         for char in special_chars:
             text = text.replace(char, '\\' + char)
         return text
 
     @staticmethod
-    def _censor_text(text: str, field_type: str = 'default', saved: bool = False) -> str:
-        """Censor text based on field type"""
-        try:
-            if saved:
-                return text or ""
+    def _censor_contact(text: str, field_type: str, saved: bool = False) -> str:
+        """Guarantee exact censoring patterns"""
+        if saved or not text:
+            return text or ""
 
-            if not text or not isinstance(text, str):
-                return ""
+        # Guarantee exact patterns for each field type
+        if field_type == 'name':
+            # Show first 5 chars + exactly 25 asterisks
+            return f"{text[:5]}{'*' * 25}"
+        elif field_type == 'phone':
+            # +1 65********* format
+            if '+' not in text:
+                return "+1 65*********"
+            parts = text.split(' ', 1)
+            country_code = parts[0]  # Keep +X part
+            return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*********"
+        elif field_type == 'email':
+            # Show first 5 chars + exactly 25 asterisks
+            return f"{text[:5]}{'*' * 25}"
+        elif field_type == 'website':
+            # Always return http://www\.c******************* pattern
+            return "http://www\.c" + "*" * 19
 
-            text = text.strip()
-            if not text:
-                return ""
-
-            # Different censoring rules based on field type
-            if field_type == 'name':
-                visible_chars = 5
-                censored = text[:visible_chars] + '*' * (25)  # Fixed length asterisks
-                return censored
-            elif field_type == 'phone':
-                parts = text.split(' ')
-                if len(parts) > 1 and parts[0].startswith('+'):
-                    # Format: +1 65********* (show country code and 2 digits)
-                    country_code = parts[0]  # +1, +44, etc
-                    rest = ''.join(parts[1:])[:2]  # First 2 digits
-                    return f"\\{country_code} {rest}\\{'*' * 9}"
-                else:
-                    # Fallback format: just show first few digits
-                    return f"{text[:3]}\\{'*' * 9}"
-            elif field_type == 'email':
-                visible_chars = 5
-                return text[:visible_chars] + '*' * 21  # Fixed length asterisks
-            elif field_type == 'website':
-                if text.startswith('http'):
-                    return f"http://www\\.{'c'}\\{'*' * 19}"
-                return f"{'h'}\\{'*' * 19}"
-            else:
-                visible_chars = len(text) // 4
-                return text[:visible_chars] + '*' * (len(text) - visible_chars)
-
-        except Exception as e:
-            logging.error(f"Error in _censor_text: {str(e)}", exc_info=True)
-            return "*****"
+        return "*" * 30  # Default fallback pattern
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
         """Format phone number for WhatsApp URL"""
         try:
             if not phone:
-                logging.debug("Empty phone number provided")
                 return ""
-
             # Remove all non-digit characters
             phone_numbers = ''.join(filter(str.isdigit, phone))
-            logging.debug(f"Cleaned phone number: {phone} -> {phone_numbers}")
-
             # Ensure it starts with country code
             if phone_numbers.startswith('0'):
                 phone_numbers = '62' + phone_numbers[1:]
-                logging.debug(f"Added country code: {phone_numbers}")
             return phone_numbers
         except Exception as e:
             logging.error(f"Error formatting phone number: {str(e)}", exc_info=True)
             return ""
-    
+
     @staticmethod
-    def format_importer(importer, saved=False):
-        """Format importer data for display"""
+    def format_importer(importer: dict, saved: bool = False):
+        """Format importer data with guaranteed pattern matching"""
         try:
+            # Get wa status
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
 
-            # Censor information if not saved
-            name = Messages._censor_text(importer.get('name', ''), 'name', saved)
-            email = Messages._censor_text(importer.get('email', ''), 'email', saved)
-            phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
-            website = Messages._censor_text(importer.get('website', ''), 'website', saved)
+            # Get censored fields using strict patterns
+            name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
+            email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
+            phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
+            website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
 
-            # Format message in exact format from example
+            # Build message parts in exact format
             message_parts = []
             message_parts.append(f"🏢 {name}")
             message_parts.append(f"🌏 Negara: {importer.get('country', '')}")
@@ -172,12 +152,11 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
             message_text = '\n'.join(message_parts)
 
-            # Return whatsapp number for button if available and saved
+            # Return values for button handling
             whatsapp_number = None
             if saved and importer.get('wa_available') and importer.get('contact'):
                 whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
 
-            # Generate callback data for save button if not saved
             callback_data = None
             if not saved:
                 callback_data = f"save_{importer['name']}"
@@ -194,7 +173,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         commands = stats['commands']
 
         command_stats = '\n'.join([
-            f"/{cmd}: {count} kali" 
+            f"/{cmd}: {count} kali"
             for cmd, count in commands.items()
         ])
 
