@@ -188,9 +188,10 @@ class DataStore:
             where_clause = " AND ".join(where_conditions)
 
             search_sql = f"""
-            SELECT name, country, phone, website, email_1, email_2, wa_availability,
+            SELECT name, country, phone as contact, website, email_1, email_2, 
+                   wa_availability,
                    product as hs_code,
-                   COALESCE(product_description, '') as product_description
+                   product_description
             FROM importers
             WHERE {where_clause}
             ORDER BY 
@@ -207,12 +208,12 @@ class DataStore:
                     {
                         'name': row.name,
                         'country': row.country,
-                        'contact': row.phone,
+                        'contact': row.contact,
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
                         'hs_code': row.hs_code,
-                        'product_description': row.product_description
+                        'product_description': row.product_description or ''
                     }
                     for row in result
                 ]
