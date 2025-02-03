@@ -22,15 +22,16 @@ Daftar perintah yang tersedia:
 Contoh pencarian:
 /search United States
 /search Indonesia
-/search 0302 (untuk mencari HS code)
+/search 0302  (untuk mencari HS code)
+/search 0302 Malaysia (untuk mencari HS code dari negara tertentu)
 
 Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat informasi lengkap.
 """
     SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search Indonesia"
-    SEARCH_NO_RESULTS = "Maaf, tidak ada hasil yang ditemukan untuk pencarian '{}'. Silakan coba dengan kata kunci lain."
+    SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
-    SEARCH_ERROR = "Data tidak tersedia untuk saat ini. Silakan coba beberapa saat lagi."
+    SEARCH_ERROR = "Data importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap."
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
     NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
@@ -147,7 +148,7 @@ Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat info
 🏢 *{name}*
 🌏 Negara: {country}"""
 
-            # Add HS code if available
+            # Add HS code if available (moved up in the order)
             if product:
                 message_text += f"\n📦 HS Code: {product}"
 

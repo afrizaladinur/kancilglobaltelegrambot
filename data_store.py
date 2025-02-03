@@ -59,17 +59,21 @@ class DataStore:
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
                 where_conditions.append(f"""(
-                    name ILIKE :%{param_name}% OR 
-                    country ILIKE :%{param_name}% OR 
-                    product ILIKE :%{param_name}%
+                    name ILIKE :{param_name} OR 
+                    country ILIKE :{param_name} OR 
+                    product ILIKE :{param_name}
                 )""")
                 params[param_name] = f"%{term}%"
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
-
+            
             search_sql = f"""
-            SELECT name, country, phone, website, email_1, email_2, wa_availability, product
+            SELECT name, country, phone, website, email_1, email_2, wa_availability,
+                   CASE 
+                       WHEN product LIKE 'WW %' THEN SUBSTRING(product, 4)
+                       ELSE product 
+                   END as product
             FROM importers
             WHERE {where_clause}
             ORDER BY 
