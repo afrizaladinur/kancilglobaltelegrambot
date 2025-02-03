@@ -107,23 +107,22 @@ class CommandHandler:
                 else:
                     credit_cost = "0.5"
 
-                # Apply censoring patterns
-                name = importer['name']
-                name_censored = f"{name[0]}{'*' * 45}" if name else '*' * 46
-
                 # Prepare contact info with proper censoring
+                name = importer['name']
+                name_censored = f"{name[0]}\\{'*' * 45}" if name else '\\*' * 46
+
                 contact = importer.get('contact', '')
                 if contact:
                     if '+' in contact:
                         parts = contact.split(' ', 1)
                         contact_censored = f"\\{parts[0]} {parts[1][:2]}\\{'*' * 9}" if len(parts) > 1 else f"\\{parts[0]} {'*' * 9}"
                     else:
-                        contact_censored = f"+1 65{'*' * 9}"
+                        contact_censored = f"\\+1 65\\{'*' * 9}"
                 else:
                     contact_censored = ""
 
                 website = importer.get('website', '')
-                website_censored = f"http://www\\.{'b'}{'*' * 19}" if website else ""
+                website_censored = f"http://www\\.b\\{'*' * 19}" if website else ""
 
                 wa_status = "✅ Tersedia" if has_whatsapp else "❌ Tidak Tersedia"
 
@@ -139,7 +138,7 @@ class CommandHandler:
                     message_parts.append(f"🌐 Website: {website_censored}")
 
                 message_parts.append(f"📱 WhatsApp: {wa_status}")
-                message_parts.append(f"\n💡 Simpan kontak untuk melihat informasi lengkap (kredit terpakai: {credit_cost})")
+                message_parts.append(f"\n💡 Simpan kontak untuk melihat informasi lengkap \\(kredit terpakai: {credit_cost}\\)")
 
                 message_text = '\n'.join(message_parts)
 
