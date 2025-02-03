@@ -76,16 +76,13 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
     @staticmethod
     def _censor_text(text: str, field_type: str = 'default', saved: bool = False) -> str:
-        """Censor text based on field type with specific formatting"""
+        """Censor text based on field type"""
         try:
             if saved:
-                return text or ""  # Return original text if saved
+                return text or ""
 
-            if not text:
+            if not text or not isinstance(text, str):
                 return ""
-
-            if not isinstance(text, str):
-                text = str(text)
 
             text = text.strip()
             if not text:
@@ -93,37 +90,29 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
             # Different censoring rules based on field type
             if field_type == 'name':
-                # Show exactly half of the name
-                visible_length = len(text) // 2
-                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                visible_length = len(text) // 3  # Show first third only
+                return text[:visible_length] + '*' * (len(text) - visible_length)
             elif field_type == 'phone':
-                # Show first half of phone numbers with escaped special chars
-                visible_length = len(text) // 2
-                phone_text = text[:visible_length] + '*' * (len(text)-visible_length)
-                return phone_text.replace('+', '\\+').replace('-', '\\-')
-            elif field_type == 'email':
-                # Show half of email with escaped special chars
-                at_index = text.find('@')
-                if at_index == -1:
-                    visible_length = len(text) // 2
+                parts = text.split(' ')
+                if len(parts) > 2:
+                    return f"\\+{parts[1]} {parts[2][:2]}\\*********"
                 else:
-                    visible_length = at_index // 2
-                return text[:visible_length] + '*' * (len(text)-visible_length)
+                    visible_length = len(text) // 3
+                    censored = text[:visible_length] + '*' * (len(text) - visible_length)
+                    return censored.replace('+', '\\+').replace('-', '\\-')
+            elif field_type == 'email':
+                visible_length = len(text) // 4  # Show first quarter only
+                return text[:visible_length] + '*' * (len(text) - visible_length)
             elif field_type == 'website':
-                # Show protocol and half of domain with escaped special chars
                 if text.startswith('http'):
                     protocol_end = text.find('://') + 3
-                    rest_length = (len(text) - protocol_end) // 2
-                    visible_length = protocol_end + rest_length
-                    website_text = f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
-                    return website_text.replace('.', '\\.').replace('-', '\\-')
+                    return f"http://www\\.{text[protocol_end:protocol_end+1]}\\*******************"
                 else:
-                    visible_length = len(text) // 2
-                    return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                    visible_length = len(text) // 4
+                    return text[:visible_length] + '*' * (len(text) - visible_length)
             else:
-                # Default censoring - show half
-                visible_length = len(text) // 2
-                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                visible_length = len(text) // 3
+                return text[:visible_length] + '*' * (len(text) - visible_length)
 
         except Exception as e:
             logging.error(f"Error in _censor_text: {str(e)}", exc_info=True)
@@ -162,27 +151,31 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
 
-            # Base message with required fields
-            message_text = f"""🏢 {name}
-🌏 Negara: {importer.get('country', '')}"""
+            # Format exactly as in example
+            message_parts = [
+                f"🏢 {name}",
+                f"🌏 Negara: {importer.get('country', '')}"
+            ]
 
             if phone:
-                message_text += f"\n📱 Kontak: {phone}"
+                message_parts.append(f"📱 Kontak: {phone}")
             if email:
-                message_text += f"\n📧 Email: {email}"
+                message_parts.append(f"📧 Email: {email}")
             if website:
-                message_text += f"\n🌐 Website: {website}"
+                message_parts.append(f"🌐 Website: {website}")
 
-            message_text += f"\n📱 WhatsApp: {wa_status}"
+            message_parts.append(f"📱 WhatsApp: {wa_status}")
 
             if not saved:
-                message_text += "\n\n💡 Simpan kontak untuk melihat informasi lengkap"
+                message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
             else:
-                message_text += f"\n📅 Disimpan pada: {importer.get('saved_at', '')}"
+                message_parts.append(f"📅 Disimpan pada: {importer.get('saved_at', '')}")
+
+            message_text = '\n'.join(message_parts)
 
             # Return whatsapp number for button if available and saved
             whatsapp_number = None
-            if importer.get('wa_available') and saved and importer.get('contact'):
+            if saved and importer.get('wa_available') and importer.get('contact'):
                 whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
 
             # Generate callback data for save button if not saved
