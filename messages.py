@@ -96,8 +96,8 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             return prefix + CENSOR
 
         censor_rules = {
-            'name': lambda t: prefix_with_censor(t[:3]) if len(t) > 3 else t,
-            'email': lambda t: prefix_with_censor(t[:3]),
+            'name': lambda t: prefix_with_censor(t[:6]) if len(t) > 3 else t,
+            'email': lambda t: prefix_with_censor(t[:6]),
             'phone': lambda t: prefix_with_censor("+1 65") if '+' not in t else \
                     prefix_with_censor(t.split()[0] + " " + (t.split()[1][:2] if len(t.split()) > 1 else "65")),
             'website': lambda t: prefix_with_censor("www.")
