@@ -207,10 +207,10 @@ class DataStore:
             save_sql = """
             INSERT INTO saved_contacts (
                 user_id, importer_name, country, phone, email, 
-                website, wa_availability
+                website, wa_availability, hs_code, product_description
             ) VALUES (
                 :user_id, :name, :country, :phone, :email,
-                :website, :wa_available
+                :website, :wa_available, :hs_code, :product_description
             )
             ON CONFLICT (user_id, importer_name) DO NOTHING;
             """
@@ -225,7 +225,9 @@ class DataStore:
                             "phone": importer['contact'],
                             "email": importer['email'],
                             "website": importer['website'],
-                            "wa_available": importer['wa_available']
+                            "wa_available": importer['wa_available'],
+                            "hs_code": importer.get('product', ''),
+                            "product_description": importer.get('product_description', '')
                         }
                     )
                     logging.info(f"Contact save attempt for user {user_id}: {result.rowcount} rows affected")

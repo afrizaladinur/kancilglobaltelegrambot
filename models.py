@@ -40,6 +40,8 @@ class SavedContact(db.Model):
     email = db.Column(db.String(255))
     website = db.Column(db.Text)
     wa_availability = db.Column(db.Boolean)
+    hs_code = db.Column(db.String(10))
+    product_description = db.Column(db.Text)
     saved_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (

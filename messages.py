@@ -147,7 +147,8 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             email = Messages._censor_text(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
-            product = importer.get('product', '')  # HS code doesn't need censoring
+            product = importer.get('hs_code', '')  # HS code doesn't need censoring
+            product_desc = importer.get('product_description', '')  # Description doesn't need censoring
 
             # Escape Markdown characters in all fields
             name = Messages._escape_markdown(name)
@@ -156,6 +157,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             website = Messages._escape_markdown(website)
             country = Messages._escape_markdown(importer.get('country', ''))
             product = Messages._escape_markdown(product)
+            product_desc = Messages._escape_markdown(product_desc)
 
             logging.debug(f"Processed fields - Name: {name}, Phone: {phone}, Email: {email}")
 
@@ -166,9 +168,11 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 🏢 *{name}*
 🌏 Negara: {country}"""
 
-            # Add HS code if available (moved up in the order)
+            # Add HS code and description if available
             if product:
                 message_text += f"\n📦 HS Code: {product}"
+                if product_desc:
+                    message_text += f"\n📝 Deskripsi: {product_desc}"
 
             # Add optional fields only if they have content
             if phone:
