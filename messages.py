@@ -10,12 +10,11 @@ Silakan pilih menu di bawah ini:
 - 📊 Statistik - untuk melihat statistik penggunaan
 - ❓ Bantuan - untuk melihat panduan lengkap
 """
-
     HELP = """
 Daftar perintah yang tersedia:
 
 📍 /start - Mulai bot
-🔍 /search <kata kunci> - Cari importir berdasarkan nama atau negara
+🔍 /search <kata kunci> - Cari importir berdasarkan nama, negara, atau HS code
 📁 /saved - Lihat kontak yang tersimpan
 📊 /stats - Lihat statistik penggunaan Anda
 ❓ /help - Tampilkan pesan ini
@@ -23,14 +22,15 @@ Daftar perintah yang tersedia:
 Contoh pencarian:
 /search United States
 /search Indonesia
+/search 0302 (untuk mencari HS code)
 
 Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat informasi lengkap.
 """
-
     SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search Indonesia"
-    SEARCH_NO_RESULTS = "Maaf, tidak ada hasil yang ditemukan untuk pencarian Anda."
+    SEARCH_NO_RESULTS = "Maaf, tidak ada hasil yang ditemukan untuk pencarian '{}'. Silakan coba dengan kata kunci lain."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
-    ERROR_MESSAGE = "Maaf, terjadi kesalahan. Silakan coba lagi nanti."
+    ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
+    SEARCH_ERROR = "Data tidak tersedia untuk saat ini. Silakan coba beberapa saat lagi."
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap."
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
     NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
@@ -128,6 +128,7 @@ Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat info
             email = Messages._censor_text(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
+            product = importer.get('product', '')  # HS code doesn't need censoring
 
             # Escape Markdown characters in all fields
             name = Messages._escape_markdown(name)
@@ -135,6 +136,7 @@ Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat info
             phone = Messages._escape_markdown(phone)
             website = Messages._escape_markdown(website)
             country = Messages._escape_markdown(importer.get('country', ''))
+            product = Messages._escape_markdown(product)
 
             logging.debug(f"Processed fields - Name: {name}, Phone: {phone}, Email: {email}")
 
@@ -144,6 +146,10 @@ Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat info
             message_text = f"""
 🏢 *{name}*
 🌏 Negara: {country}"""
+
+            # Add HS code if available
+            if product:
+                message_text += f"\n📦 HS Code: {product}"
 
             # Add optional fields only if they have content
             if phone:

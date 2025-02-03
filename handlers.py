@@ -85,7 +85,9 @@ class CommandHandler:
             logging.info(f"Search results for query '{query}': {len(results)} matches found")
 
             if not results:
-                await update.message.reply_text(Messages.SEARCH_NO_RESULTS)
+                await update.message.reply_text(
+                    Messages.SEARCH_NO_RESULTS.format(query)
+                )
                 return
 
             for importer in results:
@@ -111,7 +113,7 @@ class CommandHandler:
             logging.info(f"Successfully sent search results to user {user_id}")
         except Exception as e:
             logging.error(f"Error in search command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
+            await update.message.reply_text(Messages.SEARCH_ERROR)
 
     async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /saved command to show saved contacts"""

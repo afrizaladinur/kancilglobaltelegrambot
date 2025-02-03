@@ -47,24 +47,39 @@ class DataStore:
             logging.error(f"Error creating tables: {str(e)}", exc_info=True)
 
     def search_importers(self, query: str) -> List[Dict]:
-        """Search importers by name, country, or products"""
+        """Search importers by name, country, or HS code products"""
         try:
-            logging.info(f"Starting search with query: '{query}'")
-            search_sql = """
-            SELECT name, country, phone, website, email_1, email_2, wa_availability
+            # Split the query into terms and remove empty strings
+            search_terms = [term.strip() for term in query.split() if term.strip()]
+            logging.info(f"Starting search with terms: {search_terms}")
+
+            # Build dynamic WHERE clause for each term
+            where_conditions = []
+            params = {}
+            for i, term in enumerate(search_terms):
+                param_name = f"term_{i}"
+                where_conditions.append(f"""(
+                    name ILIKE :%{param_name}% OR 
+                    country ILIKE :%{param_name}% OR 
+                    product ILIKE :%{param_name}%
+                )""")
+                params[param_name] = f"%{term}%"
+
+            # Combine conditions with AND
+            where_clause = " AND ".join(where_conditions)
+
+            search_sql = f"""
+            SELECT name, country, phone, website, email_1, email_2, wa_availability, product
             FROM importers
-            WHERE name ILIKE :query 
-               OR country ILIKE :query
+            WHERE {where_clause}
             ORDER BY 
                 CASE WHEN wa_availability = 'Available' THEN 1 ELSE 2 END,
                 CASE WHEN email_1 IS NOT NULL OR email_2 IS NOT NULL THEN 1 ELSE 2 END
             LIMIT 5;
             """
+
             with self.engine.connect() as conn:
-                result = conn.execute(
-                    text(search_sql), 
-                    {"query": f"%{query}%"}
-                ).fetchall()
+                result = conn.execute(text(search_sql), params).fetchall()
 
                 return [
                     {
@@ -73,7 +88,8 @@ class DataStore:
                         'contact': row.phone,
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
-                        'wa_available': row.wa_availability == 'Available'
+                        'wa_available': row.wa_availability == 'Available',
+                        'product': row.product
                     }
                     for row in result
                 ]
