@@ -188,7 +188,7 @@ class DataStore:
                     website, 
                     email_1 as email, 
                     wa_availability,
-                    product as hs_code,
+                    product,
                     role as product_description,
                     CASE 
                         WHEN LOWER(country) LIKE :search_term THEN 0
@@ -208,7 +208,7 @@ class DataStore:
                     WHEN wa_availability = 'Available' THEN true
                     ELSE false
                 END as wa_available,
-                hs_code,
+                product as hs_code,
                 product_description
             FROM ranked_results
             ORDER BY match_type, country, name
@@ -236,7 +236,7 @@ class DataStore:
                         'website': row.website or '',
                         'email': row.email or '',
                         'wa_available': row.wa_available,  # Already a boolean from the SQL CASE
-                        'hs_code': row.hs_code.strip() if row.hs_code else '',
+                        'hs_code': row.hs_code,  # Pass the full product field
                         'product_description': row.product_description or ''
                     }
                     logging.debug(f"Formatted result: {importer_dict}")

@@ -150,8 +150,12 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
 
             # Extract HS code from product field (last 4 digits)
-            product = importer.get('product', '')
-            hs_code = product[-4:] if product and len(product) >= 4 else ''
+            product = importer.get('hs_code', '')
+            hs_code = ''
+            if product:
+                # Find the last 4 consecutive digits in the product string
+                digits = ''.join(filter(str.isdigit, product))
+                hs_code = digits[-4:] if len(digits) >= 4 else ''
 
             # Build message parts in exact format
             message_parts = []
