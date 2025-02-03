@@ -177,16 +177,14 @@ class DataStore:
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
-                # Make the search more flexible by adding wildcards between words
-                search_term = '%' + '%'.join(term.split()) + '%'
                 where_conditions.append(f"""(
-                    LOWER(name) LIKE LOWER(:{param_name}) OR 
-                    LOWER(country) LIKE LOWER(:{param_name}) OR 
-                    LOWER(product) LIKE LOWER(:{param_name}) OR
-                    LOWER(product_description) LIKE LOWER(:{param_name})
+                    LOWER(name) LIKE LOWER(:%{param_name}%) OR 
+                    LOWER(country) LIKE LOWER(:%{param_name}%) OR 
+                    LOWER(product) LIKE LOWER(:%{param_name}%) OR
+                    LOWER(product_description) LIKE LOWER(:%{param_name}%)
                 )""")
-                params[param_name] = search_term
-                logging.debug(f"Added search term {i}: {search_term}")
+                params[param_name] = term
+                logging.debug(f"Added search term {i}: {term}")
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
