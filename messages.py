@@ -81,29 +81,28 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             text = text.replace(char, '\\' + char)
         return text
 
-    @staticmethod
+    @staticmethod 
     def _censor_contact(text: str, field_type: str, saved: bool = False) -> str:
         """Censor sensitive contact information"""
         if saved or not text:
             return text or ""
-            
-        asterisks = '*' * 5  # Make sure we have visible asterisks
-        
-        # Show first 3 chars + ***** for most fields
+
         if field_type == 'name':
-            return f"{text[:3]}{asterisks}" if len(text) > 3 else text
+            return text[:3] + "*****" if len(text) > 3 else text
         elif field_type == 'email':
-            return f"{text[:3]}{asterisks}"
+            return text[:3] + "*****" if text else ""
         elif field_type == 'phone':
-            if not text or '+' not in text:
-                return f"+1 65{asterisks}"
+            if not text:
+                return ""
+            if '+' not in text:
+                return "+1 65*****"
             parts = text.split(' ', 1)
             country_code = parts[0]
-            return f"{country_code} {parts[1][:2] if len(parts) > 1 else '65'}{asterisks}"
+            return f"{country_code} {parts[1][:2] if len(parts) == 2 else '65'}*****"
         elif field_type == 'website':
-            return f"www.{asterisks}"
+            return "www.*****" if text else ""
             
-        return asterisks  # Default mask
+        return "*****"  # Default mask
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
