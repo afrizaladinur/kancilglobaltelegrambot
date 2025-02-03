@@ -177,6 +177,10 @@ class DataStore:
         try:
             # Clean and prepare search terms
             terms = query.strip().lower().split()
+            if not terms:
+                logging.error("Empty search query")
+                return []
+
             logging.info(f"Starting search with terms: {terms}")
 
             # Build the search conditions
@@ -192,6 +196,15 @@ class DataStore:
                     conditions.append(f"(LOWER(name) LIKE :{param_name} OR LOWER(country) LIKE :{param_name})")
                 params[param_name] = f"%{term}%"
 
+            # Default ranking based on first term
+            rank_case = f"""
+                CASE 
+                    WHEN LOWER(country) LIKE :term_0 THEN 0
+                    WHEN LOWER(name) LIKE :term_0 THEN 1
+                    ELSE 2 
+                END
+            """
+
             search_sql = f"""
             WITH ranked_results AS (
                 SELECT 
@@ -203,11 +216,7 @@ class DataStore:
                     wa_availability,
                     product,
                     role as product_description,
-                    CASE 
-                        WHEN LOWER(country) LIKE :term_0 THEN 0
-                        WHEN LOWER(name) LIKE :term_0 THEN 1
-                        ELSE 2 
-                    END as match_type
+                    {rank_case} as match_type
                 FROM importers
                 WHERE {' AND '.join(conditions)}
             )
@@ -225,33 +234,40 @@ class DataStore:
             """
 
             with self.engine.connect() as conn:
-                # Log the actual SQL and parameters being used
-                logging.info(f"Executing search with parameters: {params}")
+                try:
+                    # Log the actual SQL query for debugging
+                    logging.info(f"Executing search SQL: {search_sql}")
+                    logging.info(f"With parameters: {params}")
 
-                result = conn.execute(
-                    text(search_sql), 
-                    params
-                ).fetchall()
+                    result = conn.execute(
+                        text(search_sql), 
+                        params
+                    ).fetchall()
 
-                logging.info(f"Search found {len(result)} results for query: '{query}'")
+                    logging.info(f"Search found {len(result)} results for query: '{query}'")
 
-                # Convert result to list of dicts with proper boolean conversion for wa_available
-                formatted_results = []
-                for row in result:
-                    importer_dict = {
-                        'name': row.name,
-                        'country': row.country,
-                        'contact': row.contact,
-                        'website': row.website or '',
-                        'email': row.email or '',
-                        'wa_available': row.wa_available,  # Already a boolean from the SQL CASE
-                        'hs_code': row.hs_code,  # Pass the full product field
-                        'product_description': row.product_description or ''
-                    }
-                    logging.debug(f"Formatted result: {importer_dict}")
-                    formatted_results.append(importer_dict)
+                    # Convert result to list of dicts
+                    formatted_results = []
+                    for row in result:
+                        importer_dict = {
+                            'name': row.name,
+                            'country': row.country,
+                            'contact': row.contact,
+                            'website': row.website or '',
+                            'email': row.email or '',
+                            'wa_available': row.wa_available,
+                            'hs_code': row.hs_code,
+                            'product_description': row.product_description or ''
+                        }
+                        logging.debug(f"Formatted result: {importer_dict}")
+                        formatted_results.append(importer_dict)
 
-                return formatted_results
+                    return formatted_results
+
+                except Exception as e:
+                    logging.error(f"Database execution error: {str(e)}", exc_info=True)
+                    conn.rollback()
+                    raise
 
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
