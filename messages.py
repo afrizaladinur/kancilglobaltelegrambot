@@ -84,25 +84,26 @@ Untuk membeli kredit, silakan hubungi admin: @admin
     @staticmethod 
     def _censor_contact(text: str, field_type: str, saved: bool = False) -> str:
         """Censor sensitive contact information"""
-        if saved or not text:
+        CENSOR = "X" * 6
+
+        if saved:
             return text or ""
 
-        if field_type == 'name':
-            return text[:3] + "*****" if len(text) > 3 else text
-        elif field_type == 'email':
-            return text[:3] + "*****" if text else ""
-        elif field_type == 'phone':
-            if not text:
-                return ""
-            if '+' not in text:
-                return "+1 65*****"
-            parts = text.split(' ', 1)
-            country_code = parts[0]
-            return f"{country_code} {parts[1][:2] if len(parts) == 2 else '65'}*****"
-        elif field_type == 'website':
-            return "www.*****" if text else ""
-            
-        return "*****"  # Default mask
+        if not text:
+            return CENSOR
+
+        def prefix_with_censor(prefix: str) -> str:
+            return prefix + CENSOR
+
+        censor_rules = {
+            'name': lambda t: prefix_with_censor(t[:3]) if len(t) > 3 else t,
+            'email': lambda t: prefix_with_censor(t[:3]),
+            'phone': lambda t: prefix_with_censor("+1 65") if '+' not in t else \
+                    prefix_with_censor(t.split()[0] + " " + (t.split()[1][:2] if len(t.split()) > 1 else "65")),
+            'website': lambda t: prefix_with_censor("www.")
+        }
+
+        return censor_rules.get(field_type, lambda t: CENSOR)(text)
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
