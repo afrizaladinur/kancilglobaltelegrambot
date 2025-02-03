@@ -117,6 +117,24 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         except Exception as e:
             logging.error(f"Error formatting phone number: {str(e)}", exc_info=True)
             return ""
+    
+    @staticmethod
+    def _calculate_credit_cost(importer: dict) -> float:
+        """Calculate credit cost based on available contact information"""
+        has_whatsapp = importer.get('wa_available', False)
+        has_website = bool(importer.get('website'))
+        has_email = bool(importer.get('email'))
+        has_phone = bool(importer.get('contact'))
+
+        # All contact methods including WhatsApp (2 credits)
+        if has_whatsapp and has_website and has_email and has_phone:
+            return 2.0
+        # All contact methods except WhatsApp (1 credit)
+        elif not has_whatsapp and has_website and has_email and has_phone:
+            return 1.0
+        # Missing some contact methods and no WhatsApp (0.5 credits)
+        else:
+            return 0.5
 
     @staticmethod
     def format_importer(importer: dict, saved: bool = False):
@@ -146,6 +164,14 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             message_parts.append(f"📱 WhatsApp: {wa_status}")
 
             if not saved:
+                credit_cost = Messages._calculate_credit_cost(importer)
+                message_parts.append("\n💳 Biaya kredit yang diperlukan:")
+                if credit_cost == 2.0:
+                    message_parts.append("2 kredit - Kontak lengkap dengan WhatsApp")
+                elif credit_cost == 1.0:
+                    message_parts.append("1 kredit - Kontak lengkap tanpa WhatsApp")
+                else:
+                    message_parts.append("0.5 kredit - Kontak tidak lengkap")
                 message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
             else:
                 message_parts.append(f"📅 Disimpan pada: {importer.get('saved_at', '')}")
@@ -157,6 +183,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             if saved and importer.get('wa_available') and importer.get('contact'):
                 whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
 
+            # Generate callback data for save button if not saved
             callback_data = None
             if not saved:
                 callback_data = f"save_{importer['name']}"
@@ -166,7 +193,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         except Exception as e:
             logging.error(f"Error formatting importer data: {str(e)}", exc_info=True)
             raise
-
+            
     @staticmethod
     def format_stats(stats):
         total = stats['total_commands']
