@@ -86,24 +86,24 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         """Censor sensitive contact information"""
         if saved or not text:
             return text or ""
-
+            
+        asterisks = '*' * 5  # Make sure we have visible asterisks
+        
         # Show first 3 chars + ***** for most fields
-        if field_type in ['name', 'email']:
-            return f"{text[:3]}*****" if len(text) > 3 else text
-
-        # Special format for phone numbers
+        if field_type == 'name':
+            return f"{text[:3]}{asterisks}" if len(text) > 3 else text
+        elif field_type == 'email':
+            return f"{text[:3]}{asterisks}"
         elif field_type == 'phone':
-            if '+' not in text:
-                return "+1 65*****"
+            if not text or '+' not in text:
+                return f"+1 65{asterisks}"
             parts = text.split(' ', 1)
             country_code = parts[0]
-            return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*****"
-
-        # Website always shows www.*****
+            return f"{country_code} {parts[1][:2] if len(parts) > 1 else '65'}{asterisks}"
         elif field_type == 'website':
-            return "www.*****"
-
-        return "*****"  # Default mask
+            return f"www.{asterisks}"
+            
+        return asterisks  # Default mask
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
