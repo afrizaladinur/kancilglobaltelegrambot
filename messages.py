@@ -149,10 +149,16 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
 
+            # Extract HS code from product field (last 4 digits)
+            product = importer.get('product', '')
+            hs_code = product[-4:] if product and len(product) >= 4 else ''
+
             # Build message parts in exact format
             message_parts = []
             message_parts.append(f"🏢 {name}")
             message_parts.append(f"🌏 Negara: {importer.get('country', '')}")
+            if hs_code:
+                message_parts.append(f"📦 HS Code: {hs_code}")
 
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
