@@ -96,51 +96,8 @@ class CommandHandler:
 
             for importer in results:
                 try:
-                    # Prepare basic info with proper escaping for MarkdownV2
-                    name = f"{importer['name'][:3]}*****"
-                    country = importer['country']
-                    phone = importer.get('contact', '')
-                    phone_display = f"\\+{phone.split('+')[1][:5]}*****" if phone else ''
-                    website = "www\\.*****" if importer.get('website') else ''
-                    email = f"{importer.get('email', '')[:3]}*****" if importer.get('email') else ''
-                    wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
-
-                    # Calculate credit cost
-                    has_whatsapp = importer.get('wa_available', False)
-                    has_website = bool(importer.get('website'))
-                    has_email = bool(importer.get('email'))
-                    has_phone = bool(phone)
-
-                    # Build message text
-                    message_parts = [
-                        f"🏢 {name}",
-                        f"🌏 Negara: {country}",
-                    ]
-
-                    if phone_display:
-                        message_parts.append(f"📱 Kontak: {phone_display}")
-                    if website:
-                        message_parts.append(f"🌐 Website: {website}")
-                    if email:
-                        message_parts.append(f"📧 Email: {email}")
-
-                    message_parts.append(f"📱 WhatsApp: {wa_status}")
-
-                    # Add credit cost information
-                    if has_whatsapp and has_website and has_email and has_phone:
-                        credit_info = "2 kredit \\- Kontak lengkap dengan WhatsApp"
-                    elif not has_whatsapp and has_website and has_email and has_phone:
-                        credit_info = "1 kredit \\- Kontak lengkap tanpa WhatsApp"
-                    else:
-                        credit_info = "0\\.5 kredit \\- Kontak tidak lengkap"
-
-                    message_parts.append("\n💳 Biaya kredit yang diperlukan:")
-                    message_parts.append(credit_info)
-                    message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
-
-                    # Join all parts and escape special characters for MarkdownV2
-                    message_text = '\n'.join(message_parts)
-                    message_text = message_text.replace('.', '\\.').replace('-', '\\-')
+                    # Use the Messages class to format the importer data
+                    message_text, _, callback_data = Messages.format_importer(importer)
 
                     keyboard = [[InlineKeyboardButton(
                         "💾 Simpan Kontak",
@@ -149,10 +106,9 @@ class CommandHandler:
 
                     await update.message.reply_text(
                         message_text,
-                        parse_mode='MarkdownV2',
+                        parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
-
                 except Exception as e:
                     logging.error(f"Error formatting importer {importer.get('name')}: {str(e)}", exc_info=True)
                     continue
