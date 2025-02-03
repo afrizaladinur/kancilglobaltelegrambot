@@ -100,13 +100,16 @@ class DataStore:
             has_email = bool(importer.get('email'))
             has_phone = bool(importer.get('contact'))
 
-            # All contact methods including WhatsApp
+            logging.info(f"Calculating credit cost - WhatsApp: {has_whatsapp}, "
+                      f"Website: {has_website}, Email: {has_email}, Phone: {has_phone}")
+
+            # All contact methods including WhatsApp (2 credits)
             if has_whatsapp and has_website and has_email and has_phone:
                 return 2.0
-            # All contact methods except WhatsApp
+            # All contact methods except WhatsApp (1 credit)
             elif not has_whatsapp and has_website and has_email and has_phone:
                 return 1.0
-            # Missing some contact methods and no WhatsApp
+            # Missing some contact methods and no WhatsApp (0.5 credits)
             else:
                 return 0.5
         except Exception as e:
@@ -175,9 +178,9 @@ class DataStore:
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
                 where_conditions.append(f"""(
-                    name ILIKE :{param_name} OR 
-                    country ILIKE :{param_name} OR 
-                    product ILIKE :{param_name}
+                    LOWER(name) LIKE LOWER(:{param_name}) OR 
+                    LOWER(country) LIKE LOWER(:{param_name}) OR 
+                    LOWER(product) LIKE LOWER(:{param_name})
                 )""")
                 params[param_name] = f"%{term}%"
 
@@ -193,11 +196,12 @@ class DataStore:
             ORDER BY 
                 CASE WHEN wa_availability = 'Available' THEN 1 ELSE 2 END,
                 CASE WHEN email_1 IS NOT NULL OR email_2 IS NOT NULL THEN 1 ELSE 2 END
-            LIMIT 5;
+            LIMIT 10;
             """
 
             with self.engine.connect() as conn:
                 result = conn.execute(text(search_sql), params).fetchall()
+                logging.info(f"Search found {len(result)} results for query: {query}")
 
                 return [
                     {
@@ -207,7 +211,7 @@ class DataStore:
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
-                        'product': row.hs_code,
+                        'hs_code': row.hs_code,
                         'product_description': row.product_description
                     }
                     for row in result
