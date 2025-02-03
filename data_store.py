@@ -8,16 +8,20 @@ class DataStore:
     def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name or products"""
         try:
+            logging.info(f"Starting search with query: '{query}'")
             with app.app_context():
                 query = query.lower()
-                logging.info(f"Searching with query: '{query}'")
+                logging.info(f"Normalized query: '{query}'")
 
-                # Create an SQL expression using array operators
+                # First verify we can access the database
+                total_importers = Importer.query.count()
+                logging.info(f"Total importers in database: {total_importers}")
+
+                # Simplified search query
                 importers = Importer.query.filter(
                     or_(
                         func.lower(Importer.name).like(f"%{query}%"),
-                        # Convert products array to lowercase and check if any element contains the query
-                        text("EXISTS (SELECT 1 FROM unnest(products) product WHERE lower(product) LIKE :query)").params(query=f"%{query}%")
+                        text("EXISTS (SELECT 1 FROM unnest(products) p WHERE lower(p) = lower(:query))").params(query=query)
                     )
                 ).all()
 
