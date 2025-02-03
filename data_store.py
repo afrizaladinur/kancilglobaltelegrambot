@@ -27,15 +27,16 @@ class DataStore:
             );
             """
 
-            # Create user_stats table with correct schema
+            # Create user_stats table with command_name as VARCHAR
             create_user_stats_sql = """
-            CREATE TABLE IF NOT EXISTS user_stats (
+            DROP TABLE IF EXISTS user_stats;
+            CREATE TABLE user_stats (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
-                command_name VARCHAR(50) NOT NULL,
+                command VARCHAR(50) NOT NULL,
                 usage_count INTEGER DEFAULT 1,
                 last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, command_name)
+                UNIQUE(user_id, command)
             );
             """
             with self.engine.connect() as conn:
@@ -148,9 +149,9 @@ class DataStore:
         """Track user command usage in PostgreSQL"""
         try:
             update_sql = """
-            INSERT INTO user_stats (user_id, command_name, usage_count)
-            VALUES (:user_id, :command_name, 1)
-            ON CONFLICT (user_id, command_name)
+            INSERT INTO user_stats (user_id, command, usage_count)
+            VALUES (:user_id, :command, 1)
+            ON CONFLICT (user_id, command)
             DO UPDATE SET 
                 usage_count = user_stats.usage_count + 1,
                 last_used = CURRENT_TIMESTAMP;
@@ -158,7 +159,7 @@ class DataStore:
 
             with self.engine.connect() as conn:
                 with conn.begin():
-                    conn.execute(text(update_sql), {"user_id": user_id, "command_name": command})
+                    conn.execute(text(update_sql), {"user_id": user_id, "command": command})
 
             logging.info(f"Command tracked for user {user_id}: {command}")
         except Exception as e:
@@ -168,13 +169,13 @@ class DataStore:
         """Get user statistics from PostgreSQL"""
         try:
             stats_sql = """
-            SELECT command_name, usage_count
+            SELECT command, usage_count
             FROM user_stats
             WHERE user_id = :user_id;
             """
             with self.engine.connect() as conn:
                 result = conn.execute(text(stats_sql), {"user_id": user_id}).fetchall()
-                commands = {row.command_name: row.usage_count for row in result}
+                commands = {row.command: row.usage_count for row in result}
                 total = sum(commands.values())
                 return {
                     'total_commands': total,

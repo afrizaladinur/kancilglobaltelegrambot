@@ -89,9 +89,11 @@ class CommandHandler:
                 return
 
             for importer in results:
+                logging.info(f"Processing importer before censoring: {importer['name']}")
                 message_text, whatsapp_number, callback_data = Messages.format_importer(
                     importer, saved=False
                 )
+                logging.info(f"Formatted message with censoring: {message_text}")
                 keyboard = []
 
                 # Add Save Contact button since this is a search result
@@ -178,10 +180,15 @@ class CommandHandler:
                         importer = next((imp for imp in results if imp['name'] == importer_name), None)
                         if importer and self.data_store.save_contact(user_id, importer):
                             await query.message.reply_text(Messages.CONTACT_SAVED)
+                            logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
                         else:
                             await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
+                            logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
                     else:
+                        logging.error(f"Could not find importer {importer_name} to save")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
+                else:
+                    logging.warning(f"Unknown callback query data: {query.data}")
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)

@@ -1,3 +1,5 @@
+import logging
+
 class Messages:
     START = """
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
@@ -34,64 +36,148 @@ Note: Kontak yang belum disimpan akan disensor. Simpan kontak untuk melihat info
     NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
 
     @staticmethod
-    def _censor_text(text: str, saved: bool = False) -> str:
-        """Censor text by showing only first and last character"""
-        if not text or saved:
-            return text
-        if len(text) <= 4:
-            return "*" * len(text)
-        return f"{text[0]}{'*' * (len(text)-2)}{text[-1]}"
+    def _escape_markdown(text: str) -> str:
+        """Escape special Markdown characters"""
+        special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        for char in special_chars:
+            text = text.replace(char, '\\' + char)
+        return text
+
+    @staticmethod
+    def _censor_text(text: str, field_type: str = 'default', saved: bool = False) -> str:
+        """Censor text based on field type with specific formatting"""
+        try:
+            if saved:
+                return text or ""  # Return original text or empty string if saved
+
+            if not text:
+                return ""  # Return empty string for unavailable info
+
+            if not isinstance(text, str):
+                text = str(text)
+
+            text = text.strip()
+            if not text:
+                return ""
+
+            # Different censoring rules based on field type
+            if field_type == 'name':
+                # Show only first character for company names
+                return f"{text[0]}{'*' * (len(text)-1)}"
+            elif field_type == 'phone':
+                # Show first 5 digits of phone numbers
+                visible_length = min(5, len(text))
+                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+            elif field_type == 'email':
+                # Show first 5 chars of email
+                at_index = text.find('@')
+                if at_index == -1:
+                    visible_length = min(5, len(text))
+                else:
+                    visible_length = min(5, at_index)
+                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+            elif field_type == 'website':
+                # Show protocol and first part of domain
+                if text.startswith('http'):
+                    protocol_end = text.find('://') + 3
+                    visible_length = min(protocol_end + 5, len(text))
+                    return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                else:
+                    visible_length = min(5, len(text))
+                    return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+            else:
+                # Default censoring for other fields
+                visible_length = min(5, len(text))
+                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+
+        except Exception as e:
+            logging.error(f"Error in _censor_text: {str(e)}", exc_info=True)
+            return "*****"  # Return safe fallback if censoring fails
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
         """Format phone number for WhatsApp URL"""
-        if not phone:
-            return None
+        try:
+            if not phone:
+                logging.debug("Empty phone number provided")
+                return ""
 
-        # Remove all non-digit characters
-        phone_numbers = ''.join(filter(str.isdigit, phone))
-        # Ensure it starts with country code
-        if phone_numbers.startswith('0'):
-            phone_numbers = '62' + phone_numbers[1:]
-        return phone_numbers
+            # Remove all non-digit characters
+            phone_numbers = ''.join(filter(str.isdigit, phone))
+            logging.debug(f"Cleaned phone number: {phone} -> {phone_numbers}")
 
+            # Ensure it starts with country code
+            if phone_numbers.startswith('0'):
+                phone_numbers = '62' + phone_numbers[1:]
+                logging.debug(f"Added country code: {phone_numbers}")
+            return phone_numbers
+        except Exception as e:
+            logging.error(f"Error formatting phone number: {str(e)}", exc_info=True)
+            return ""
+    
     @staticmethod
     def format_importer(importer, saved=False):
         """Format importer data and return (message_text, whatsapp_number, callback_data)"""
-        wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
+        try:
+            logging.info(f"Formatting importer data: saved={saved}, name={importer.get('name', 'N/A')}")
 
-        # Censor information if not saved
-        name = Messages._censor_text(importer['name'], saved)
-        email = Messages._censor_text(importer.get('email', 'Tidak tersedia'), saved)
-        phone = Messages._censor_text(importer.get('contact', ''), saved)
-        website = Messages._censor_text(importer.get('website', 'Tidak tersedia'), saved)
+            wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
 
-        saved_at = importer.get('saved_at', '')
+            # Censor information if not saved
+            name = Messages._censor_text(importer.get('name', ''), 'name', saved)
+            email = Messages._censor_text(importer.get('email', ''), 'email', saved)
+            phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
+            website = Messages._censor_text(importer.get('website', ''), 'website', saved)
 
-        message_text = f"""
+            # Escape Markdown characters in all fields
+            name = Messages._escape_markdown(name)
+            email = Messages._escape_markdown(email)
+            phone = Messages._escape_markdown(phone)
+            website = Messages._escape_markdown(website)
+            country = Messages._escape_markdown(importer.get('country', ''))
+
+            logging.debug(f"Processed fields - Name: {name}, Phone: {phone}, Email: {email}")
+
+            saved_at = importer.get('saved_at', '')
+
+            # Base message with required fields
+            message_text = f"""
 🏢 *{name}*
-🌏 Negara: {importer['country']}
-📱 Kontak: {phone}
-📧 Email: {email}
-🌐 Website: {website}
-📱 WhatsApp: {wa_status}
-"""
-        if saved_at:
-            message_text += f"📅 Disimpan pada: {saved_at}\n"
-        elif not saved:
-            message_text += "\n💡 Simpan kontak untuk melihat informasi lengkap"
+🌏 Negara: {country}"""
 
-        # Return whatsapp number for button if available and saved
-        whatsapp_number = None
-        if importer.get('wa_available') and importer.get('contact') and saved:
-            whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
+            # Add optional fields only if they have content
+            if phone:
+                message_text += f"\n📱 Kontak: {phone}"
+            if email:
+                message_text += f"\n📧 Email: {email}"
+            if website:
+                message_text += f"\n🌐 Website: {website}"
 
-        # Generate callback data for save button if not saved
-        callback_data = None
-        if not saved:
-            callback_data = f"save_{importer['name']}"
+            message_text += f"\n📱 WhatsApp: {wa_status}"
 
-        return message_text, whatsapp_number, callback_data
+            if saved_at:
+                message_text += f"\n📅 Disimpan pada: {saved_at}"
+            elif not saved:
+                message_text += "\n\n💡 Simpan kontak untuk melihat informasi lengkap"
+
+            # Return whatsapp number for button if available and saved
+            whatsapp_number = None
+            if importer.get('wa_available') and importer.get('contact') and saved:
+                whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
+                logging.debug(f"WhatsApp number formatted: {whatsapp_number}")
+
+            # Generate callback data for save button if not saved
+            callback_data = None
+            if not saved:
+                callback_data = f"save_{importer['name']}"
+                logging.debug(f"Generated callback data: {callback_data}")
+
+            logging.info(f"Successfully formatted message for importer {name}")
+            return message_text, whatsapp_number, callback_data
+
+        except Exception as e:
+            logging.error(f"Error formatting importer data: {str(e)}", exc_info=True)
+            raise
 
     @staticmethod
     def format_stats(stats):
