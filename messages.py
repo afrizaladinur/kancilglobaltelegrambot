@@ -90,29 +90,29 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
             # Different censoring rules based on field type
             if field_type == 'name':
-                visible_length = len(text) // 3  # Show first third only
-                return text[:visible_length] + '*' * (len(text) - visible_length)
+                visible_chars = 5
+                censored = text[:visible_chars] + '*' * (25)  # Fixed length asterisks
+                return censored
             elif field_type == 'phone':
                 parts = text.split(' ')
-                if len(parts) > 2:
-                    return f"\\+{parts[1]} {parts[2][:2]}\\*********"
+                if len(parts) > 1 and parts[0].startswith('+'):
+                    # Format: +1 65********* (show country code and 2 digits)
+                    country_code = parts[0]  # +1, +44, etc
+                    rest = ''.join(parts[1:])[:2]  # First 2 digits
+                    return f"\\{country_code} {rest}\\{'*' * 9}"
                 else:
-                    visible_length = len(text) // 3
-                    censored = text[:visible_length] + '*' * (len(text) - visible_length)
-                    return censored.replace('+', '\\+').replace('-', '\\-')
+                    # Fallback format: just show first few digits
+                    return f"{text[:3]}\\{'*' * 9}"
             elif field_type == 'email':
-                visible_length = len(text) // 4  # Show first quarter only
-                return text[:visible_length] + '*' * (len(text) - visible_length)
+                visible_chars = 5
+                return text[:visible_chars] + '*' * 21  # Fixed length asterisks
             elif field_type == 'website':
                 if text.startswith('http'):
-                    protocol_end = text.find('://') + 3
-                    return f"http://www\\.{text[protocol_end:protocol_end+1]}\\*******************"
-                else:
-                    visible_length = len(text) // 4
-                    return text[:visible_length] + '*' * (len(text) - visible_length)
+                    return f"http://www\\.{'c'}\\{'*' * 19}"
+                return f"{'h'}\\{'*' * 19}"
             else:
-                visible_length = len(text) // 3
-                return text[:visible_length] + '*' * (len(text) - visible_length)
+                visible_chars = len(text) // 4
+                return text[:visible_chars] + '*' * (len(text) - visible_chars)
 
         except Exception as e:
             logging.error(f"Error in _censor_text: {str(e)}", exc_info=True)
@@ -151,11 +151,10 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
 
-            # Format exactly as in example
-            message_parts = [
-                f"🏢 {name}",
-                f"🌏 Negara: {importer.get('country', '')}"
-            ]
+            # Format message in exact format from example
+            message_parts = []
+            message_parts.append(f"🏢 {name}")
+            message_parts.append(f"🌏 Negara: {importer.get('country', '')}")
 
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
