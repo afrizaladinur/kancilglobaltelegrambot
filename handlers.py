@@ -94,12 +94,31 @@ class CommandHandler:
                 return
 
             for importer in results:
-                message_text = f"""
-🏢 *{importer['name']}*
+                # Calculate credit cost
+                has_whatsapp = importer.get('wa_available', False)
+                has_website = bool(importer.get('website'))
+                has_email = bool(importer.get('email'))
+                has_phone = bool(importer.get('contact'))
+
+                if has_whatsapp and has_website and has_email and has_phone:
+                    credit_cost = "2.0"
+                elif not has_whatsapp and has_website and has_email and has_phone:
+                    credit_cost = "1.0"
+                else:
+                    credit_cost = "0.5"
+
+                # Censor name - show first character + asterisks
+                name = importer['name']
+                censored_name = f"{name[0]}{'*' * 45}" if name else '*' * 46
+
+                # Build message with exact format
+                message_text = f"""🏢 {censored_name}
 🌏 Negara: {importer['country']}
-📦 HS Code: {importer['hs_code']}
-📝 Deskripsi: {importer['product_description']}
-"""
+📦 HS Code: {importer.get('hs_code', '')}
+📝 Deskripsi: {importer.get('product_description', '')}
+
+💡 Simpan kontak untuk melihat informasi lengkap (kredit terpakai: {credit_cost})"""
+
                 keyboard = [[InlineKeyboardButton(
                     "💾 Simpan Kontak",
                     callback_data=f"save_{importer['name']}"
