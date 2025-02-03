@@ -382,6 +382,7 @@ name = "repl-nix-workspace"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "email-validator" },
     { name = "flask" },
     { name = "flask-sqlalchemy" },
@@ -394,6 +395,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2025.1.31" },
     { name = "email-validator", specifier = ">=2.2.0" },
     { name = "flask", specifier = ">=3.1.0" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },

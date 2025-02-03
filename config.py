@@ -1,13 +1,11 @@
 import os
 
 # Telegram Bot Configuration
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', 'your_telegram_token_here')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', '7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo')
 
 # MongoDB Configuration
-MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
-MONGODB_DB = os.getenv('MONGODB_DB', 'importers_db')
-if not MONGODB_URI.startswith('mongodb+srv://') and not MONGODB_URI.startswith('mongodb://'):
-    MONGODB_URI = f'mongodb://{MONGODB_URI}'
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb+srv://kancilglobal:JgnNJe9KBegnH2vk@cluster0.23hro.mongodb.net/master_data')
+MONGODB_DB = 'master_data'
 
 # Rate Limiting
 RATE_LIMIT_WINDOW = 60  # seconds
