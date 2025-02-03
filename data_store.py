@@ -177,22 +177,26 @@ class DataStore:
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
+                # Make the search more flexible by adding wildcards between words
+                search_term = '%' + '%'.join(term.split()) + '%'
                 where_conditions.append(f"""(
                     LOWER(name) LIKE LOWER(:{param_name}) OR 
                     LOWER(country) LIKE LOWER(:{param_name}) OR 
                     LOWER(product) LIKE LOWER(:{param_name}) OR
                     LOWER(product_description) LIKE LOWER(:{param_name})
                 )""")
-                params[param_name] = f"%{term}%"
+                params[param_name] = search_term
+                logging.debug(f"Added search term {i}: {search_term}")
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
 
             search_sql = f"""
-            SELECT name, country, phone as contact, website, email_1, email_2, 
-                   wa_availability,
-                   product as hs_code,
-                   product_description
+            SELECT 
+                name, country, phone as contact, website, 
+                email_1, email_2, wa_availability,
+                product as hs_code,
+                product_description
             FROM importers
             WHERE {where_clause}
             ORDER BY 
@@ -201,11 +205,13 @@ class DataStore:
             LIMIT 10;
             """
 
+            logging.debug(f"Executing search SQL: {search_sql} with params: {params}")
+
             with self.engine.connect() as conn:
                 result = conn.execute(text(search_sql), params).fetchall()
                 logging.info(f"Search found {len(result)} results for query: {query}")
 
-                return [
+                results = [
                     {
                         'name': row.name,
                         'country': row.country,
@@ -218,6 +224,11 @@ class DataStore:
                     }
                     for row in result
                 ]
+
+                # Log found results for debugging
+                logging.debug(f"Processed search results: {results}")
+                return results
+
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
             return []
