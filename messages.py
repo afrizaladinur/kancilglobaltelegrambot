@@ -79,10 +79,10 @@ Untuk membeli kredit, silakan hubungi admin: @admin
         """Censor text based on field type with specific formatting"""
         try:
             if saved:
-                return text or ""  # Return original text or empty string if saved
+                return text or ""  # Return original text if saved
 
             if not text:
-                return ""  # Return empty string for unavailable info
+                return ""
 
             if not isinstance(text, str):
                 text = str(text)
@@ -93,37 +93,41 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
             # Different censoring rules based on field type
             if field_type == 'name':
-                # Show only first character for company names
-                return f"{text[0]}{'*' * (len(text)-1)}"
-            elif field_type == 'phone':
-                # Show first 5 digits of phone numbers
-                visible_length = min(5, len(text))
+                # Show exactly half of the name
+                visible_length = len(text) // 2
                 return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+            elif field_type == 'phone':
+                # Show first half of phone numbers with escaped special chars
+                visible_length = len(text) // 2
+                phone_text = text[:visible_length] + '*' * (len(text)-visible_length)
+                return phone_text.replace('+', '\\+').replace('-', '\\-')
             elif field_type == 'email':
-                # Show first 5 chars of email
+                # Show half of email with escaped special chars
                 at_index = text.find('@')
                 if at_index == -1:
-                    visible_length = min(5, len(text))
+                    visible_length = len(text) // 2
                 else:
-                    visible_length = min(5, at_index)
-                return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                    visible_length = at_index // 2
+                return text[:visible_length] + '*' * (len(text)-visible_length)
             elif field_type == 'website':
-                # Show protocol and first part of domain
+                # Show protocol and half of domain with escaped special chars
                 if text.startswith('http'):
                     protocol_end = text.find('://') + 3
-                    visible_length = min(protocol_end + 5, len(text))
-                    return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                    rest_length = (len(text) - protocol_end) // 2
+                    visible_length = protocol_end + rest_length
+                    website_text = f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
+                    return website_text.replace('.', '\\.').replace('-', '\\-')
                 else:
-                    visible_length = min(5, len(text))
+                    visible_length = len(text) // 2
                     return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
             else:
-                # Default censoring for other fields
-                visible_length = min(5, len(text))
+                # Default censoring - show half
+                visible_length = len(text) // 2
                 return f"{text[:visible_length]}{'*' * (len(text)-visible_length)}"
 
         except Exception as e:
             logging.error(f"Error in _censor_text: {str(e)}", exc_info=True)
-            return "*****"  # Return safe fallback if censoring fails
+            return "*****"
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
@@ -148,10 +152,8 @@ Untuk membeli kredit, silakan hubungi admin: @admin
     
     @staticmethod
     def format_importer(importer, saved=False):
-        """Format importer data and return (message_text, whatsapp_number, callback_data)"""
+        """Format importer data for display"""
         try:
-            logging.info(f"Formatting importer data: saved={saved}, name={importer.get('name', 'N/A')}")
-
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
 
             # Censor information if not saved
@@ -160,17 +162,9 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
 
-            # Escape Markdown characters in all fields
-            name = Messages._escape_markdown(name)
-            email = Messages._escape_markdown(email)
-            phone = Messages._escape_markdown(phone)
-            website = Messages._escape_markdown(website)
-            country = Messages._escape_markdown(importer.get('country', ''))
-
             # Base message with required fields
-            message_text = f"""
-🏢 *{name}*
-🌏 Negara: {country}"""
+            message_text = f"""🏢 {name}
+🌏 Negara: {importer.get('country', '')}"""
 
             if phone:
                 message_text += f"\n📱 Kontak: {phone}"
