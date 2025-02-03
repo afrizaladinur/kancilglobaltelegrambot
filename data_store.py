@@ -168,8 +168,8 @@ class DataStore:
     def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name, country, or product"""
         try:
-            # Clean and split the query into terms
-            search_terms = [term.strip() for term in query.split() if term.strip()]
+            # Clean and prepare search terms
+            search_terms = [term.strip().lower() for term in query.split() if term.strip()]
             logging.info(f"Starting search with terms: {search_terms}")
 
             # Build dynamic WHERE clause for each term
@@ -177,13 +177,12 @@ class DataStore:
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
-                # Add TRIM to remove whitespace and use ILIKE for case-insensitive matching
+                params[param_name] = f"%{term}%"
                 where_conditions.append(f"""(
-                    TRIM(LOWER(name)) ILIKE LOWER(:'%' || :{param_name} || '%') OR 
-                    TRIM(LOWER(country)) ILIKE LOWER(:'%' || :{param_name} || '%') OR 
-                    TRIM(LOWER(product)) ILIKE LOWER(:'%' || :{param_name} || '%')
+                    LOWER(name) LIKE :{param_name} OR 
+                    LOWER(country) LIKE :{param_name} OR 
+                    LOWER(product) LIKE :{param_name}
                 )""")
-                params[param_name] = term
 
             # Combine conditions with AND
             where_clause = " AND ".join(where_conditions)
