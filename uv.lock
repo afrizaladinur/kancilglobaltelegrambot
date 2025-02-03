@@ -390,6 +390,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pymongo" },
     { name = "python-telegram-bot" },
+    { name = "sqlalchemy" },
     { name = "telegram" },
 ]
 
@@ -403,6 +404,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pymongo", extras = ["srv"], specifier = ">=4.11" },
     { name = "python-telegram-bot", specifier = ">=20.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.37" },
     { name = "telegram", specifier = ">=0.0.1" },
 ]
 

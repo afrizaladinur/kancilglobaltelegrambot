@@ -3,11 +3,13 @@ from telegram.ext import ContextTypes
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
+import logging
 
 class CommandHandler:
     def __init__(self):
         self.data_store = DataStore()
         self.rate_limiter = RateLimiter()
+        logging.info("CommandHandler initialized")
 
     async def check_rate_limit(self, update: Update) -> bool:
         """Check rate limit for user"""
@@ -19,57 +21,76 @@ class CommandHandler:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
-        if not await self.check_rate_limit(update):
-            return
+        try:
+            if not await self.check_rate_limit(update):
+                return
 
-        user_id = update.effective_user.id
-        self.data_store.track_user_command(user_id, 'start')
-        await update.message.reply_text(Messages.START, parse_mode='Markdown')
+            user_id = update.effective_user.id
+            self.data_store.track_user_command(user_id, 'start')
+            await update.message.reply_text(Messages.START, parse_mode='Markdown')
+            logging.info(f"Start command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in start command: {e}")
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
-        if not await self.check_rate_limit(update):
-            return
+        try:
+            if not await self.check_rate_limit(update):
+                return
 
-        user_id = update.effective_user.id
-        self.data_store.track_user_command(user_id, 'help')
-        await update.message.reply_text(Messages.HELP, parse_mode='Markdown')
+            user_id = update.effective_user.id
+            self.data_store.track_user_command(user_id, 'help')
+            await update.message.reply_text(Messages.HELP, parse_mode='Markdown')
+            logging.info(f"Help command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in help command: {e}")
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /search command"""
-        if not await self.check_rate_limit(update):
-            return
+        try:
+            if not await self.check_rate_limit(update):
+                return
 
-        user_id = update.effective_user.id
-        self.data_store.track_user_command(user_id, 'search')
+            user_id = update.effective_user.id
+            self.data_store.track_user_command(user_id, 'search')
 
-        if not context.args:
-            await update.message.reply_text(Messages.SEARCH_NO_QUERY)
-            return
+            if not context.args:
+                await update.message.reply_text(Messages.SEARCH_NO_QUERY)
+                return
 
-        query = ' '.join(context.args)
-        results = self.data_store.search_importers(query)
+            query = ' '.join(context.args)
+            results = self.data_store.search_importers(query)
 
-        if not results:
-            await update.message.reply_text(Messages.SEARCH_NO_RESULTS)
-            return
+            if not results:
+                await update.message.reply_text(Messages.SEARCH_NO_RESULTS)
+                return
 
-        response = "Hasil pencarian:\n"
-        for importer in results:
-            response += Messages.format_importer(importer)
+            response = "Hasil pencarian:\n"
+            for importer in results:
+                response += Messages.format_importer(importer)
 
-        await update.message.reply_text(response, parse_mode='Markdown')
+            await update.message.reply_text(response, parse_mode='Markdown')
+            logging.info(f"Search command processed for user {user_id}, query: {query}")
+        except Exception as e:
+            logging.error(f"Error in search command: {e}")
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
-        if not await self.check_rate_limit(update):
-            return
+        try:
+            if not await self.check_rate_limit(update):
+                return
 
-        user_id = update.effective_user.id
-        self.data_store.track_user_command(user_id, 'stats')
-
-        stats = self.data_store.get_user_stats(user_id)
-        await update.message.reply_text(
-            Messages.format_stats(stats),
-            parse_mode='Markdown'
-        )
+            user_id = update.effective_user.id
+            self.data_store.track_user_command(user_id, 'stats')
+            stats = self.data_store.get_user_stats(user_id)
+            await update.message.reply_text(
+                Messages.format_stats(stats),
+                parse_mode='Markdown'
+            )
+            logging.info(f"Stats command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in stats command: {e}")
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
