@@ -153,14 +153,13 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             logging.info(f"Formatting importer data: saved={saved}, name={importer.get('name', 'N/A')}")
 
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
+            credit_cost = "2" if importer.get('wa_available') else "1"
 
             # Censor information if not saved
             name = Messages._censor_text(importer.get('name', ''), 'name', saved)
             email = Messages._censor_text(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_text(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_text(importer.get('website', ''), 'website', saved)
-            product = importer.get('hs_code', '')  # HS code doesn't need censoring
-            product_desc = importer.get('product_description', '')  # Description doesn't need censoring
 
             # Escape Markdown characters in all fields
             name = Messages._escape_markdown(name)
@@ -168,25 +167,14 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             phone = Messages._escape_markdown(phone)
             website = Messages._escape_markdown(website)
             country = Messages._escape_markdown(importer.get('country', ''))
-            product = Messages._escape_markdown(product)
-            product_desc = Messages._escape_markdown(product_desc)
 
             logging.debug(f"Processed fields - Name: {name}, Phone: {phone}, Email: {email}")
-
-            saved_at = importer.get('saved_at', '')
 
             # Base message with required fields
             message_text = f"""
 🏢 *{name}*
 🌏 Negara: {country}"""
 
-            # Add HS code and description if available
-            if product:
-                message_text += f"\n📦 HS Code: {product}"
-                if product_desc:
-                    message_text += f"\n📝 Deskripsi: {product_desc}"
-
-            # Add optional fields only if they have content
             if phone:
                 message_text += f"\n📱 Kontak: {phone}"
             if email:
@@ -196,10 +184,11 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
             message_text += f"\n📱 WhatsApp: {wa_status}"
 
-            if saved_at:
-                message_text += f"\n📅 Disimpan pada: {saved_at}"
-            elif not saved:
+            if not saved:
+                message_text += f"\n\nKredit: {credit_cost}"
                 message_text += "\n\n💡 Simpan kontak untuk melihat informasi lengkap"
+            else:
+                message_text += f"\n📅 Disimpan pada: {importer.get('saved_at', '')}"
 
             # Return whatsapp number for button if available and saved
             whatsapp_number = None
