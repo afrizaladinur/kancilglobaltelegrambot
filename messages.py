@@ -84,7 +84,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
 
         # Use exactly five asterisks for all censored fields
         if field_type == 'name':
-            # Show first 3 chars + exactly five asterisks
+            # Show first 3 chars + *****
             return f"{text[:3]}*****"
         elif field_type == 'phone':
             # +XX XX***** format
@@ -94,7 +94,7 @@ Untuk membeli kredit, silakan hubungi admin: @admin
             country_code = parts[0]  # Keep +X part
             return f"{country_code} {'65' if len(parts) == 1 else parts[1][:2]}*****"
         elif field_type == 'email':
-            # Show first 3 chars + exactly five asterisks
+            # Show first 3 chars + *****
             return f"{text[:3]}*****"
         elif field_type == 'website':
             # Always return www.***** pattern

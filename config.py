@@ -3,8 +3,8 @@ import os
 # Telegram Bot Configuration
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
-# MongoDB Configuration
-MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb+srv://kancilglobal:JgnNJe9KBegnH2vk@cluster0.23hro.mongodb.net/master_data?retryWrites=true&w=majority&appName=Cluster0')
+# MongoDB Configuration - Using environment variable with fallback
+MONGODB_URI = os.getenv('MONGODB_URI')
 
 # PostgreSQL Configuration is handled via DATABASE_URL environment variable
 

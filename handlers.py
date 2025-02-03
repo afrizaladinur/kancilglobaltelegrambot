@@ -75,7 +75,11 @@ class CommandHandler:
 
             user_id = update.effective_user.id
             with app.app_context():
-                self.data_store.track_user_command(user_id, 'search')
+                try:
+                    self.data_store.track_user_command(user_id, 'search')
+                except Exception as db_error:
+                    logging.error(f"Database error tracking command: {str(db_error)}")
+                    # Continue execution even if tracking fails
 
             if not context.args:
                 await update.message.reply_text(Messages.SEARCH_NO_QUERY)
@@ -85,7 +89,14 @@ class CommandHandler:
             logging.info(f"Processing search request from user {user_id} with query: {query}")
 
             with app.app_context():
-                results = self.data_store.search_importers(query)
+                try:
+                    results = self.data_store.search_importers(query)
+                except Exception as search_error:
+                    logging.error(f"Search error: {str(search_error)}")
+                    await update.message.reply_text(
+                        "Search service is temporarily unavailable. Please try again later."
+                    )
+                    return
 
             if not results:
                 await update.message.reply_text(
@@ -97,7 +108,6 @@ class CommandHandler:
 
             for importer in results:
                 try:
-                    # Use the Messages class to format the importer data
                     message_text, _, callback_data = Messages.format_importer(importer)
 
                     keyboard = [[InlineKeyboardButton(
@@ -110,14 +120,16 @@ class CommandHandler:
                         parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
-                except Exception as e:
-                    logging.error(f"Error formatting importer {importer.get('name')}: {str(e)}", exc_info=True)
+                except Exception as format_error:
+                    logging.error(f"Error formatting importer {importer.get('name')}: {str(format_error)}", exc_info=True)
                     continue
 
             logging.info(f"Successfully sent search results to user {user_id}")
         except Exception as e:
             logging.error(f"Error in search command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.SEARCH_ERROR)
+            await update.message.reply_text(
+                "An error occurred while processing your request. Please try again later."
+            )
 
     async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /saved command"""

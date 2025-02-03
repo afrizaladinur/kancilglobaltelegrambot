@@ -5,7 +5,14 @@ from sqlalchemy import create_engine, text
 
 class DataStore:
     def __init__(self):
-        self.engine = create_engine(os.environ.get('DATABASE_URL'))
+        self.engine = create_engine(
+            os.environ.get('DATABASE_URL'),
+            pool_pre_ping=True,  # Enable connection health checks
+            pool_recycle=300,    # Recycle connections every 5 minutes
+            connect_args={
+                "sslmode": "require"  # Enforce SSL
+            }
+        )
         self._init_tables()
         logging.info("DataStore initialized with PostgreSQL")
 

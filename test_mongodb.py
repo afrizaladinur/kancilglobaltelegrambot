@@ -1,5 +1,4 @@
 import logging
-import ssl
 from pymongo import MongoClient
 from config import MONGODB_URI
 
@@ -13,30 +12,23 @@ logger = logging.getLogger(__name__)
 def test_connection():
     try:
         logger.info("Attempting to connect to MongoDB...")
-        logger.info(f"Using URI (masked): {MONGODB_URI.split('@')[1]}")
+        logger.info(f"Using URI (masked): {MONGODB_URI.split('@')[1] if '@' in MONGODB_URI else 'local'}")
 
+        # Minimal connection configuration
         client = MongoClient(
             MONGODB_URI,
-            serverSelectionTimeoutMS=5000,
-            retryWrites=True,
-            w='majority',
-            ssl=True,
-            ssl_cert_reqs=ssl.CERT_NONE,
-            connect=True
+            serverSelectionTimeoutMS=5000,  # Short timeout for quick testing
+            connectTimeoutMS=5000,
+            retryWrites=True
         )
 
-        # Test the connection
+        # Test the connection without creating data
         client.admin.command('ping')
-        db = client.get_database()
-        logger.info(f"Successfully connected to MongoDB. Database: {db.name}")
+        logger.info("Successfully connected to MongoDB")
 
-        # Test a simple operation
-        collections = db.list_collection_names()
-        logger.info(f"Available collections: {collections}")
-
-        # Initialize with sample data if needed
-        if 'importers' not in collections:
-            logger.info("Importers collection not found, will be created automatically when data is inserted")
+        # Just list database names without creating anything
+        db_names = client.list_database_names()
+        logger.info(f"Available databases: {db_names}")
 
         return True
 

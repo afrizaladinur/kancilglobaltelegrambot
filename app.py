@@ -3,23 +3,26 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
-
 class Base(DeclarativeBase):
     pass
-
 
 db = SQLAlchemy(model_class=Base)
 # create the app
 app = Flask(__name__)
 # setup a secret key, required by sessions
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "a secret key"
-# configure the database, relative to the app instance folder
+
+# configure the database with proper SSL handling
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "connect_args": {
+        "sslmode": "require"
+    }
 }
-# initialize the app with the extension, flask-sqlalchemy >= 3.0.x
+
+# initialize the app with the extension
 db.init_app(app)
 
 @app.route('/')
