@@ -11,10 +11,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_importers_table(engine) -> None:
-    """Create the importers table if it doesn't exist"""
+def create_tables(engine) -> None:
+    """Create required tables if they don't exist"""
     try:
-        create_table_sql = """
+        create_importers_sql = """
         CREATE TABLE IF NOT EXISTS importers (
             id SERIAL PRIMARY KEY,
             role VARCHAR(50),
@@ -31,9 +31,18 @@ def create_importers_table(engine) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
-        with engine.begin() as conn:  # Using begin() here ensures proper transaction handling
-            conn.execute(text(create_table_sql))
-        logger.info("Importers table created successfully")
+        create_processed_files_sql = """
+        CREATE TABLE IF NOT EXISTS processed_files (
+            id SERIAL PRIMARY KEY,
+            file_path TEXT UNIQUE NOT NULL,
+            row_count INTEGER NOT NULL,
+            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        with engine.begin() as conn:
+            conn.execute(text(create_importers_sql))
+            conn.execute(text(create_processed_files_sql))
+        logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Error creating table: {str(e)}", exc_info=True)
         raise
