@@ -273,9 +273,10 @@ class DataStore:
             credits = self.get_user_credits(user_id)
             logging.info(f"Checking credits for user {user_id}. Current credits: {credits}")
 
-            if credits is None or credits < credit_cost:
-                self.initialize_user_credits(user_id) # Initialize credits if none exist.
-                logging.warning(f"User {user_id} had insufficient credits. Credits initialized")
+            if credits is None:
+                self.initialize_user_credits(user_id)
+                credits = self.get_user_credits(user_id)
+                logging.info(f"Initialized credits for new user {user_id}. Credits: {credits}")
 
             if credits < credit_cost:
                 logging.warning(f"User {user_id} has insufficient credits ({credits}) to save contact (cost: {credit_cost})")
