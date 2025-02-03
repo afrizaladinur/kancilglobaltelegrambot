@@ -1,10 +1,11 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
+
 class CommandHandler:
     def __init__(self):
         self.data_store = DataStore()
@@ -119,7 +120,7 @@ class CommandHandler:
             await update.message.reply_text(Messages.SEARCH_ERROR)
 
     async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /saved command to show saved contacts"""
+        """Handle /saved command"""
         try:
             if not await self.check_rate_limit(update):
                 return
@@ -162,7 +163,7 @@ class CommandHandler:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
         try:
-            query: CallbackQuery = update.callback_query
+            query = update.callback_query
             await query.answer()  # Acknowledge the button press
             logging.info(f"Received callback query: {query.data}")
 
@@ -220,7 +221,6 @@ class CommandHandler:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
             await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
 
-
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
         try:
@@ -251,7 +251,6 @@ class CommandHandler:
                 self.data_store.track_user_command(user_id, 'credits')
                 credits = self.data_store.get_user_credits(user_id)
 
-            # Create keyboard with buy credits button
             keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
 
             await update.message.reply_text(

@@ -53,7 +53,7 @@ class DataStore:
                 conn.execute(text(create_user_stats_sql))
                 conn.execute(text(create_user_credits_sql))
                 conn.commit()
-                logging.info("User credits table initialized successfully")
+                logging.info("Tables initialized successfully")
         except Exception as e:
             logging.error(f"Error creating tables: {str(e)}", exc_info=True)
 

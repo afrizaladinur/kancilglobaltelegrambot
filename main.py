@@ -1,6 +1,4 @@
 import logging
-import asyncio
-import signal
 import threading
 from bot import TelegramBot
 from app import app
@@ -13,11 +11,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def signal_handler(signum, frame):
-    """Handle shutdown signals"""
-    logger.info("Received shutdown signal")
-    raise SystemExit
-
 def run_flask():
     """Run Flask server"""
     try:
@@ -28,10 +21,6 @@ def run_flask():
 
 def main():
     """Start the bot and Flask server."""
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
     try:
         # Start Flask in a separate thread
         flask_thread = threading.Thread(target=run_flask)
@@ -44,8 +33,6 @@ def main():
         app = bot.get_application()
         logger.info("Starting bot...")
         app.run_polling(drop_pending_updates=True)
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Application stopped by signal")
     except Exception as e:
         logger.error(f"Error running application: {e}")
         raise
