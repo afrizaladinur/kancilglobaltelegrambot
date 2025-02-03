@@ -354,8 +354,8 @@ class DataStore:
         """Track user command usage in PostgreSQL"""
         try:
             update_sql = """
-            INSERT INTO user_stats (user_id, command, usage_count)
-            VALUES (:user_id, :command, 1)
+            INSERT INTO user_stats (user_id, command, usage_count, last_used)
+            VALUES (:user_id, :command, 1, CURRENT_TIMESTAMP)
             ON CONFLICT (user_id, command)
             DO UPDATE SET 
                 usage_count = user_stats.usage_count + 1,
