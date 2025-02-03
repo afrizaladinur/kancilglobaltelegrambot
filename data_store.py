@@ -186,14 +186,8 @@ class DataStore:
 
             search_sql = f"""
             SELECT name, country, phone, website, email_1, email_2, wa_availability,
-                   CASE 
-                       WHEN product LIKE 'WW %' THEN SUBSTRING(product, 4)
-                       ELSE product 
-                   END as product,
-                   CASE 
-                       WHEN product_description IS NULL THEN ''
-                       ELSE product_description
-                   END as product_description
+                   product as hs_code,
+                   COALESCE(product_description, '') as product_description
             FROM importers
             WHERE {where_clause}
             ORDER BY 
@@ -213,7 +207,7 @@ class DataStore:
                         'website': row.website,
                         'email': row.email_1 or row.email_2,
                         'wa_available': row.wa_availability == 'Available',
-                        'product': row.product,
+                        'product': row.hs_code,
                         'product_description': row.product_description
                     }
                     for row in result
