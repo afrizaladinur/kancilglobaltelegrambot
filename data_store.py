@@ -168,7 +168,7 @@ class DataStore:
     def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name, country, or product"""
         try:
-            # Split the query into terms and remove empty strings
+            # Clean and split the query into terms
             search_terms = [term.strip() for term in query.split() if term.strip()]
             logging.info(f"Starting search with terms: {search_terms}")
 
@@ -177,10 +177,11 @@ class DataStore:
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f"term_{i}"
+                # Add TRIM to remove whitespace and use ILIKE for case-insensitive matching
                 where_conditions.append(f"""(
-                    LOWER(name) LIKE '%' || LOWER(:{param_name}) || '%' OR 
-                    LOWER(country) LIKE '%' || LOWER(:{param_name}) || '%' OR 
-                    LOWER(product) LIKE '%' || LOWER(:{param_name}) || '%'
+                    TRIM(LOWER(name)) ILIKE LOWER(:'%' || :{param_name} || '%') OR 
+                    TRIM(LOWER(country)) ILIKE LOWER(:'%' || :{param_name} || '%') OR 
+                    TRIM(LOWER(product)) ILIKE LOWER(:'%' || :{param_name} || '%')
                 )""")
                 params[param_name] = term
 
