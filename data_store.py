@@ -76,7 +76,7 @@ class DataStore:
                 result = conn.execute(text(
                     "SELECT credits FROM user_credits WHERE user_id = :user_id"
                 ), {"user_id": user_id}).first()
-                return result[0] if result else None
+                return result[0] if result else 0.0
         except Exception as e:
             logging.error(f"Error getting user credits: {str(e)}")
             return None
@@ -126,10 +126,11 @@ class DataStore:
         try:
             use_credit_sql = """
             UPDATE user_credits
-            SET credits = CASE 
-                WHEN credits >= :amount THEN credits - :amount
-                ELSE credits
-            END,
+            SET credits = ROUND(CAST(
+                CASE 
+                    WHEN credits >= :amount THEN credits - :amount
+                    ELSE credits
+                END AS NUMERIC), 1),
             last_updated = CURRENT_TIMESTAMP
             WHERE user_id = :user_id AND credits >= :amount
             RETURNING credits;
@@ -139,10 +140,12 @@ class DataStore:
                 with conn.begin():
                     result = conn.execute(
                         text(use_credit_sql),
-                        {"user_id": user_id, "amount": amount}
+                        {"user_id": user_id, "amount": float(amount)}
                     ).scalar()
-                    logging.info(f"Credit used for user {user_id}. Amount: {amount}, Remaining credits: {result}")
-                    return result is not None
+                    if result is not None:
+                        logging.info(f"Credit used for user {user_id}. Amount: {amount}, Remaining credits: {result}")
+                        return True
+                    return False
         except Exception as e:
             logging.error(f"Error using credit: {str(e)}", exc_info=True)
             return False
