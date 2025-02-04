@@ -109,6 +109,9 @@ class CommandHandler:
             with app.app_context():
                 try:
                     results = self.data_store.search_importers(query)
+                    # Store results in context for pagination
+                    context.user_data['last_search_results'] = results
+                    context.user_data['search_page'] = 0  # Reset to first page
                 except Exception as search_error:
                     logging.error(f"Search error: {str(search_error)}")
                     await update.message.reply_text(
@@ -124,7 +127,17 @@ class CommandHandler:
 
             logging.info(f"Found {len(results)} results for query: {query}")
 
-            for importer in results:
+            # Initialize page in context
+            page = context.user_data.get('search_page', 0)
+            items_per_page = 2
+            total_pages = (len(results) + items_per_page - 1) // items_per_page
+            
+            # Get current page results
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            current_results = results[start_idx:end_idx]
+
+            for importer in current_results:
                 try:
                     message_text, _, callback_data = Messages.format_importer(importer)
 
@@ -141,6 +154,19 @@ class CommandHandler:
                 except Exception as format_error:
                     logging.error(f"Error formatting importer {importer.get('name')}: {str(format_error)}", exc_info=True)
                     continue
+
+            # Add pagination buttons
+            pagination_buttons = []
+            if page > 0:
+                pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
+            pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
+            if page < total_pages - 1:
+                pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+            await update.message.reply_text(
+                f"Halaman {page + 1} dari {total_pages}",
+                reply_markup=InlineKeyboardMarkup([pagination_buttons])
+            )
 
             logging.info(f"Successfully sent search results to user {user_id}")
         except Exception as e:
@@ -400,8 +426,53 @@ class CommandHandler:
                         f"Halaman {current_page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons])
                     )
-                elif query.data == "page_info":
+                elif query.data in ["page_info", "search_page_info"]:
                     await query.answer("Halaman saat ini", show_alert=False)
+                elif query.data in ["search_prev", "search_next"]:
+                    # Get current search results from context
+                    results = context.user_data.get('last_search_results', [])
+                    if not results:
+                        await query.message.reply_text("Hasil pencarian tidak tersedia. Silakan cari lagi.")
+                        return
+
+                    items_per_page = 2
+                    total_pages = (len(results) + items_per_page - 1) // items_per_page
+                    current_page = context.user_data.get('search_page', 0)
+
+                    if query.data == "search_prev":
+                        current_page = max(0, current_page - 1)
+                    else:
+                        current_page = min(total_pages - 1, current_page + 1)
+
+                    context.user_data['search_page'] = current_page
+                    start_idx = current_page * items_per_page
+                    end_idx = start_idx + items_per_page
+                    current_results = results[start_idx:end_idx]
+
+                    for importer in current_results:
+                        message_text, _, _ = Messages.format_importer(importer)
+                        keyboard = [[InlineKeyboardButton(
+                            "💾 Simpan Kontak",
+                            callback_data=f"save_{importer['name']}"
+                        )]]
+                        await query.message.reply_text(
+                            message_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                    # Update pagination buttons
+                    pagination_buttons = []
+                    if current_page > 0:
+                        pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
+                    pagination_buttons.append(InlineKeyboardButton(f"{current_page + 1}/{total_pages}", callback_data="search_page_info"))
+                    if current_page < total_pages - 1:
+                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+                    await query.message.reply_text(
+                        f"Halaman {current_page + 1} dari {total_pages}",
+                        reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                    )
                 elif query.data == "show_credits":
                     user_id = query.from_user.id
                     with app.app_context():
