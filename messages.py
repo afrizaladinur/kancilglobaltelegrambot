@@ -36,7 +36,9 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • Kombinasikan negara + kode HS untuk filter terbaik
 • Simpan kontak penting agar bisa diakses kapan saja
 
-*Data Tersedia (Kode HS):*
+*Data Tersedia*
+
+*Data Importir:*
 • 0301 - Ikan hidup
 • 0302 - Ikan segar
 • 0303 - Ikan beku
@@ -59,7 +61,9 @@ Contoh pencarian:
 /search 0303
 /search 0303 malaysia
 
-*Data Tersedia (Kode HS):*
+*Data Tersedia*
+
+*Data Importir:*
 • 0301 - Ikan hidup
 • 0302 - Ikan segar
 • 0303 - Ikan beku
@@ -81,7 +85,7 @@ Catatan:
    Format: /search [kode 4 digit]
    Contoh: `/search 0302` (ikan segar)
           `/search 0303` (ikan beku)
-          
+
 *C. Pencarian Kombinasi:*
    Format: /search [kode hs] [negara]
    Contoh: `/search 0302 malaysia`
