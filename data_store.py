@@ -19,8 +19,9 @@ class DataStore:
     def _init_tables(self):
         """Initialize required tables"""
         try:
+            # Don't drop tables on init
             create_saved_contacts_sql = """
-            DROP TABLE IF EXISTS saved_contacts CASCADE;
+            CREATE TABLE IF NOT EXISTS saved_contacts (
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -50,11 +51,10 @@ class DataStore:
             """
 
             create_user_credits_sql = """
-            DROP TABLE IF EXISTS user_credits CASCADE;
             CREATE TABLE IF NOT EXISTS user_credits (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL UNIQUE,
-                credits INTEGER NOT NULL DEFAULT 3 CHECK (credits >= 0),
+                credits NUMERIC(10,1) NOT NULL DEFAULT 3.0 CHECK (credits >= 0),
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT positive_credits CHECK (credits >= 0)
             );
@@ -284,22 +284,13 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            # Use transaction to ensure atomicity
+            # First verify and deduct credits
+            if not self.use_credit(user_id, credit_cost):
+                logging.error("Failed to deduct credits")
+                return False
+
+            # Then save the contact in a separate transaction
             save_contact_sql = """
-            WITH get_credits AS (
-                SELECT credits 
-                FROM user_credits 
-                WHERE user_id = :user_id
-                FOR UPDATE
-            ),
-            update_credits AS (
-                UPDATE user_credits 
-                SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
-                    last_updated = CURRENT_TIMESTAMP
-                WHERE user_id = :user_id 
-                AND credits >= :credit_cost
-                RETURNING credits
-            )
             INSERT INTO saved_contacts (
                 user_id, importer_name, country, phone, email, 
                 website, wa_availability, hs_code, product_description
