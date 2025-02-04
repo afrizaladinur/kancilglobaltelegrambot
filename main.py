@@ -13,7 +13,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-nest_asyncio.apply()
 
 def run_flask():
     """Run Flask server"""
@@ -30,8 +29,6 @@ async def run_bot():
         app = bot.get_application()
         logger.info("Starting bot...")
         await bot._set_commands()
-        await app.initialize()
-        await app.start()
         await app.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"Error running bot: {e}")
@@ -46,8 +43,10 @@ def main():
         flask_thread.start()
         logger.info("Flask server started")
 
-        # Run the bot
-        asyncio.run(run_bot())
+        # Create new event loop for the bot
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run_bot())
     except Exception as e:
         logger.error(f"Error running application: {e}")
         raise
