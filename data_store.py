@@ -20,6 +20,7 @@ class DataStore:
         """Initialize required tables"""
         try:
             create_saved_contacts_sql = """
+            DROP TABLE IF EXISTS saved_contacts;
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -35,9 +36,10 @@ class DataStore:
             """
 
             create_user_stats_sql = """
+            DROP TABLE IF EXISTS user_stats;
             CREATE TABLE IF NOT EXISTS user_stats (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 command VARCHAR(50) NOT NULL,
                 usage_count INTEGER DEFAULT 1,
                 last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
