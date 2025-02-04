@@ -19,6 +19,17 @@ def run_flask():
         logger.error(f"Error running Flask server: {e}")
         raise
 
+async def run_bot():
+    """Run the Telegram bot"""
+    try:
+        bot = TelegramBot()
+        app = bot.get_application()
+        logger.info("Starting bot...")
+        await app.run_polling(drop_pending_updates=True)
+    except Exception as e:
+        logger.error(f"Error running bot: {e}")
+        raise
+
 def main():
     """Start the bot and Flask server."""
     try:
@@ -28,11 +39,9 @@ def main():
         flask_thread.start()
         logger.info("Flask server started")
 
-        # Start Telegram bot
-        bot = TelegramBot()
-        app = bot.get_application()
-        logger.info("Starting bot...")
-        app.run_polling(drop_pending_updates=True)
+        # Run the bot with proper asyncio handling
+        import asyncio
+        asyncio.run(run_bot())
     except Exception as e:
         logger.error(f"Error running application: {e}")
         raise
