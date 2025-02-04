@@ -52,7 +52,8 @@ class CommandHandler:
                  InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
                  InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]
+                [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
 
             await update.message.reply_text(
