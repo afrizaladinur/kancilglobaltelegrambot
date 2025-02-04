@@ -213,8 +213,8 @@ class CommandHandler:
             with app.app_context():
                 if query.data == "start_search":
                     await query.message.reply_text(
-                        "Gunakan perintah /search diikuti dengan kata kunci pencarian.\n"
-                        "Contoh: /search Indonesia"
+                        Messages.SEARCH_NO_QUERY,
+                        parse_mode='Markdown'
                     )
                 elif query.data == "show_saved":
                     user_id = query.from_user.id
