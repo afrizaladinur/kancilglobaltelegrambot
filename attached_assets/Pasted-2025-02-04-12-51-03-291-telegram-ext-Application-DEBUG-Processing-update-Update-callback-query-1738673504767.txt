@@ -1,0 +1,40 @@
+2025-02-04 12:51:03,291 - telegram.ext.Application - DEBUG - Processing update Update(callback_query=CallbackQuery(chat_instance='4517032165306089165', data='show_saved_next', from_user=User(first_name='Afrizal Labib', id=6422072438, is_bot=False, language_code='en', last_name='Adinur', username='afrizaladinur'), id='9135847022094044978', message=Message(channel_chat_created=False, chat=Chat(first_name='Afrizal Labib', id=6422072438, last_name='Adinur', type=<ChatType.PRIVATE>, username='afrizaladinur'), date=datetime.datetime(2025, 2, 4, 12, 50, 59, tzinfo=datetime.timezone.utc), delete_chat_photo=False, from_user=User(first_name='Direktori Ekspor-Impor', id=7639309068, is_bot=True, username='kancilglobalbot'), group_chat_created=False, message_id=3405, reply_markup=InlineKeyboardMarkup(inline_keyboard=((InlineKeyboardButton(callback_data='show_saved_page_info', text='1/15'), InlineKeyboardButton(callback_data='show_saved_next', text='Next ➡️')), (InlineKeyboardButton(callback_data='export_contacts', text='📥 Simpan ke CSV'),), (InlineKeyboardButton(callback_data='back_to_main', text='🔙 Kembali'),))), supergroup_chat_created=False, text='Halaman 1 dari 15')), update_id=67436254)
+2025-02-04 12:51:03,292 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `answerCallbackQuery` with parameters `{'callback_query_id': '9135847022094044978'}`
+2025-02-04 12:51:03,292 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:03,292 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `getUpdates` with parameters `{'timeout': 10, 'offset': 67436255}`
+2025-02-04 12:51:03,293 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-04 12:51:03,293 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 12:51:03,293 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 12:51:03,293 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:03,294 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:03,294 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-04 12:51:03,294 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 12:51:03,294 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 12:51:03,294 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:03,577 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 04 Feb 2025 12:51:03 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'25'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-04 12:51:03,577 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-02-04 12:51:03,578 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-04 12:51:03,578 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-04 12:51:03,578 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-04 12:51:03,578 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-04 12:51:03,578 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `answerCallbackQuery` finished with return value `True`
+2025-02-04 12:51:03,578 - root - INFO - Received callback query: show_saved_next
+2025-02-04 12:51:03,710 - root - ERROR - Error in button callback: cannot access local variable 'items_per_page' where it is not associated with a value
+Traceback (most recent call last):
+  File "/home/runner/workspace/handlers.py", line 756, in button_callback
+    total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
+                                         ^^^^^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'items_per_page' where it is not associated with a value
+2025-02-04 12:51:03,711 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `sendMessage` with parameters `{'chat_id': 6422072438, 'text': 'Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti.'}`
+2025-02-04 12:51:03,711 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:03,712 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-04 12:51:03,712 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 12:51:03,712 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 12:51:03,712 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 12:51:04,016 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 04 Feb 2025 12:51:03 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'349'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-04 12:51:04,016 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/sendMessage "HTTP/1.1 200 OK"
+2025-02-04 12:51:04,016 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-04 12:51:04,017 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-04 12:51:04,017 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-04 12:51:04,017 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-04 12:51:04,017 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `sendMessage` finished with return value `{'message_id': 3407, 'from': {'id': 7639309068, 'is_bot': True, 'first_name': 'Direktori Ekspor-Impor', 'username': 'kancilglobalbot'}, 'chat': {'id': 6422072438, 'first_name': 'Afrizal Labib', 'last_name': 'Adinur', 'username': 'afrizaladinur', 'type': 'private'}, 'date': 1738673463, 'text': 'Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti.'}`
