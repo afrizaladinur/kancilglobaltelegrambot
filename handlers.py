@@ -485,30 +485,6 @@ class CommandHandler:
 
                         logging.info(f"Manual payment order created: {order_id}")
 
-                        # Notify admin about new order
-                        admin_message = (
-                            f"🔔 *Pesanan Kredit Baru!*\n\n"
-                            f"Order ID: `{order_id}`\n"
-                            f"User ID: `{user_id}`\n"
-                            f"Username: @{username}\n"
-                            f"Jumlah Kredit: {credits}\n"
-                            f"Total: Rp {int(amount):,}"
-                        )
-
-                        admin_keyboard = [[InlineKeyboardButton(
-                            f"✅ Berikan {credits} Kredit",
-                            callback_data=f"give_{user_id}_{credits}"
-                        )]]
-
-                        admin_ids = [6422072438]
-                        for admin_id in admin_ids:
-                            await context.bot.send_message(
-                                chat_id=admin_id,
-                                text=admin_message,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
-                            )
-
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                         await query.message.reply_text(
