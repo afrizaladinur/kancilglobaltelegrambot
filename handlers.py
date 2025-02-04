@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
@@ -459,11 +460,36 @@ class CommandHandler:
                                 reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
-                        # Then generate Xendit payment link
+                        # Generate Xendit payment link and notify admin in one place
                         xendit_id = os.environ.get('XENDIT_ID')
+                        admin_message = (
+                            f"🔔 *Pesanan Kredit Baru!*\n\n"
+                            f"Order ID: `{order_id}`\n"
+                            f"User ID: `{user_id}`\n"
+                            f"Username: @{username}\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}"
+                        )
+
+                        admin_keyboard = [[InlineKeyboardButton(
+                            f"✅ Berikan {credits} Kredit",
+                            callback_data=f"give_{user_id}_{credits}"
+                        )]]
+
+                        # Send notification to admin
+                        admin_ids = [6422072438]  # Admin ID list
+                        for admin_id in admin_ids:
+                            await context.bot.send_message(
+                                chat_id=admin_id,
+                                text=admin_message,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                            )
+
+                        # Generate payment link if Xendit is configured
                         if xendit_id:
                             xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
-                            payment_url = f"{xendit_url}?amount={amount}&external_id={order_id}&items[0][name]=Kredit Bot&items[0][quantity]={credits}"
+                            payment_url = f"{xendit_url}?amount={amount}&external_id={order_id}&payer_email={username}@telegram.org&items[0][name]=Kredit%20Bot&items[0][quantity]={credits}"
                             payment_button = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
                             
                             await query.message.reply_text(
@@ -476,7 +502,6 @@ class CommandHandler:
                                 reply_markup=InlineKeyboardMarkup(payment_button)
                             )
                         else:
-                            # Fallback message if Xendit is not configured
                             await query.message.reply_text(
                                 f"✅ Pesanan dibuat!\n\n"
                                 f"ID Pesanan: `{order_id}`\n"
