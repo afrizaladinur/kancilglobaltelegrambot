@@ -183,7 +183,10 @@ class CommandHandler:
                 pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
             # Add regenerate button as a separate row
-            regenerate_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
+            regenerate_button = [
+                [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+            ]
 
             await update.message.reply_text(
                 f"Halaman {page + 1} dari {total_pages}",
@@ -249,7 +252,10 @@ class CommandHandler:
             if page < total_pages - 1:
                 pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
 
-            export_buttons = [[InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")]]
+            export_buttons = [
+                [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+            ]
             await update.message.reply_text(
                 f"Halaman {page + 1} dari {total_pages}",
                 reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
@@ -320,7 +326,10 @@ class CommandHandler:
                     if page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
 
-                    export_buttons = [[InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")]]
+                    export_buttons = [
+                        [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
                     await query.message.reply_text(
                         f"Halaman {page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
@@ -440,7 +449,10 @@ class CommandHandler:
                             pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
                         # Add regenerate button
-                        regenerate_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
+                        regenerate_button = [
+                            [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                        ]
 
                         await query.message.reply_text(
                             f"Halaman {page + 1} dari {total_pages}",
@@ -577,7 +589,10 @@ class CommandHandler:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
                     # Add Cari Lagi button as a separate row
-                    cari_lagi_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
+                    cari_lagi_button = [
+                        [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
 
                     await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
@@ -726,7 +741,7 @@ class CommandHandler:
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
                 elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
-                    items_per_page = 2
+                    itemsper_page = 2
 
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
@@ -770,7 +785,10 @@ class CommandHandler:
                     if current_page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
 
-                    export_buttons = [[InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")]]
+                    export_buttons = [
+                        [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
                     await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
