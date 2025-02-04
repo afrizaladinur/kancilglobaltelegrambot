@@ -7,6 +7,25 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 *Menu Utama:*
 • 🔍 *Cari Importir* - Pencarian data importir:
   ├ *Berdasarkan Negara:*
+
+    @staticmethod
+    def get_country_emoji(country: str) -> str:
+        """Get emoji for a country"""
+        country_emojis = {
+            'China': '🇨🇳',
+            'Japan': '🇯🇵',
+            'Korea': '🇰🇷',
+            'United States': '🇺🇸',
+            'Vietnam': '🇻🇳',
+            'Thailand': '🇹🇭',
+            'Singapore': '🇸🇬',
+            'Malaysia': '🇲🇾',
+            'Indonesia': '🇮🇩',
+            'India': '🇮🇳'
+        }
+        return country_emojis.get(country, '🌐')
+
+
   │ Format: /search [nama negara]
   │ Contoh: `/search malaysia`, `/search japan`
   │
@@ -191,7 +210,9 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 
             message_parts = []
             message_parts.append(f"🏢 {name}")
-            message_parts.append(f"🌏 Negara: {importer.get('country', '')}")
+            country = importer.get('country', '')
+            country_emoji = Messages.get_country_emoji(country)
+            message_parts.append(f"🌏 Negara: {country_emoji} {country}")
             if hs_code:
                 message_parts.append(f"📦 Kode HS: {hs_code}")
 
