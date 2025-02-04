@@ -225,11 +225,29 @@ class CommandHandler:
                             logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
                             continue
                 elif query.data == "show_stats":
-                    await self.stats(update, context)
+                    user_id = query.from_user.id
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'stats')
+                        stats = self.data_store.get_user_stats(user_id)
+                    await query.message.reply_text(
+                        Messages.format_stats(stats),
+                        parse_mode='Markdown'
+                    )
                 elif query.data == "show_help":
-                    await self.help(update, context)
+                    user_id = query.from_user.id
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'help')
+                    await query.message.reply_text(Messages.HELP, parse_mode='Markdown')
                 elif query.data == "show_credits":
-                    await self.credits(update, context)
+                    user_id = query.from_user.id
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'credits')
+                        credits = self.data_store.get_user_credits(user_id)
+                    keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
+                    await query.message.reply_text(
+                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
                 elif query.data == "buy_credits":
                     await query.message.reply_text(Messages.BUY_CREDITS_INFO)
                 elif query.data.startswith('save_'):

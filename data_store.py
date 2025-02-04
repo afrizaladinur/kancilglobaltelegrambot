@@ -85,11 +85,18 @@ class DataStore:
         """Initialize credits for new user"""
         try:
             with self.engine.begin() as conn:
-                conn.execute(text("""
-                    INSERT INTO user_credits (user_id, credits) 
-                    VALUES (:user_id, :credits)
-                    ON CONFLICT (user_id) DO NOTHING
-                """), {"user_id": user_id, "credits": initial_credits})
+                # First check if user already has credits
+                result = conn.execute(text(
+                    "SELECT credits FROM user_credits WHERE user_id = :user_id"
+                ), {"user_id": user_id}).first()
+                
+                if result is None:
+                    # Only initialize if user doesn't exist
+                    conn.execute(text("""
+                        INSERT INTO user_credits (user_id, credits) 
+                        VALUES (:user_id, :credits)
+                    """), {"user_id": user_id, "credits": initial_credits})
+                    logging.info(f"Initialized new user {user_id} with {initial_credits} credits")
         except Exception as e:
             logging.error(f"Error initializing user credits: {str(e)}")
 
