@@ -9,8 +9,6 @@ class TelegramBot:
         self.command_handler = CommandHandler()
         self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         self._register_handlers()
-        import asyncio
-        asyncio.run(self._set_commands())
         logging.info("Bot initialized")
 
     async def _set_commands(self):

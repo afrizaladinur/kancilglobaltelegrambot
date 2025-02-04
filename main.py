@@ -25,6 +25,7 @@ async def run_bot():
         bot = TelegramBot()
         app = bot.get_application()
         logger.info("Starting bot...")
+        await bot._set_commands()
         await app.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"Error running bot: {e}")
