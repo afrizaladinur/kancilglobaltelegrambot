@@ -484,9 +484,12 @@ class CommandHandler:
                     if current_page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
+                    # Add Cari Lagi button as a separate row
+                    cari_lagi_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
+
                     await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
-                        reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                        reply_markup=InlineKeyboardMarkup([pagination_buttons] + cari_lagi_button)
                     )
                 elif query.data == "show_credits":
                     user_id = query.from_user.id
