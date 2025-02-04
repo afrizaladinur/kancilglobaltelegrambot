@@ -104,6 +104,7 @@ class CommandHandler:
                 return
 
             query = ' '.join(context.args)
+            context.user_data['last_search_query'] = query
             logging.info(f"Processing search request from user {user_id} with query: {query}")
 
             with app.app_context():
@@ -163,9 +164,12 @@ class CommandHandler:
             if page < total_pages - 1:
                 pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
+            # Add regenerate button as a separate row
+            regenerate_button = [[InlineKeyboardButton("🔄 Regenerate", callback_data="regenerate_search")]]
+
             await update.message.reply_text(
                 f"Halaman {page + 1} dari {total_pages}",
-                reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
             )
 
             logging.info(f"Successfully sent search results to user {user_id}")
@@ -371,6 +375,17 @@ class CommandHandler:
                         Messages.format_stats(stats),
                         parse_mode='Markdown'
                     )
+                elif query.data == "regenerate_search":
+                    # Get the original search query
+                    if 'last_search_results' in context.user_data:
+                        results = self.data_store.search_importers(context.user_data.get('last_search_query', ''))
+                        context.user_data['last_search_results'] = results
+                        context.user_data['search_page'] = 0
+                        # Show first page of new results
+                        await self.search(update, context)
+                    else:
+                        await query.message.reply_text("Please perform a new search first.")
+
                 elif query.data == "show_help":
                     user_id = query.from_user.id
                     with app.app_context():
