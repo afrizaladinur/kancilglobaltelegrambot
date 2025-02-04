@@ -162,7 +162,7 @@ def import_csv_to_postgres(csv_file_path: str, database_url: Optional[str] = Non
         logger.error(f"Error importing CSV data: {str(e)}", exc_info=True)
         return False
 
-def process_all_csv_files(data_dir: str = "data") -> bool:
+def process_all_csv_files(data_dir: str = "new data update") -> bool:
     """Process all CSV files in the specified directory"""
     try:
         logger.info(f"Looking for CSV files in directory: {data_dir}")
