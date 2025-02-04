@@ -18,9 +18,9 @@ Contoh pencarian:
 • /search 0303 malaysia - cari importir dari Malaysia dengan HS code 0303
 
 Sistem Kredit:
-• 2 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
-• 1 kredit - Kontak lengkap tanpa WhatsApp (email + website + telepon)
-• 0.5 kredit - Kontak tidak lengkap tanpa WhatsApp
+• 3 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
+• 2 kredit - Kontak lengkap tanpa WhatsApp (email + website + telepon)
+• 1 kredit - Kontak tidak lengkap tanpa WhatsApp
 
 Note: Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
 """
