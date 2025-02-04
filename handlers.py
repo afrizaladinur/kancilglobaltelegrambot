@@ -377,14 +377,57 @@ class CommandHandler:
                     )
                 elif query.data == "regenerate_search":
                     # Get the original search query
-                    if 'last_search_results' in context.user_data:
-                        results = self.data_store.search_importers(context.user_data.get('last_search_query', ''))
+                    if 'last_search_query' in context.user_data:
+                        query_text = context.user_data.get('last_search_query', '')
+                        results = self.data_store.search_importers(query_text)
+                        
+                        if not results:
+                            await query.message.reply_text(
+                                Messages.SEARCH_NO_RESULTS.format(query_text)
+                            )
+                            return
+
+                        # Reset pagination
                         context.user_data['last_search_results'] = results
                         context.user_data['search_page'] = 0
-                        # Show first page of new results
-                        await self.search(update, context)
+
+                        # Show first page results
+                        page = 0
+                        items_per_page = 2
+                        total_pages = (len(results) + items_per_page - 1) // items_per_page
+                        start_idx = page * items_per_page
+                        end_idx = start_idx + items_per_page
+                        current_results = results[start_idx:end_idx]
+
+                        for importer in current_results:
+                            message_text, _, _ = Messages.format_importer(importer)
+                            keyboard = [[InlineKeyboardButton(
+                                "💾 Simpan Kontak",
+                                callback_data=f"save_{importer['name'][:50]}"
+                            )]]
+                            await query.message.reply_text(
+                                message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard)
+                            )
+
+                        # Add pagination buttons
+                        pagination_buttons = []
+                        if page > 0:
+                            pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
+                        pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
+                        if page < total_pages - 1:
+                            pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+                        # Add regenerate button
+                        regenerate_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
+
+                        await query.message.reply_text(
+                            f"Halaman {page + 1} dari {total_pages}",
+                            reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
+                        )
                     else:
-                        await query.message.reply_text("Please perform a new search first.")
+                        await query.message.reply_text("Silakan lakukan pencarian baru terlebih dahulu.")
 
                 elif query.data == "show_help":
                     user_id = query.from_user.id
