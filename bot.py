@@ -8,7 +8,20 @@ class TelegramBot:
         self.command_handler = CommandHandler()
         self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         self._register_handlers()
+        self._set_commands()
         logging.info("Bot initialized")
+
+    def _set_commands(self):
+        """Set bot commands with descriptions"""
+        commands = [
+            ('start', 'Mulai bot dan lihat menu utama'),
+            ('search', 'Cari importir berdasarkan nama/negara/kode HS'),
+            ('saved', 'Lihat daftar kontak yang tersimpan'),
+            ('credits', 'Cek sisa kredit dan beli kredit'),
+            ('stats', 'Lihat statistik penggunaan'),
+            ('help', 'Tampilkan panduan lengkap')
+        ]
+        self.application.bot.set_my_commands(commands)
 
     def _register_handlers(self):
         """Register command handlers"""
