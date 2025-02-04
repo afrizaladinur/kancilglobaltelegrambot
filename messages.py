@@ -9,15 +9,41 @@ class Messages:
             'China': '🇨🇳',
             'Japan': '🇯🇵',
             'Korea': '🇰🇷',
+            'South Korea': '🇰🇷',
             'United States': '🇺🇸',
+            'USA': '🇺🇸',
+            'U.S.': '🇺🇸',
             'Vietnam': '🇻🇳',
             'Thailand': '🇹🇭',
-            'Singapore': '🇸🇬', 
+            'Singapore': '🇸🇬',
             'Malaysia': '🇲🇾',
             'Indonesia': '🇮🇩',
-            'India': '🇮🇳'
+            'India': '🇮🇳',
+            'Taiwan': '🇹🇼',
+            'Hong Kong': '🇭🇰',
+            'Philippines': '🇵🇭',
+            'Australia': '🇦🇺',
+            'New Zealand': '🇳🇿',
+            'Canada': '🇨🇦',
+            'Mexico': '🇲🇽',
+            'Brazil': '🇧🇷',
+            'United Kingdom': '🇬🇧',
+            'UK': '🇬🇧',
+            'Germany': '🇩🇪',
+            'France': '🇫🇷',
+            'Italy': '🇮🇹',
+            'Spain': '🇪🇸',
+            'Netherlands': '🇳🇱',
+            'Russia': '🇷🇺',
+            'Saudi Arabia': '🇸🇦',
+            'UAE': '🇦🇪',
+            'United Arab Emirates': '🇦🇪'
         }
-        return country_emojis.get(country, '🌐')
+        # Case-insensitive lookup
+        for key, value in country_emojis.items():
+            if country.lower() == key.lower():
+                return value
+        return '🌐'
 
 
     START = """
