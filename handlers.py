@@ -498,7 +498,7 @@ class CommandHandler:
                     )
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
-                    items_per_page = 2
+                    items_per_page = 2  # Define pagination size
 
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
@@ -742,9 +742,9 @@ class CommandHandler:
                     except Exception as e:
                         logging.error(f"Error processing order: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
-                elif query.data == "show_saved_prev" or query.data == "show_saved_next":
+                elif query.data == ""show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
-                    itemsper_page = 2
+                    items_per_page = 2
 
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
