@@ -3,6 +3,7 @@ import os
 import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
+from sqlalchemy import text
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
