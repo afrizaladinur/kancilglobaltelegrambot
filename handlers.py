@@ -132,7 +132,7 @@ class CommandHandler:
             page = context.user_data.get('search_page', 0)
             items_per_page = 2
             total_pages = (len(results) + items_per_page - 1) // items_per_page
-            
+
             # Get current page results
             start_idx = page * items_per_page
             end_idx = start_idx + items_per_page
@@ -582,7 +582,7 @@ class CommandHandler:
                             "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
                             "Admin akan segera menghubungi Anda untuk proses manual."
                         )
-                        
+
 
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
