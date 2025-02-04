@@ -36,6 +36,14 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • Kombinasikan negara + kode HS untuk filter terbaik
 • Simpan kontak penting agar bisa diakses kapan saja
 
+*Data Tersedia*
+
+*Data Importir:*
+• 0301 - Ikan hidup
+• 0302 - Ikan segar
+• 0303 - Ikan beku
+• 0304 - Fillet ikan
+
 Kredit awal: 10 kredit (gratis untuk pengguna baru)
 """
     HELP = """
@@ -53,6 +61,13 @@ Contoh pencarian:
 /search 0303
 /search 0303 malaysia
 
+*Data Tersedia*
+
+*Data Importir:*
+• 0301 - Ikan hidup
+• 0302 - Ikan segar
+• 0303 - Ikan beku
+• 0304 - Fillet ikan
 
 Catatan: 
 - Kontak yang belum disimpan akan disensor
