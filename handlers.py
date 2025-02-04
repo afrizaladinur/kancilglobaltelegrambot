@@ -263,10 +263,48 @@ class CommandHandler:
                     if page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
 
+                    export_buttons = [[InlineKeyboardButton("📥 Export to CSV", callback_data="export_contacts")]]
                     await query.message.reply_text(
                         f"Halaman {page + 1} dari {total_pages}",
-                        reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                        reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
                     )
+                elif query.data == "export_contacts":
+                    try:
+                        user_id = query.from_user.id
+                        with app.app_context():
+                            contacts = self.data_store.get_saved_contacts(user_id)
+                        
+                        if not contacts:
+                            await query.message.reply_text("No contacts to export.")
+                            return
+                            
+                        import csv
+                        import io
+                        
+                        # Create CSV in memory
+                        output = io.StringIO()
+                        writer = csv.DictWriter(output, fieldnames=['name', 'country', 'contact', 'email', 'website', 'wa_available', 'hs_code', 'product_description', 'saved_at'])
+                        writer.writeheader()
+                        writer.writerows(contacts)
+                        
+                        # Convert to bytes for sending
+                        csv_bytes = output.getvalue().encode('utf-8')
+                        output.close()
+                        
+                        # Send CSV file
+                        from io import BytesIO
+                        bio = BytesIO(csv_bytes)
+                        bio.name = f'saved_contacts_{user_id}.csv'
+                        
+                        await query.message.reply_document(
+                            document=bio,
+                            filename=f'saved_contacts_{user_id}.csv',
+                            caption="Here are your exported contacts!"
+                        )
+                        
+                    except Exception as e:
+                        logging.error(f"Error exporting contacts: {str(e)}")
+                        await query.message.reply_text("Error exporting contacts. Please try again later.")
                 elif query.data == "show_stats":
                     user_id = query.from_user.id
                     with app.app_context():
