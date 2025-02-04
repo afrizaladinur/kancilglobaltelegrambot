@@ -22,7 +22,6 @@ class DataStore:
             # Don't drop tables on init
             create_saved_contacts_sql = """
             CREATE TABLE IF NOT EXISTS saved_contacts (
-            CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
                 importer_name VARCHAR(255) NOT NULL,
@@ -51,14 +50,28 @@ class DataStore:
             """
 
             create_user_credits_sql = """
-            CREATE TABLE IF NOT EXISTS user_credits (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL UNIQUE,
-                credits NUMERIC(10,1) NOT NULL DEFAULT 3.0 CHECK (credits >= 0),
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                has_redeemed_free_credits BOOLEAN DEFAULT FALSE,
-                CONSTRAINT positive_credits CHECK (credits >= 0)
-            );
+            DO $$ 
+            BEGIN
+                CREATE TABLE IF NOT EXISTS user_credits (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL UNIQUE,
+                    credits NUMERIC(10,1) NOT NULL DEFAULT 3.0 CHECK (credits >= 0),
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    has_redeemed_free_credits BOOLEAN DEFAULT FALSE,
+                    CONSTRAINT positive_credits CHECK (credits >= 0)
+                );
+                
+                -- Add has_redeemed_free_credits column if it doesn't exist
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM information_schema.columns 
+                    WHERE table_name='user_credits' 
+                    AND column_name='has_redeemed_free_credits'
+                ) THEN
+                    ALTER TABLE user_credits 
+                    ADD COLUMN has_redeemed_free_credits BOOLEAN DEFAULT FALSE;
+                END IF;
+            END $$;
             """
 
             with self.engine.connect() as conn:

@@ -1,11 +1,13 @@
 import logging
 import os
 import time
+from sqlalchemy import text
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
+from app import app
 from app import app
 import xendit
 
