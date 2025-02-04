@@ -272,8 +272,10 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 
             callback_data = None
             if not saved:
-                # Truncate company name to 60 chars for callback data
-                callback_data = f"save_{importer['name'][:60]}"
+                # Sanitize and truncate company name for callback data
+                safe_name = ''.join(c for c in importer['name'] if c.isascii() and c.isprintable())
+                safe_name = safe_name.strip()[:30]  # Further reduce length to be safe
+                callback_data = f"save_{safe_name}"
 
             return message_text, whatsapp_number, callback_data
 
