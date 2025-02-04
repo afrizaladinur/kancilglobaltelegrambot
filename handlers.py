@@ -592,7 +592,8 @@ class CommandHandler:
 • 0301 - Ikan hidup
 • 0302 - Ikan segar
 • 0303 - Ikan beku
-• 0304 - Fillet ikan"""
+• 0304 - Fillet ikan
+• 0901 - Kopi"""
                     await query.message.reply_text(hs_guide, parse_mode='Markdown')
                 elif query.data.startswith('give_'):
                     try:
