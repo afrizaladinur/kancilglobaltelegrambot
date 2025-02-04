@@ -154,10 +154,12 @@ class DataStore:
         """Add credits to user account. Returns True if successful."""
         try:
             add_credits_sql = """
-            UPDATE user_credits
-            SET credits = credits + :amount,
-            last_updated = CURRENT_TIMESTAMP
-            WHERE user_id = :user_id
+            INSERT INTO user_credits (user_id, credits)
+            VALUES (:user_id, :amount)
+            ON CONFLICT (user_id) 
+            DO UPDATE SET 
+                credits = user_credits.credits + :amount,
+                last_updated = CURRENT_TIMESTAMP
             RETURNING credits;
             """
 
