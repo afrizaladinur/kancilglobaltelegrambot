@@ -199,9 +199,10 @@ class CommandHandler:
             if page < total_pages - 1:
                 pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
 
+            export_buttons = [[InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")]]
             await update.message.reply_text(
                 f"Halaman {page + 1} dari {total_pages}",
-                reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
             )
 
             logging.info(f"Successfully sent saved contacts to user {user_id}")
