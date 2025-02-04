@@ -272,9 +272,8 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 
             callback_data = None
             if not saved:
-                # Sanitize and truncate company name for callback data
-                safe_name = ''.join(c for c in importer['name'] if c.isascii() and c.isprintable())
-                safe_name = safe_name.strip()[:30]  # Further reduce length to be safe
+                # Only truncate name to stay within Telegram limits
+                safe_name = importer['name'].strip()[:30]  # Truncate to 30 chars
                 callback_data = f"save_{safe_name}"
 
             return message_text, whatsapp_number, callback_data
