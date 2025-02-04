@@ -459,7 +459,7 @@ class CommandHandler:
                          InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                         [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
                          InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                        [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
                     ]
                     await query.message.reply_text(
@@ -824,14 +824,26 @@ class CommandHandler:
 
                             counts_dict = {row[0]: row[1] for row in hs_counts}
                             
+                            # Build list of available contacts
+                            contacts_list = []
+                            if counts_dict.get('0301', 0) > 0:
+                                contacts_list.append(f"🐟 0301 - Ikan hidup ({counts_dict.get('0301')} kontak)")
+                            if counts_dict.get('0302', 0) > 0:
+                                contacts_list.append(f"🐠 0302 - Ikan segar ({counts_dict.get('0302')} kontak)")
+                            if counts_dict.get('0303', 0) > 0:
+                                contacts_list.append(f"❄️ 0303 - Ikan beku ({counts_dict.get('0303')} kontak)")
+                            if counts_dict.get('0304', 0) > 0:
+                                contacts_list.append(f"🍣 0304 - Fillet ikan ({counts_dict.get('0304')} kontak)")
+                            if counts_dict.get('0901', 0) > 0:
+                                contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
+                            
                             hs_guide = """📊 *Kontak Tersedia*
 
 🗂️ *Kontak Importir:*
-🐟 0301 - Ikan hidup ({} data)
-🐠 0302 - Ikan segar ({} data)
-❄️ 0303 - Ikan beku ({} data)
-🍣 0304 - Fillet ikan ({} data)
-☕ 0901 - Kopi ({} data)""".format(
+{}""".format("\n".join(contacts_list))
+
+                            # Skip the format since we're building the string differently
+                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                                 counts_dict.get('0301', 0),
                                 counts_dict.get('0302', 0),
                                 counts_dict.get('0303', 0),
