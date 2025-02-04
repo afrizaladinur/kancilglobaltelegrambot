@@ -855,7 +855,7 @@ class CommandHandler:
                                 WHERE user_id = :user_id
                                 FOR UPDATE
                             """), {"user_id": user_id})
-                            new_balance = result.scalar()
+                            new_balance = result.scalar() or 0.0
 
                         await query.message.reply_text(
                             f"🎉 Selamat! 10 kredit gratis telah ditambahkan ke akun Anda!\n"
