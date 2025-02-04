@@ -126,20 +126,20 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
         """Calculate credit cost based on available contact information"""
         has_whatsapp = importer.get('wa_available', False)
         
-        # If WhatsApp is available, always charge 2 credits
+        # If WhatsApp is available, always charge 3 credits
         if has_whatsapp:
-            return 2.0
+            return 3.0
             
         has_website = bool(importer.get('website'))
         has_email = bool(importer.get('email'))
         has_phone = bool(importer.get('contact'))
 
-        # All contact methods except WhatsApp (1 credit)
+        # All contact methods except WhatsApp (2 credits)
         if has_website and has_email and has_phone:
-            return 1.0
-        # Missing some contact methods and no WhatsApp (0.5 credits)
+            return 2.0
+        # Missing some contact methods and no WhatsApp (1 credit)
         else:
-            return 0.5
+            return 1.0
 
     @staticmethod
     def format_importer(importer: dict, saved: bool = False):

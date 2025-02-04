@@ -104,19 +104,19 @@ class DataStore:
         """Calculate credit cost based on contact information availability"""
         try:
             has_whatsapp = importer.get('wa_available', False)
-            # WhatsApp available = 2 credits
+            # WhatsApp available = 3 credits
             if has_whatsapp:
-                return 2.0
+                return 3.0
             # Check if has other contact methods
             has_website = bool(importer.get('website', '').strip())
             has_email = bool(importer.get('email', '').strip())
             has_phone = bool(importer.get('contact', '').strip())
 
-            # Complete contact info without WA = 1 credit
+            # Complete contact info without WA = 2 credits
             if has_website and has_email and has_phone:
-                return 1.0
-            # Partial contact info = 0.5 credit
-            return 0.5
+                return 2.0
+            # Partial contact info = 1 credit
+            return 1.0
         except Exception as e:
             logging.error(f"Error calculating credit cost: {str(e)}", exc_info=True)
             return 0.5  # Default to minimum cost if error occurs
