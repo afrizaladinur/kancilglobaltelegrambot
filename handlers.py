@@ -466,9 +466,11 @@ class CommandHandler:
 
                     for importer in current_results:
                         message_text, _, _ = Messages.format_importer(importer)
+                        # Truncate name to fit Telegram's 64-byte callback data limit
+                        truncated_name = importer['name'][:50]  # Leave room for 'save_' prefix
                         keyboard = [[InlineKeyboardButton(
                             "💾 Simpan Kontak",
-                            callback_data=f"save_{importer['name']}"
+                            callback_data=f"save_{truncated_name}"
                         )]]
                         await query.message.reply_text(
                             message_text,
