@@ -106,8 +106,6 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 - 10 kredit: Rp 50.000
 - 25 kredit: Rp 100.000
 - 50 kredit: Rp 175.000
-
-Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
 """
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."

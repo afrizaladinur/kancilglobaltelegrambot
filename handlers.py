@@ -417,7 +417,7 @@ class CommandHandler:
                         [InlineKeyboardButton("🛒 Beli 50 Kredit - Rp 175.000", callback_data="pay_50_175000")]
                     ]
                     await query.message.reply_text(
-                        "Pilih paket kredit yang ingin Anda beli:\n\nPembayaran melalui Xendit (QRIS, Bank Transfer, E-Wallet)",
+                        "Pilih paket kredit yang ingin Anda beli:",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 elif query.data.startswith('pay_'):
@@ -427,22 +427,54 @@ class CommandHandler:
                         if not xendit_id:
                             await query.message.reply_text("Payment system is currently unavailable. Please try again later.")
                             return
-                        xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
+                        
                         user_id = query.from_user.id
                         username = query.from_user.username or str(user_id)
+                        order_id = f"BOT_{user_id}_{int(time.time())}"
                         
-                        keyboard = [[InlineKeyboardButton(
-                            "💳 Bayar Sekarang",
-                            url=f"{xendit_url}?amount={amount}&external_id=BOT_{user_id}_{credits}&items[0][name]=Kredit Bot&items[0][quantity]={credits}"
-                        )]]
+                        xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
+                        payment_url = f"{xendit_url}?amount={amount}&external_id={order_id}&items[0][name]=Kredit Bot&items[0][quantity]={credits}"
                         
+                        keyboard = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
+                        
+                        # Send message to user
                         await query.message.reply_text(
-                            f"Klik tombol di bawah untuk melanjutkan pembayaran {credits} kredit senilai Rp {amount:,}",
+                            f"✅ Pesanan dibuat!\n\n"
+                            f"ID Pesanan: `{order_id}`\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}\n\n"
+                            f"Klik tombol di bawah untuk melanjutkan pembayaran",
+                            parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                        
+                        # Send alert to admin
+                        admin_message = (
+                            f"🔔 *Pesanan Kredit Baru!*\n\n"
+                            f"Order ID: `{order_id}`\n"
+                            f"User ID: `{user_id}`\n"
+                            f"Username: @{username}\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}"
+                        )
+                        
+                        admin_keyboard = [[InlineKeyboardButton(
+                            f"✅ Berikan {credits} Kredit",
+                            callback_data=f"give_{user_id}_{credits}"
+                        )]]
+                        
+                        admin_ids = [6422072438]  # Admin ID
+                        for admin_id in admin_ids:
+                            await context.bot.send_message(
+                                chat_id=admin_id,
+                                text=admin_message,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                            )
+                            
                     except Exception as e:
-                        logging.error(f"Error processing Xendit payment: {str(e)}")
-                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
+                        logging.error(f"Error processing payment: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan hubungi admin.")
                 elif query.data.startswith('order_'):
                     try:
                         credit_amount = query.data.split('_')[1]
