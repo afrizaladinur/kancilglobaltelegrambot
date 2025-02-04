@@ -449,7 +449,7 @@ class CommandHandler:
                         keyboard = [[
                             InlineKeyboardButton(
                                 "📎 Kirim Bukti Pembayaran",
-                                url="https://t.me/kancilglobalbot_admin"
+                                url="https://t.me/afrizaladinur"
                             )
                         ]]
 
