@@ -389,9 +389,11 @@ class CommandHandler:
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'stats')
                         stats = self.data_store.get_user_stats(user_id)
+                    keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                     await query.message.reply_text(
                         Messages.format_stats(stats),
-                        parse_mode='Markdown'
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 elif query.data == "regenerate_search":
                     # Get the original search query
@@ -447,11 +449,35 @@ class CommandHandler:
                     else:
                         await query.message.reply_text("Silakan lakukan pencarian baru terlebih dahulu.")
 
+                elif query.data == "back_to_main":
+                    # Delete current message and show main menu
+                    await query.message.delete()
+                    keyboard = [
+                        [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
+                        [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                         InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                        [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
+                         InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                        [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                        [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
+                    ]
+                    await query.message.reply_text(
+                        Messages.START,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
                 elif query.data == "show_help":
                     user_id = query.from_user.id
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'help')
-                    await query.message.reply_text(Messages.HELP, parse_mode='Markdown')
+                    keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                    await query.message.reply_text(
+                        Messages.HELP,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
