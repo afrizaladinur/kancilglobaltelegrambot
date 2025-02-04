@@ -1,4 +1,3 @@
-
 import logging
 
 class Messages:
@@ -119,10 +118,10 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
     @staticmethod
     def _calculate_credit_cost(importer: dict) -> float:
         has_whatsapp = importer.get('wa_available', False)
-        
+
         if has_whatsapp:
             return 3.0
-            
+
         has_website = bool(importer.get('website'))
         has_email = bool(importer.get('email'))
         has_phone = bool(importer.get('contact'))

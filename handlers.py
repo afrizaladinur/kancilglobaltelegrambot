@@ -299,7 +299,7 @@ class CommandHandler:
                         await query.message.reply_document(
                             document=bio,
                             filename=f'saved_contacts_{user_id}.csv',
-                            caption="Here are your exported contacts!"
+                            caption="Berikut adalah daftar kontak yang tersimpan!"
                         )
                         
                     except Exception as e:
