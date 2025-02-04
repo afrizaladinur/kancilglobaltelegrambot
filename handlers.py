@@ -195,7 +195,35 @@ class CommandHandler:
                         "Contoh: /search Indonesia"
                     )
                 elif query.data == "show_saved":
-                    await self.saved(update, context)
+                    user_id = query.from_user.id
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'saved')
+                        saved_contacts = self.data_store.get_saved_contacts(user_id)
+
+                    if not saved_contacts:
+                        await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
+                        return
+
+                    for contact in saved_contacts:
+                        try:
+                            message_text, whatsapp_number, _ = Messages.format_importer(
+                                contact, saved=True
+                            )
+                            keyboard = []
+                            if whatsapp_number:
+                                keyboard.append([InlineKeyboardButton(
+                                    "💬 Chat di WhatsApp",
+                                    url=f"https://wa.me/{whatsapp_number}"
+                                )])
+
+                            await query.message.reply_text(
+                                message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                            )
+                        except Exception as e:
+                            logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
+                            continue
                 elif query.data == "show_stats":
                     await self.stats(update, context)
                 elif query.data == "show_help":
