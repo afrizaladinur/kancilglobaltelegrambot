@@ -750,7 +750,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.37" },
     { name = "telegram", specifier = ">=0.0.1" },
     { name = "xendit", specifier = ">=0.1.3" },
-    { name = "xendit-python", specifier = ">=4.0.0" },
+    { name = "xendit-python", specifier = "==4.2.0" },
 ]
 
 [[package]]
@@ -907,12 +907,12 @@ wheels = [
 
 [[package]]
 name = "xendit-python"
-version = "6.1.0"
+version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/d6/c9641ca60d5fd0311058b47c8b6f3d1f975f0606facee8dc310e34568c76/xendit_python-6.1.0.tar.gz", hash = "sha256:b1ba2e705b045cefa31db73887314b0fbdd87039472f992b0d8a9181dfce7592", size = 213035 }
+sdist = { url = "https://files.pythonhosted.org/packages/e2/c0/35c95afd8b8b404324b7ee91e6a6232afa52b413034730763b633549197d/xendit_python-4.2.0.tar.gz", hash = "sha256:05e825078f648a8abc12ccc679e8a4c1a27a1b342081005f61f603e6cc2961fe", size = 204367 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/59/bbfc4de701feaa8f045440282ef8149763898dc19c939ad239345f6b621d/xendit_python-6.1.0-py3-none-any.whl", hash = "sha256:45bcafdc071c03170e630568208c061e814a8a2c10e67fb1cdd2bf25c46da9a1", size = 766573 },
+    { url = "https://files.pythonhosted.org/packages/a5/fa/9baaf71acfbeddef96fd6a0007e207f07b0ae0ac57c147472eaea448b175/xendit_python-4.2.0-py3-none-any.whl", hash = "sha256:1548c3bc21d0b5cd5342367a26e3bbbaded7a96e713f55a4d1143cc65a7f177f", size = 735953 },
 ]

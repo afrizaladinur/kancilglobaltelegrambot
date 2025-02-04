@@ -433,20 +433,27 @@ class CommandHandler:
                         xendit.set_api_key(os.environ.get('XENDIT_API_KEY'))
 
                         try:
-                            from xendit.models import EWalletParameters, EWalletChannelProperties
-                            from xendit.resources import EWallet
+                            from xendit.apis import PaymentApi
+                            from xendit.apis.payment_api import CreatePaymentRequest
 
-                            # Create EWallet payment
-                            ewallet = EWallet.create_payment(
-                                external_id=order_id,
+                            api_instance = PaymentApi(xendit.ApiClient())
+                            payment_params = CreatePaymentRequest(
+                                reference_id=order_id,
                                 amount=int(amount),
-                                channel_code="ID_OVO",  # Using OVO as example, can be changed
-                                channel_properties=EWalletChannelProperties(
-                                    success_redirect_url="https://t.me/kancilglobalbot",
-                                    failure_redirect_url="https://t.me/kancilglobalbot"
+                                currency="IDR",
+                                payment_method=dict(
+                                    type="EWALLET",
+                                    ewallet=dict(
+                                        channel_code="ID_OVO",
+                                        channel_properties=dict(
+                                            success_redirect_url="https://t.me/kancilglobalbot",
+                                            failure_redirect_url="https://t.me/kancilglobalbot"
+                                        )
+                                    )
                                 )
                             )
-                            payment_url = ewallet.actions.desktop_web_checkout_url
+                            payment_response = api_instance.create_payment(payment_params)
+                            payment_url = payment_response.actions[0].url
                         except Exception as xendit_error:
                             logging.error(f"Xendit error: {str(xendit_error)}")
                             await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
