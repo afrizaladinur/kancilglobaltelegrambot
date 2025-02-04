@@ -429,69 +429,61 @@ class CommandHandler:
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
 
-                        # Initialize Xendit client with robust error handling
-                        api_key = os.environ.get('XENDIT_API_KEY')
-                        if not api_key:
-                            logging.error("Xendit API key not found")
-                            await query.message.reply_text("Mohon hubungi admin untuk bantuan pembayaran.")
-                            return
+                        payment_message = (
+                            f"💳 *Detail Pembayaran*\n\n"
+                            f"Order ID: `{order_id}`\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}\n\n"
+                            f"*Metode Pembayaran:*\n\n"
+                            f"1️⃣ *Transfer BCA*\n"
+                            f"Nama: Nanda Amalia\n"
+                            f"No. Rek: `4452385892`\n"
+                            f"Kode Bank: 014\n\n"
+                            f"2️⃣ *Transfer Jenius/SMBC*\n"
+                            f"Nama: Nanda Amalia\n"
+                            f"No. Rek: `90020380969`\n"
+                            f"$cashtag: `$kancilglobalbot`\n\n"
+                            f"Setelah melakukan pembayaran, silakan kirim bukti transfer ke admin."
+                        )
 
-                        try:
-                            # Create PaymentRequest
-                            from xendit.models import QRCode
-                            import xendit
-                            xendit.api_key = api_key
-                            
-                            # Create QRIS payment
-                            qr_response = QRCode.create(
-                                external_id=order_id,
-                                type="DYNAMIC",
-                                callback_url="https://t.me/kancilglobalbot",
-                                amount=int(amount)
+                        keyboard = [[
+                            InlineKeyboardButton(
+                                "📎 Kirim Bukti Pembayaran",
+                                url="https://t.me/kancilglobalbot_admin"
                             )
-                            
-                            if not qr_response or not hasattr(qr_response, 'qr_string'):
-                                raise Exception("Failed to generate QR code")
-                                
-                            # Store QR code for reference
-                            payment_url = qr_response.qr_string
-                            
-                            # Also create VA as backup
-                            from xendit.models import VirtualAccount
-                            va_data = VirtualAccount.create(
-                                external_id=f"VA_{order_id}",
-                                bank_code="BCA",
-                                name=query.from_user.first_name[:20],
-                                expected_amount=int(amount)
-                            )
-                            
-                            va_number = va_data.account_number if hasattr(va_data, 'account_number') else None
-                            
-                            # Send comprehensive payment info
-                            payment_message = (
-                                f"💳 *Pilihan Pembayaran*\n\n"
-                                f"1️⃣ *QRIS (Scan QR)*\n"
-                                f"- Buka aplikasi e-wallet atau m-banking\n"
-                                f"- Scan QR code yang dikirim\n"
-                                f"- Konfirmasi dan bayar\n\n"
-                            )
-                            
-                            if va_number:
-                                payment_message += (
-                                    f"2️⃣ *Transfer Bank BCA*\n"
-                                    f"No. VA: `{va_number}`\n"
-                                    f"Nominal: Rp {int(amount):,}"
-                                )
-                            
-                            await query.message.reply_text(payment_message, parse_mode='Markdown')
-                            
-                            # Send QR code separately
-                            await query.message.reply_photo(
-                                photo=f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={payment_url}",
-                                caption="Scan QR code ini untuk membayar dengan QRIS"
+                        ]]
+
+                        await query.message.reply_text(
+                            payment_message,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                        # Notify admin
+                        admin_message = (
+                            f"🔔 *Pesanan Kredit Baru!*\n\n"
+                            f"Order ID: `{order_id}`\n"
+                            f"User ID: `{user_id}`\n"
+                            f"Username: @{username}\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}"
+                        )
+
+                        admin_keyboard = [[InlineKeyboardButton(
+                            f"✅ Berikan {credits} Kredit",
+                            callback_data=f"give_{user_id}_{credits}"
+                        )]]
+
+                        admin_ids = [6422072438]
+                        for admin_id in admin_ids:
+                            await context.bot.send_message(
+                                chat_id=admin_id,
+                                text=admin_message,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
-                            logging.info(f"Payment methods created for order {order_id}")
+                        logging.info(f"Manual payment order created: {order_id}")
 
                         except Exception as xendit_error:
                             error_msg = str(xendit_error)
