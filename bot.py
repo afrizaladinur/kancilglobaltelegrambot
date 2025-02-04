@@ -18,6 +18,7 @@ class TelegramBot:
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
         self.application.add_handler(TelegramCommandHandler("stats", self.command_handler.stats))
         self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
+        self.application.add_handler(TelegramCommandHandler("givecredits", self.command_handler.give_credits))
         self.application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
 
     def get_application(self):

@@ -261,6 +261,49 @@ class CommandHandler:
             logging.error(f"Error in stats command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
+    async def give_credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /givecredits command for admins"""
+        try:
+            if not await self.check_rate_limit(update):
+                return
+
+            user_id = update.effective_user.id
+            admin_ids = [6422072438]  # Your Telegram ID
+
+            if user_id not in admin_ids:
+                await update.message.reply_text("⛔️ You are not authorized to use this command.")
+                return
+
+            # Check command format
+            if not context.args or len(context.args) != 2:
+                await update.message.reply_text("Usage: /givecredits <user_id> <amount>")
+                return
+
+            try:
+                target_user_id = int(context.args[0])
+                credit_amount = int(context.args[1])
+            except ValueError:
+                await update.message.reply_text("Invalid user ID or credit amount. Both must be numbers.")
+                return
+
+            if credit_amount <= 0:
+                await update.message.reply_text("Credit amount must be positive.")
+                return
+
+            with app.app_context():
+                if self.data_store.add_credits(target_user_id, credit_amount):
+                    new_balance = self.data_store.get_user_credits(target_user_id)
+                    await update.message.reply_text(
+                        f"✅ Successfully added {credit_amount} credits to user {target_user_id}\n"
+                        f"New balance: {new_balance} credits"
+                    )
+                else:
+                    await update.message.reply_text("❌ Failed to add credits. User may not exist.")
+
+        except Exception as e:
+            logging.error(f"Error in give_credits command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
+
     async def credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /credits command"""
         try:
