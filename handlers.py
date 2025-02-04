@@ -72,9 +72,14 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
+            keyboard = [[InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]]
             with app.app_context():
                 self.data_store.track_user_command(user_id, 'help')
-            await update.message.reply_text(Messages.HELP, parse_mode='Markdown')
+            await update.message.reply_text(
+                Messages.HELP,
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             logging.info(f"Help command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in help command: {str(e)}", exc_info=True)
