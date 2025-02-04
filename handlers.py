@@ -61,7 +61,7 @@ class CommandHandler:
                  InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
                  InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
 
@@ -85,7 +85,7 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
-            keyboard = [[InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]]
+            keyboard = [[InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")]]
             with app.app_context():
                 self.data_store.track_user_command(user_id, 'help')
             await update.message.reply_text(
@@ -113,7 +113,7 @@ class CommandHandler:
                     # Continue execution even if tracking fails
 
             if not context.args:
-                keyboard = [[InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]]
+                keyboard = [[InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")]]
                 await update.message.reply_text(
                     Messages.SEARCH_NO_QUERY,
                     reply_markup=InlineKeyboardMarkup(keyboard),
@@ -400,7 +400,7 @@ class CommandHandler:
                     if 'last_search_query' in context.user_data:
                         query_text = context.user_data.get('last_search_query', '')
                         results = self.data_store.search_importers(query_text)
-                        
+
                         if not results:
                             await query.message.reply_text(
                                 Messages.SEARCH_NO_RESULTS.format(query_text)
@@ -473,7 +473,7 @@ class CommandHandler:
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'help')
                     keyboard = [
-                        [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
                     await query.message.reply_text(
@@ -823,7 +823,7 @@ class CommandHandler:
                             """)).fetchall()
 
                             counts_dict = {row[0]: row[1] for row in hs_counts}
-                            
+
                             # Build list of available contacts
                             contacts_list = []
                             if counts_dict.get('0301', 0) > 0:
@@ -836,7 +836,7 @@ class CommandHandler:
                                 contacts_list.append(f"🍣 0304 - Fillet ikan ({counts_dict.get('0304')} kontak)")
                             if counts_dict.get('0901', 0) > 0:
                                 contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
-                            
+
                             hs_guide = """📊 *Kontak Tersedia*
 
 🗂️ *Kontak Importir:*
