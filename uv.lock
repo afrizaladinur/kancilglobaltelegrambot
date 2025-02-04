@@ -750,7 +750,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.37" },
     { name = "telegram", specifier = ">=0.0.1" },
     { name = "xendit", specifier = ">=0.1.3" },
-    { name = "xendit-python", specifier = ">=6.1.0" },
+    { name = "xendit-python", specifier = ">=4.0.0" },
 ]
 
 [[package]]
