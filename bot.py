@@ -30,13 +30,15 @@ class TelegramBot:
 
     def _register_handlers(self):
         """Register command handlers"""
-        self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
-        self.application.add_handler(TelegramCommandHandler("help", self.command_handler.help))
-        self.application.add_handler(TelegramCommandHandler("search", self.command_handler.search))
-        self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
-        self.application.add_handler(TelegramCommandHandler("stats", self.command_handler.stats))
-        self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
-        self.application.add_handler(TelegramCommandHandler("givecredits", self.command_handler.give_credits))
+        # Register commands with explicit filters
+        from telegram.ext import filters
+        self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("help", self.command_handler.help, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("search", self.command_handler.search, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("stats", self.command_handler.stats, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits, filters.COMMAND))
+        self.application.add_handler(TelegramCommandHandler("givecredits", self.command_handler.give_credits, filters.COMMAND))
         self.application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
 
     def get_application(self):
