@@ -20,7 +20,7 @@ class DataStore:
         """Initialize required tables"""
         try:
             create_saved_contacts_sql = """
-            DROP TABLE IF EXISTS saved_contacts;
+            DROP TABLE IF EXISTS saved_contacts CASCADE;
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -48,7 +48,7 @@ class DataStore:
             """
 
             create_user_credits_sql = """
-            DROP TABLE IF EXISTS user_credits;
+            DROP TABLE IF EXISTS user_credits CASCADE;
             CREATE TABLE IF NOT EXISTS user_credits (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL UNIQUE,
@@ -268,6 +268,7 @@ class DataStore:
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
+            logging.info(f"Attempting to save contact for user {user_id}")
             # Calculate credit cost for this contact
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
