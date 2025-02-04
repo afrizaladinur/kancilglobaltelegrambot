@@ -22,6 +22,7 @@ class DataStore:
             # Don't drop tables on init
             create_saved_contacts_sql = """
             CREATE TABLE IF NOT EXISTS saved_contacts (
+            CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
                 importer_name VARCHAR(255) NOT NULL,

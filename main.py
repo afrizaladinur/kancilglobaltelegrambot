@@ -1,10 +1,7 @@
-
 import logging
 import threading
 from bot import TelegramBot
 from app import app
-import asyncio
-import nest_asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -22,18 +19,6 @@ def run_flask():
         logger.error(f"Error running Flask server: {e}")
         raise
 
-async def run_bot():
-    """Run the Telegram bot"""
-    try:
-        bot = TelegramBot()
-        app = bot.get_application()
-        logger.info("Starting bot...")
-        await bot._set_commands()
-        await app.run_polling(drop_pending_updates=True)
-    except Exception as e:
-        logger.error(f"Error running bot: {e}")
-        raise
-
 def main():
     """Start the bot and Flask server."""
     try:
@@ -43,10 +28,11 @@ def main():
         flask_thread.start()
         logger.info("Flask server started")
 
-        # Create new event loop for the bot
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(run_bot())
+        # Start Telegram bot
+        bot = TelegramBot()
+        app = bot.get_application()
+        logger.info("Starting bot...")
+        app.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"Error running application: {e}")
         raise
