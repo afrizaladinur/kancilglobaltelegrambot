@@ -1,3 +1,4 @@
+
 import logging
 
 class Messages:
@@ -5,7 +6,7 @@ class Messages:
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
 Silakan pilih menu di bawah ini:
-- 🔍 Cari Importir - untuk mencari importir berdasarkan nama, negara, atau HS code
+- 🔍 Cari Importir - untuk mencari importir berdasarkan nama, negara, atau kode HS
 - 📁 Kontak Tersimpan - untuk melihat kontak yang disimpan
 - 💳 Kredit Saya - untuk melihat sisa kredit
 - 💰 Beli Kredit - untuk menambah kredit
@@ -14,38 +15,37 @@ Silakan pilih menu di bawah ini:
 
 Contoh pencarian:
 • /search malaysia - cari importir dari Malaysia
-• /search 0303 - cari importir dengan HS code 0303
-• /search 0303 malaysia - cari importir dari Malaysia dengan HS code 0303
+• /search 0303 - cari importir dengan kode HS 0303
+• /search 0303 malaysia - cari importir dari Malaysia dengan kode HS 0303
 
 Sistem Kredit:
 • 3 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
 • 2 kredit - Kontak lengkap tanpa WhatsApp (email + website + telepon)
 • 1 kredit - Kontak tidak lengkap tanpa WhatsApp
 
-Note: Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
+Catatan: Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
 """
     HELP = """
 Daftar perintah yang tersedia:
 
 📍 /start - Mulai bot
-🔍 /search <kata kunci> - Cari importir berdasarkan nama, negara, atau HS code
+🔍 /search <kata kunci> - Cari importir berdasarkan nama, negara, atau kode HS
 📁 /saved - Lihat kontak yang tersimpan
 💳 /credits - Lihat sisa kredit Anda
 📊 /stats - Lihat statistik penggunaan Anda
 ❓ /help - Tampilkan pesan ini
 
 Contoh pencarian:
-/search United States
-/search Indonesia
-/search 0303  (untuk mencari HS code)
-/search 0303 Malaysia (untuk mencari HS code dari negara tertentu)
+/search malaysia
+/search 0303
+/search 0303 malaysia
 
-Note: 
+Catatan: 
 - Kontak yang belum disimpan akan disensor
-- Menyimpan kontak membutuhkan 1 kredit
+- Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 3 kredit untuk pengguna baru
 """
-    SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search Indonesia"
+    SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search malaysia"
     SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
@@ -73,7 +73,6 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
 
     @staticmethod
     def _escape_markdown(text: str) -> str:
-        """Escape special Markdown characters"""
         if not text:
             return text
         special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
@@ -83,7 +82,6 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
 
     @staticmethod 
     def _censor_contact(text: str, field_type: str, saved: bool = False) -> str:
-        """Censor sensitive contact information"""
         CENSOR = "X" * 6
 
         if saved:
@@ -107,26 +105,21 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
-        """Format phone number for WhatsApp URL"""
         try:
             if not phone:
                 return ""
-            # Remove all non-digit characters
             phone_numbers = ''.join(filter(str.isdigit, phone))
-            # Ensure it starts with country code
             if phone_numbers.startswith('0'):
                 phone_numbers = '62' + phone_numbers[1:]
             return phone_numbers
         except Exception as e:
-            logging.error(f"Error formatting phone number: {str(e)}", exc_info=True)
+            logging.error(f"Kesalahan format nomor telepon: {str(e)}", exc_info=True)
             return ""
 
     @staticmethod
     def _calculate_credit_cost(importer: dict) -> float:
-        """Calculate credit cost based on available contact information"""
         has_whatsapp = importer.get('wa_available', False)
         
-        # If WhatsApp is available, always charge 3 credits
         if has_whatsapp:
             return 3.0
             
@@ -134,40 +127,32 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
         has_email = bool(importer.get('email'))
         has_phone = bool(importer.get('contact'))
 
-        # All contact methods except WhatsApp (2 credits)
         if has_website and has_email and has_phone:
             return 2.0
-        # Missing some contact methods and no WhatsApp (1 credit)
         else:
             return 1.0
 
     @staticmethod
     def format_importer(importer: dict, saved: bool = False):
-        """Format importer data with guaranteed pattern matching"""
         try:
-            # Get wa status
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
 
-            # Get censored fields using strict patterns
             name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
             email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
 
-            # Extract HS code from product field (last 4 digits)
             product = importer.get('hs_code', '')
             hs_code = ''
             if product:
-                # Find the last 4 consecutive digits in the product string
                 digits = ''.join(filter(str.isdigit, product))
                 hs_code = digits[-4:] if len(digits) >= 4 else ''
 
-            # Build message parts in exact format
             message_parts = []
             message_parts.append(f"🏢 {name}")
             message_parts.append(f"🌏 Negara: {importer.get('country', '')}")
             if hs_code:
-                message_parts.append(f"📦 HS Code: {hs_code}")
+                message_parts.append(f"📦 Kode HS: {hs_code}")
 
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
@@ -193,12 +178,10 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
 
             message_text = '\n'.join(message_parts)
 
-            # Return values for button handling
             whatsapp_number = None
             if saved and importer.get('wa_available') and importer.get('contact'):
                 whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
 
-            # Generate callback data for save button if not saved
             callback_data = None
             if not saved:
                 callback_data = f"save_{importer['name']}"
@@ -206,7 +189,7 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
             return message_text, whatsapp_number, callback_data
 
         except Exception as e:
-            logging.error(f"Error formatting importer data: {str(e)}", exc_info=True)
+            logging.error(f"Kesalahan format data importir: {str(e)}", exc_info=True)
             raise
 
     @staticmethod
