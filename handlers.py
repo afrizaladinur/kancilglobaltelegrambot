@@ -430,36 +430,37 @@ class CommandHandler:
                         order_id = f"BOT_{user_id}_{int(time.time())}"
 
                         # Initialize Xendit client
-                        xendit.set_api_key(os.environ.get('XENDIT_API_KEY'))
+                        api_key = os.environ.get('XENDIT_API_KEY')
+                        if not api_key:
+                            logging.error("Xendit API key not found in environment variables")
+                            await query.message.reply_text("Konfigurasi API key belum benar. Mohon hubungi admin.")
+                            return
 
                         try:
-                            from xendit.models.invoice import Invoice
+                            from xendit import Xendit
+                            client = Xendit(api_key=api_key)
                             
                             # Create invoice
-                            invoice = Invoice.create(
+                            invoice = client.Invoice.create(
                                 external_id=order_id,
                                 amount=int(amount),
                                 payer_email="customer@example.com",
                                 description=f"Payment for {credits} credits",
+                                customer=dict(
+                                    given_names=query.from_user.first_name,
+                                    surname=query.from_user.last_name or "",
+                                    mobile_number=None
+                                ),
                                 success_redirect_url="https://t.me/kancilglobalbot",
                                 failure_redirect_url="https://t.me/kancilglobalbot"
                             )
                             
                             payment_url = invoice.invoice_url
-                            
-                            # Log successful invoice creation
                             logging.info(f"Invoice created: {invoice.id} for order {order_id}")
                         except Exception as xendit_error:
                             error_msg = str(xendit_error)
                             logging.error(f"Xendit error details: {error_msg}")
-                            
-                            if "API key" in error_msg:
-                                await query.message.reply_text("Konfigurasi API key belum benar. Mohon hubungi admin.")
-                            elif "Invoice" in error_msg:
-                                await query.message.reply_text("Gagal membuat invoice. Mohon coba lagi atau hubungi admin.")
-                            else:
-                                await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
-                            return
+                            await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
                             return
 
 
