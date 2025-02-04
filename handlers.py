@@ -586,14 +586,14 @@ class CommandHandler:
                         logging.error(f"Could not find importer {importer_name} to save")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
                 elif query.data == "show_hs_codes":
-                    hs_guide = """*Data Tersedia*
+                    hs_guide = """📊 *Data Tersedia*
 
-*Data Importir:*
-• 0301 - Ikan hidup
-• 0302 - Ikan segar
-• 0303 - Ikan beku
-• 0304 - Fillet ikan
-• 0901 - Kopi"""
+🗂️ *Data Importir:*
+🐟 0301 - Ikan hidup
+🐠 0302 - Ikan segar
+❄️ 0303 - Ikan beku
+🍣 0304 - Fillet ikan
+☕ 0901 - Kopi"""
                     await query.message.reply_text(hs_guide, parse_mode='Markdown')
                 elif query.data.startswith('give_'):
                     try:
