@@ -1,0 +1,14 @@
+it is not associated with a value
+2025-02-04 12:47:44,595 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `sendMessage` with parameters `{'chat_id': 1391464617, 'text': 'Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti.'}`
+2025-02-04 12:47:44,596 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-04 12:47:44,596 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-04 12:47:44,596 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 12:47:44,596 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 12:47:44,596 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 12:47:44,892 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 04 Feb 2025 12:47:44 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'318'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-04 12:47:44,893 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/sendMessage "HTTP/1.1 200 OK"
+2025-02-04 12:47:44,893 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-04 12:47:44,893 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-04 12:47:44,893 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-04 12:47:44,893 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-04 12:47:44,893 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `sendMessage` finished with return value `{'message_id': 3398, 'from': {'id': 7639309068, 'is_bot': True, 'first_name': 'Direktori Ekspor-Impor', 'username': 'kancilglobalbot'}, 'chat': {'id': 1391464617, 'first_name': 'Nanda', 'username': 'nandamaliaa', 'type': 'private'}, 'date': 1738673264, 'text': 'Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti.'}`
