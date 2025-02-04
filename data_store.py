@@ -125,15 +125,14 @@ class DataStore:
         """Use specified amount of credits for the user. Returns True if successful."""
         try:
             use_credit_sql = """
-            UPDATE user_credits
-            SET credits = ROUND(CAST(
-                CASE 
-                    WHEN credits >= :amount THEN credits - :amount
-                    ELSE credits
-                END AS NUMERIC), 1),
-            last_updated = CURRENT_TIMESTAMP
-            WHERE user_id = :user_id AND credits >= :amount
-            RETURNING credits;
+            WITH credit_update AS (
+                UPDATE user_credits
+                SET credits = ROUND(CAST(credits - :amount AS NUMERIC), 1),
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = :user_id AND credits >= :amount
+                RETURNING credits
+            )
+            SELECT credits FROM credit_update;
             """
 
             with self.engine.connect() as conn:
@@ -145,6 +144,7 @@ class DataStore:
                     if result is not None:
                         logging.info(f"Credit used for user {user_id}. Amount: {amount}, Remaining credits: {result}")
                         return True
+                    conn.rollback()
                     return False
         except Exception as e:
             logging.error(f"Error using credit: {str(e)}", exc_info=True)
@@ -284,20 +284,23 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            # First check credits
-            credits = self.get_user_credits(user_id)
-            logging.info(f"Checking credits for user {user_id}. Current credits: {credits}")
-
-            if credits is None:
-                self.initialize_user_credits(user_id)
-                credits = self.get_user_credits(user_id)
-                logging.info(f"Initialized credits for new user {user_id}. Credits: {credits}")
-
-            if credits < credit_cost:
-                logging.warning(f"User {user_id} has insufficient credits ({credits}) to save contact (cost: {credit_cost})")
-                return False
-
-            save_sql = """
+            # Use transaction to ensure atomicity
+            save_contact_sql = """
+            WITH get_credits AS (
+                SELECT credits 
+                FROM user_credits 
+                WHERE user_id = :user_id
+                FOR UPDATE
+            ),
+            update_credits AS (
+                UPDATE user_credits 
+                SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = :user_id 
+                AND credits >= :credit_cost
+                RETURNING credits
+            )
+            INSERT INTO saved_contacts (
             INSERT INTO saved_contacts (
                 user_id, importer_name, country, phone, email, 
                 website, wa_availability, hs_code, product_description
