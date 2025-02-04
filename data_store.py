@@ -301,7 +301,6 @@ class DataStore:
                 RETURNING credits
             )
             INSERT INTO saved_contacts (
-            INSERT INTO saved_contacts (
                 user_id, importer_name, country, phone, email, 
                 website, wa_availability, hs_code, product_description
             ) VALUES (
@@ -314,7 +313,7 @@ class DataStore:
             with self.engine.connect() as conn:
                 with conn.begin():
                     result = conn.execute(
-                        text(save_sql),
+                        text(save_contact_sql),
                         {
                             "user_id": user_id,
                             "name": importer['name'],
