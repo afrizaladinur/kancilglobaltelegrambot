@@ -103,9 +103,6 @@ Catatan:
 - Kontak yang belum disimpan akan disensor
 - Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 10 kredit untuk pengguna baru
-
-*Lihat Produk Tersedia:*
-📦 /hs - Lihat daftar kode HS dan produk
 """
     SEARCH_NO_QUERY = """🔍 *Panduan Pencarian Importir*
 
