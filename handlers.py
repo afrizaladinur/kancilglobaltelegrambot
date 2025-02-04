@@ -771,15 +771,45 @@ class CommandHandler:
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
 
                 elif query.data == "show_hs_codes":
-                    hs_guide = """📊 *Data Tersedia*
+                    try:
+                        with self.engine.connect() as conn:
+                            hs_counts = conn.execute(text("""
+                                SELECT 
+                                    CASE 
+                                        WHEN product LIKE '%0301%' THEN '0301'
+                                        WHEN product LIKE '%0302%' THEN '0302'
+                                        WHEN product LIKE '%0303%' THEN '0303'
+                                        WHEN product LIKE '%0304%' THEN '0304'
+                                        WHEN product LIKE '%0901%' THEN '0901'
+                                    END as hs_code,
+                                    COUNT(*) as count
+                                FROM importers
+                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901)%'
+                                GROUP BY hs_code
+                                ORDER BY hs_code;
+                            """)).fetchall()
+
+                            counts_dict = {row[0]: row[1] for row in hs_counts}
+                            
+                            hs_guide = """📊 *Data Tersedia*
 
 🗂️ *Data Importir:*
-🐟 0301 - Ikan hidup
-🐠 0302 - Ikan segar
-❄️ 0303 - Ikan beku
-🍣 0304 - Fillet ikan
-☕ 0901 - Kopi"""
-                    await query.message.reply_text(hs_guide, parse_mode='Markdown')
+🐟 0301 - Ikan hidup ({} data)
+🐠 0302 - Ikan segar ({} data)
+❄️ 0303 - Ikan beku ({} data)
+🍣 0304 - Fillet ikan ({} data)
+☕ 0901 - Kopi ({} data)""".format(
+                                counts_dict.get('0301', 0),
+                                counts_dict.get('0302', 0),
+                                counts_dict.get('0303', 0),
+                                counts_dict.get('0304', 0),
+                                counts_dict.get('0901', 0)
+                            )
+                            
+                        await query.message.reply_text(hs_guide, parse_mode='Markdown')
+                    except Exception as e:
+                        logging.error(f"Error getting HS code counts: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
                 elif query.data.startswith('give_'):
                     try:
                         _, target_user_id, credit_amount = query.data.split('_')
