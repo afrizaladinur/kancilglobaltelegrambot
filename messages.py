@@ -25,6 +25,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • 💰 *Beli Kredit* - Tambah kredit untuk menyimpan kontak
 • 📊 *Statistik* - Lihat riwayat penggunaan
 • ❓ *Bantuan* - Panduan lengkap
+• 📦 *Data Tersedia* - Lihat daftar kode HS yang tersedia
 
 *Sistem Kredit:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
