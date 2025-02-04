@@ -280,56 +280,69 @@ class DataStore:
         """Save an importer contact for a user"""
         try:
             logging.info(f"Attempting to save contact for user {user_id}")
-            # Calculate credit cost for this contact
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            # First verify and deduct credits
-            if not self.use_credit(user_id, credit_cost):
-                logging.error("Failed to deduct credits")
-                return False
+            # Use a single transaction for both operations
+            with self.engine.begin() as conn:
+                # First check if we have enough credits
+                check_credits_sql = """
+                SELECT credits FROM user_credits 
+                WHERE user_id = :user_id AND credits >= :credit_cost
+                FOR UPDATE;
+                """
+                credits = conn.execute(
+                    text(check_credits_sql),
+                    {"user_id": user_id, "credit_cost": credit_cost}
+                ).scalar()
 
-            # Then save the contact in a separate transaction
-            save_contact_sql = """
-            INSERT INTO saved_contacts (
-                user_id, importer_name, country, phone, email, 
-                website, wa_availability, hs_code, product_description
-            ) VALUES (
-                :user_id, :name, :country, :phone, :email,
-                :website, :wa_available, :hs_code, :product_description
-            )
-            ON CONFLICT (user_id, importer_name) DO NOTHING
-            RETURNING id;
-            """
-            with self.engine.connect() as conn:
-                with conn.begin():
-                    result = conn.execute(
-                        text(save_contact_sql),
-                        {
-                            "user_id": user_id,
-                            "name": importer['name'],
-                            "country": importer['country'],
-                            "phone": importer['contact'],
-                            "email": importer['email'],
-                            "website": importer['website'],
-                            "wa_available": importer['wa_available'],
-                            "hs_code": importer.get('hs_code', ''),
-                            "product_description": importer.get('product_description', '')
-                        }
-                    )
-
-                    if result.rowcount > 0:
-                        # Only use credits if the contact was actually saved
-                        if self.use_credit(user_id, credit_cost):
-                            logging.info(f"Successfully saved contact and used {credit_cost} credits")
-                            return True
-                        else:
-                            # Rollback if we couldn't use the credits
-                            conn.rollback()
-                            logging.error("Failed to use credits, rolling back contact save")
-                            return False
-
+                if credits is None:
+                    logging.error("Insufficient credits")
                     return False
+
+                # Save contact first
+                save_contact_sql = """
+                INSERT INTO saved_contacts (
+                    user_id, importer_name, country, phone, email, 
+                    website, wa_availability, hs_code, product_description
+                ) VALUES (
+                    :user_id, :name, :country, :phone, :email,
+                    :website, :wa_available, :hs_code, :product_description
+                )
+                ON CONFLICT (user_id, importer_name) DO NOTHING
+                RETURNING id;
+                """
+                result = conn.execute(
+                    text(save_contact_sql),
+                    {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', '')
+                    }
+                )
+
+                if result.rowcount > 0:
+                    # Deduct credits in the same transaction
+                    update_credits_sql = """
+                    UPDATE user_credits 
+                    SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE user_id = :user_id
+                    """
+                    conn.execute(
+                        text(update_credits_sql),
+                        {"user_id": user_id, "credit_cost": credit_cost}
+                    )
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
+                    return True
+
+                return False
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             return False
