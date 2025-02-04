@@ -439,11 +439,11 @@ class CommandHandler:
                         try:
                             # Create PaymentRequest
                             from xendit.models import QRCode
-                            
-                            xendit_client = Xendit(api_key=api_key)
+                            import xendit
+                            xendit.api_key = api_key
                             
                             # Create QRIS payment
-                            qr_response = xendit_client.QRCode.create(
+                            qr_response = QRCode.create(
                                 external_id=order_id,
                                 type="DYNAMIC",
                                 callback_url="https://t.me/kancilglobalbot",
@@ -458,7 +458,7 @@ class CommandHandler:
                             
                             # Also create VA as backup
                             from xendit.models import VirtualAccount
-                            va_data = xendit_client.VirtualAccount.create(
+                            va_data = VirtualAccount.create(
                                 external_id=f"VA_{order_id}",
                                 bank_code="BCA",
                                 name=query.from_user.first_name[:20],
