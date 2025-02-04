@@ -423,7 +423,11 @@ class CommandHandler:
                 elif query.data.startswith('pay_'):
                     try:
                         _, credits, amount = query.data.split('_')
-                        xendit_url = f"https://checkout-staging.xendit.co/v2/{os.environ.get('XENDIT_ID')}"
+                        xendit_id = os.environ.get('XENDIT_ID')
+                        if not xendit_id:
+                            await query.message.reply_text("Payment system is currently unavailable. Please try again later.")
+                            return
+                        xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
                         user_id = query.from_user.id
                         username = query.from_user.username or str(user_id)
                         
