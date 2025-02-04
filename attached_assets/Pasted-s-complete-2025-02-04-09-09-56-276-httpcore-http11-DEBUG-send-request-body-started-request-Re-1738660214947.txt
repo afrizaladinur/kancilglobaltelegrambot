@@ -1,0 +1,12 @@
+s.complete
+2025-02-04 09:09:56,276 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 09:09:56,276 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 09:09:56,276 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 09:09:56,643 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 04 Feb 2025 09:09:56 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'521'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-04 09:09:56,643 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/sendMessage "HTTP/1.1 200 OK"
+2025-02-04 09:09:56,643 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-04 09:09:56,643 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-04 09:09:56,644 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-04 09:09:56,644 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-04 09:09:56,644 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `sendMessage` finished with return value `{'message_id': 2914, 'from': {'id': 7639309068, 'is_bot': True, 'first_name': 'Kancil Global', 'username': 'kancilglobalbot'}, 'chat': {'id': 6422072438, 'first_name': 'Afrizal Labib', 'last_name': 'Adinur', 'username': 'afrizaladinur', 'type': 'private'}, 'date': 1738660196, 'text': 'Halaman 1 dari 5', 'reply_markup': {'inline_keyboard': [[{'text': '1/5', 'callback_data': 'search_page_info'}, {'text': 'Next ➡️', 'callback_data': 'search_next'}], [{'text': '🔄 Regenerate', 'callback_data': 'regenerate_search'}]]}}`
+2025-02-04 09:09:56,644 - root - INFO - Successfully sent search results to user 6422072438
