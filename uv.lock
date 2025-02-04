@@ -717,6 +717,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "telegram" },
     { name = "xendit" },
+    { name = "xendit-python" },
 ]
 
 [package.metadata]
@@ -735,6 +736,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.37" },
     { name = "telegram", specifier = ">=0.0.1" },
     { name = "xendit", specifier = ">=0.1.3" },
+    { name = "xendit-python", specifier = ">=6.1.0" },
 ]
 
 [[package]]
@@ -878,4 +880,16 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/7d/4ffb59a68503da43c18e4a6f9d44c9c91846c3425d8b6eed6d2b5b2cdd0f/xendit-0.1.3.tar.gz", hash = "sha256:9092ea8bed0dcfdcd8fcda597954a8af171f97ad5b511a8c4b13da3b1cd24031", size = 44556 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/08/22/fe220ecbb9d5e26efce58122a6744ed8e960291c8a41c6490aa0c6ef1a6c/xendit-0.1.3-py3-none-any.whl", hash = "sha256:3d87e85d01a039a96fd9e5165f26d7ec86b42ac694451cf4416317e1ec315fcc", size = 52316 },
+]
+
+[[package]]
+name = "xendit-python"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/aa/d6/c9641ca60d5fd0311058b47c8b6f3d1f975f0606facee8dc310e34568c76/xendit_python-6.1.0.tar.gz", hash = "sha256:b1ba2e705b045cefa31db73887314b0fbdd87039472f992b0d8a9181dfce7592", size = 213035 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/59/bbfc4de701feaa8f045440282ef8149763898dc19c939ad239345f6b621d/xendit_python-6.1.0-py3-none-any.whl", hash = "sha256:45bcafdc071c03170e630568208c061e814a8a2c10e67fb1cdd2bf25c46da9a1", size = 766573 },
 ]

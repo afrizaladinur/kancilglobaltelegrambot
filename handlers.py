@@ -7,6 +7,7 @@ from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
+import xendit
 
 class CommandHandler:
     def __init__(self):
@@ -428,18 +429,41 @@ class CommandHandler:
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
 
-                        # Generate Xendit payment link first
-                        xendit_id = os.environ.get('XENDIT_ID')
+                        # Initialize Xendit client
+                        xendit.set_api_key(os.environ.get('XENDIT_API_KEY'))
 
-                        payment_url = None
-                        if xendit_id:
-                            payment_url = f"https://checkout.xendit.co/v2/{xendit_id}"
-                            payment_url += f"?amount={amount}"
-                            payment_url += f"&external_id={order_id}"
-                            payment_url += "&currency=IDR"
-                            payment_url += f"&payer_email={username}@telegram.org"
-                            payment_url += "&redirect_after_success=https://t.me/your_bot_username"
-                            payment_url += "&failure_redirect_url=https://t.me/your_bot_username"
+                        try:
+                            from xendit.apis import PaymentRequest
+                            from xendit.apis import PaymentApi
+
+                            # Create payment parameters
+                            payment_params = {
+                                "external_id": order_id,
+                                "amount": int(amount),
+                                "currency": "IDR",
+                                "payment_method": {
+                                    "type": "EWALLET",
+                                    "reusability": "ONE_TIME_USE",
+                                    "ewallet": {
+                                        "channel_code": "ALL",
+                                        "channel_properties": {}
+                                    }
+                                },
+                                "metadata": {
+                                    "user_id": user_id,
+                                    "credits": credits
+                                }
+                            }
+
+                            # Create payment
+                            api_client = xendit.ApiClient()
+                            api_instance = PaymentApi(api_client)
+                            payment_response = api_instance.create_payment(payment_params)
+                            payment_url = payment_response.actions[0].url
+                        except Exception as xendit_error:
+                            logging.error(f"Xendit error: {str(xendit_error)}")
+                            await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
+                            return
 
 
                         # Then notify admin and create order  
@@ -467,61 +491,26 @@ class CommandHandler:
                             )
 
                         # Generate Xendit payment link and notify admin in one place
-                        xendit_id = os.environ.get('XENDIT_ID')
-                        admin_message = (
-                            f"🔔 *Pesanan Kredit Baru!*\n\n"
-                            f"Order ID: `{order_id}`\n"
-                            f"User ID: `{user_id}`\n"
-                            f"Username: @{username}\n"
-                            f"Jumlah Kredit: {credits}\n"
-                            f"Total: Rp {int(amount):,}"
-                        )
-
-                        admin_keyboard = [[InlineKeyboardButton(
-                            f"✅ Berikan {credits} Kredit",
-                            callback_data=f"give_{user_id}_{credits}"
-                        )]]
+                        
 
                         # Send notification to admin
-                        admin_ids = [6422072438]  # Admin ID list
-                        for admin_id in admin_ids:
-                            await context.bot.send_message(
-                                chat_id=admin_id,
-                                text=admin_message,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
-                            )
+                        
 
                         # Generate payment link if Xendit is configured
-                        if xendit_id:
-                            payment_url = f"https://checkout.xendit.co/v2/{xendit_id}"
-                            payment_url += f"?amount={amount}"
-                            payment_url += f"&external_id={order_id}"
-                            payment_url += "&currency=IDR"
-                            payment_url += f"&payer_email={username}@telegram.org"
-                            payment_url += "&redirect_after_success=https://t.me/your_bot_username"
-                            payment_url += "&failure_redirect_url=https://t.me/your_bot_username"
+                        
 
-                            payment_button = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
+                        payment_button = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
 
-                            await query.message.reply_text(
-                                f"✅ Pesanan dibuat!\n\n"
-                                f"ID Pesanan: `{order_id}`\n"
-                                f"Jumlah Kredit: {credits}\n"
-                                f"Total: Rp {int(amount):,}\n\n"
-                                f"Klik tombol di bawah untuk melanjutkan pembayaran",
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(payment_button)
-                            )
-                        else:
-                            await query.message.reply_text(
-                                f"✅ Pesanan dibuat!\n\n"
-                                f"ID Pesanan: `{order_id}`\n"
-                                f"Jumlah Kredit: {credits}\n"
-                                f"Total: Rp {int(amount):,}\n\n"
-                                f"Admin akan segera menghubungi Anda untuk proses pembayaran.",
-                                parse_mode='Markdown'
-                            )
+                        await query.message.reply_text(
+                            f"✅ Pesanan dibuat!\n\n"
+                            f"ID Pesanan: `{order_id}`\n"
+                            f"Jumlah Kredit: {credits}\n"
+                            f"Total: Rp {int(amount):,}\n\n"
+                            f"Klik tombol di bawah untuk melanjutkan pembayaran",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(payment_button)
+                        )
+                        
 
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
