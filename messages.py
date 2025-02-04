@@ -5,13 +5,20 @@ class Messages:
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
 *Menu Utama:*
-• 🔍 *Cari Importir* - Mencari importir dengan 3 cara:
-  1. Berdasarkan Negara: /search [nama negara]
-     Contoh: `/search malaysia`, `/search japan`
-  2. Berdasarkan Kode HS: /search [kode 4 digit]
-     Contoh: `/search 0302` (untuk produk ikan)
-  3. Kombinasi: /search [kode hs] [negara]
-     Contoh: `/search 0302 malaysia`
+• 🔍 *Cari Importir* - Pencarian data importir:
+  ├ *Berdasarkan Negara:*
+  │ Format: /search [nama negara]
+  │ Contoh: `/search malaysia`, `/search japan`
+  │
+  ├ *Berdasarkan Kode HS:*
+  │ Format: /search [kode 4 digit]
+  │ Contoh: `/search 0302` untuk produk ikan segar
+  │        `/search 0303` untuk produk ikan beku
+  │
+  └ *Pencarian Kombinasi:*
+    Format: /search [kode hs] [negara]
+    Contoh: `/search 0302 malaysia`
+           `/search 0303 japan`
 
 • 📁 *Kontak Tersimpan* - Melihat kontak yang sudah disimpan
 • 💳 *Kredit Saya* - Cek saldo kredit Anda
@@ -57,15 +64,27 @@ Catatan:
 - Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 3 kredit untuk pengguna baru
 """
-    SEARCH_NO_QUERY = """Mohon masukkan kata kunci pencarian setelah perintah /search
+    SEARCH_NO_QUERY = """🔍 *Panduan Pencarian Importir*
 
-*Format Pencarian:*
-1. /search [negara] - Cari berdasarkan negara
+*A. Cari berdasarkan Negara:*
+   Format: /search [nama negara]
    Contoh: `/search malaysia`
-2. /search [kode hs] - Cari dengan kode HS
-   Contoh: `/search 0302`
-3. /search [kode hs] [negara] - Cari kombinasi
-   Contoh: `/search 0302 malaysia`"""
+          `/search japan`
+
+*B. Cari berdasarkan Kode HS:*
+   Format: /search [kode 4 digit]
+   Contoh: `/search 0302` (ikan segar)
+          `/search 0303` (ikan beku)
+          
+*C. Pencarian Kombinasi:*
+   Format: /search [kode hs] [negara]
+   Contoh: `/search 0302 malaysia`
+          `/search 0303 japan`
+
+💡 *Tips:*
+• Gunakan kode HS untuk hasil yang lebih spesifik
+• Kombinasikan dengan negara untuk filter terbaik
+• Data akan diperbarui secara berkala"""
     SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
