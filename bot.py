@@ -1,6 +1,5 @@
 import logging
 from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
-from telegram import BotCommand
 from config import TELEGRAM_TOKEN
 from handlers import CommandHandler
 
@@ -9,22 +8,20 @@ class TelegramBot:
         self.command_handler = CommandHandler()
         self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         self._register_handlers()
-        import asyncio
-        asyncio.run(self._set_commands())
+        self._set_commands()
         logging.info("Bot initialized")
 
-    async def _set_commands(self):
+    def _set_commands(self):
         """Set bot commands with descriptions"""
         commands = [
-            BotCommand("start", "Mulai bot dan lihat menu utama"),
-            BotCommand("search", "Cari importir berdasarkan nama/negara/kode HS"),
-            BotCommand("saved", "Lihat daftar kontak yang tersimpan"),
-            BotCommand("credits", "Cek sisa kredit dan beli kredit"),
-            BotCommand("stats", "Lihat statistik penggunaan"),
-            BotCommand("help", "Tampilkan panduan lengkap")
+            ('start', 'Mulai bot dan lihat menu utama'),
+            ('search', 'Cari importir berdasarkan nama/negara/kode HS'),
+            ('saved', 'Lihat daftar kontak yang tersimpan'),
+            ('credits', 'Cek sisa kredit dan beli kredit'),
+            ('stats', 'Lihat statistik penggunaan'),
+            ('help', 'Tampilkan panduan lengkap')
         ]
-        await self.application.bot.set_my_commands(commands)
-        logging.info("Bot commands registered successfully")
+        self.application.bot.set_my_commands(commands)
 
     def _register_handlers(self):
         """Register command handlers"""
