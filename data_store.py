@@ -46,9 +46,10 @@ class DataStore:
             """
 
             create_user_credits_sql = """
+            DROP TABLE IF EXISTS user_credits;
             CREATE TABLE IF NOT EXISTS user_credits (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL UNIQUE,
+                user_id BIGINT NOT NULL UNIQUE,
                 credits INTEGER NOT NULL DEFAULT 3 CHECK (credits >= 0),
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT positive_credits CHECK (credits >= 0)
