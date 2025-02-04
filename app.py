@@ -17,6 +17,29 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,  # recycle connections every 5 minutes
     "pool_timeout": 20,   # wait up to 20 seconds for a connection
+
+@app.route('/admin/users')
+def view_users():
+    with db.engine.connect() as conn:
+        # Get user credits
+        credits = conn.execute(text("""
+            SELECT user_id, credits, last_updated 
+            FROM user_credits
+            ORDER BY last_updated DESC
+        """)).fetchall()
+        
+        # Get user stats
+        stats = conn.execute(text("""
+            SELECT user_id, command, usage_count, last_used
+            FROM user_stats
+            ORDER BY last_used DESC
+        """)).fetchall()
+        
+        return jsonify({
+            'users_credits': [dict(row) for row in credits],
+            'users_stats': [dict(row) for row in stats]
+        })
+
     "pool_pre_ping": True,  # enable connection health checks
     "pool_size": 5,       # maintain up to 5 connections
     "max_overflow": 10,   # allow up to 10 extra connections
