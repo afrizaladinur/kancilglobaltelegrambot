@@ -3,6 +3,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHa
 from config import TELEGRAM_TOKEN
 from handlers import CommandHandler
 
+BOT_INFO = {
+    'name': 'Direktori Ekspor Impor',
+    'username': 'kancilglobalbot'
+}
+
 class TelegramBot:
     def __init__(self):
         self.command_handler = CommandHandler()
