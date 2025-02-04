@@ -936,9 +936,11 @@ class CommandHandler:
                                 parse_mode='Markdown'
                             )
                             # Notify user
+                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                             await context.bot.send_message(
                                 chat_id=int(target_user_id),
-                                text=f"✅ {credit_amount} kredit telah ditambahkan ke akun Anda!\nSaldo saat ini: {new_balance} kredit"
+                                text=f"✅ {credit_amount} kredit telah ditambahkan ke akun Anda!\nSaldo saat ini: {new_balance} kredit",
+                                reply_markup=InlineKeyboardMarkup(keyboard)
                             )
                         else:
                             await query.answer("Failed to add credits", show_alert=True)
