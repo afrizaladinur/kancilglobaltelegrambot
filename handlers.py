@@ -429,38 +429,96 @@ class CommandHandler:
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
 
-                        # Initialize Xendit client
+                        # Initialize Xendit client with robust error handling
                         api_key = os.environ.get('XENDIT_API_KEY')
                         if not api_key:
-                            logging.error("Xendit API key not found in environment variables")
-                            await query.message.reply_text("Konfigurasi API key belum benar. Mohon hubungi admin.")
+                            logging.error("Xendit API key not found")
+                            await query.message.reply_text("Mohon hubungi admin untuk bantuan pembayaran.")
                             return
 
                         try:
-                            from xendit import Xendit
-                            client = Xendit(api_key=api_key)
+                            # Create PaymentRequest
+                            from xendit.models import QRCode
                             
-                            # Create invoice
-                            invoice = client.Invoice.create(
+                            xendit_client = Xendit(api_key=api_key)
+                            
+                            # Create QRIS payment
+                            qr_response = xendit_client.QRCode.create(
                                 external_id=order_id,
-                                amount=int(amount),
-                                payer_email="customer@example.com",
-                                description=f"Payment for {credits} credits",
-                                customer=dict(
-                                    given_names=query.from_user.first_name,
-                                    surname=query.from_user.last_name or "",
-                                    mobile_number=None
-                                ),
-                                success_redirect_url="https://t.me/kancilglobalbot",
-                                failure_redirect_url="https://t.me/kancilglobalbot"
+                                type="DYNAMIC",
+                                callback_url="https://t.me/kancilglobalbot",
+                                amount=int(amount)
                             )
                             
-                            payment_url = invoice.invoice_url
-                            logging.info(f"Invoice created: {invoice.id} for order {order_id}")
+                            if not qr_response or not hasattr(qr_response, 'qr_string'):
+                                raise Exception("Failed to generate QR code")
+                                
+                            # Store QR code for reference
+                            payment_url = qr_response.qr_string
+                            
+                            # Also create VA as backup
+                            from xendit.models import VirtualAccount
+                            va_data = xendit_client.VirtualAccount.create(
+                                external_id=f"VA_{order_id}",
+                                bank_code="BCA",
+                                name=query.from_user.first_name[:20],
+                                expected_amount=int(amount)
+                            )
+                            
+                            va_number = va_data.account_number if hasattr(va_data, 'account_number') else None
+                            
+                            # Send comprehensive payment info
+                            payment_message = (
+                                f"💳 *Pilihan Pembayaran*\n\n"
+                                f"1️⃣ *QRIS (Scan QR)*\n"
+                                f"- Buka aplikasi e-wallet atau m-banking\n"
+                                f"- Scan QR code yang dikirim\n"
+                                f"- Konfirmasi dan bayar\n\n"
+                            )
+                            
+                            if va_number:
+                                payment_message += (
+                                    f"2️⃣ *Transfer Bank BCA*\n"
+                                    f"No. VA: `{va_number}`\n"
+                                    f"Nominal: Rp {int(amount):,}"
+                                )
+                            
+                            await query.message.reply_text(payment_message, parse_mode='Markdown')
+                            
+                            # Send QR code separately
+                            await query.message.reply_photo(
+                                photo=f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={payment_url}",
+                                caption="Scan QR code ini untuk membayar dengan QRIS"
+                            )
+
+                            logging.info(f"Payment methods created for order {order_id}")
+
                         except Exception as xendit_error:
                             error_msg = str(xendit_error)
                             logging.error(f"Xendit error details: {error_msg}")
-                            await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
+                            
+                            # Create manual alternative
+                            admin_message = (
+                                f"⚠️ *Payment Error - Manual Process Required*\n"
+                                f"Order ID: `{order_id}`\n"
+                                f"User: @{query.from_user.username or query.from_user.id}\n"
+                                f"Amount: Rp {int(amount):,}"
+                            )
+                            
+                            # Send to admin
+                            admin_ids = [6422072438]
+                            for admin_id in admin_ids:
+                                await context.bot.send_message(
+                                    chat_id=admin_id,
+                                    text=admin_message,
+                                    parse_mode='Markdown'
+                                )
+                            
+                            # Inform user about manual process
+                            await query.message.reply_text(
+                                "Sistem pembayaran otomatis sedang dalam perbaikan.\n"
+                                "Admin akan menghubungi Anda untuk proses pembayaran manual."
+                            )
                             return
 
 
