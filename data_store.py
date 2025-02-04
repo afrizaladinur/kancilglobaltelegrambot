@@ -223,7 +223,7 @@ class DataStore:
                 product as hs_code,
                 product_description
             FROM ranked_results
-            ORDER BY match_type, country, name
+            ORDER BY RANDOM()
             LIMIT 10;
             """
 
