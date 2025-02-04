@@ -472,7 +472,10 @@ class CommandHandler:
                     user_id = query.from_user.id
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'help')
-                    keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                    keyboard = [
+                        [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
                     await query.message.reply_text(
                         Messages.HELP,
                         parse_mode='Markdown',
@@ -585,7 +588,10 @@ class CommandHandler:
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'credits')
                         credits = self.data_store.get_user_credits(user_id)
-                    keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
+                    keyboard = [
+                        [InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
                     await query.message.reply_text(
                         f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -594,7 +600,8 @@ class CommandHandler:
                     keyboard = [
                         [InlineKeyboardButton("🛒 Beli 20 Kredit - Rp 50.000", callback_data="pay_20_50000")],
                         [InlineKeyboardButton("🛒 Beli 45 Kredit - Rp 100.000", callback_data="pay_45_100000")],
-                        [InlineKeyboardButton("🛒 Beli 100 Kredit - Rp 200.000", callback_data="pay_100_200000")]
+                        [InlineKeyboardButton("🛒 Beli 100 Kredit - Rp 200.000", callback_data="pay_100_200000")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
                     await query.message.reply_text(
                         "Pilih paket kredit yang ingin Anda beli:",
@@ -831,8 +838,12 @@ class CommandHandler:
                                 counts_dict.get('0304', 0),
                                 counts_dict.get('0901', 0)
                             )
-                            
-                        await query.message.reply_text(hs_guide, parse_mode='Markdown')
+                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                        await query.message.reply_text(
+                            hs_guide,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
                     except Exception as e:
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
