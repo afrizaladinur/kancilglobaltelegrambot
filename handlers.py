@@ -165,7 +165,7 @@ class CommandHandler:
                 pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
             # Add regenerate button as a separate row
-            regenerate_button = [[InlineKeyboardButton("🔄 Regenerate", callback_data="regenerate_search")]]
+            regenerate_button = [[InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")]]
 
             await update.message.reply_text(
                 f"Halaman {page + 1} dari {total_pages}",
