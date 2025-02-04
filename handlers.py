@@ -13,6 +13,7 @@ class CommandHandler:
     def __init__(self):
         self.data_store = DataStore()
         self.rate_limiter = RateLimiter()
+        self.engine = self.data_store.engine
         logging.info("CommandHandler initialized")
 
     async def check_rate_limit(self, update: Update) -> bool:
