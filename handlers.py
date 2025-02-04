@@ -26,7 +26,7 @@ class CommandHandler:
             with app.app_context():
                 credits = self.data_store.get_user_credits(user_id)
                 if credits is None:
-                    self.data_store.initialize_user_credits(user_id)
+                    self.data_store.initialize_user_credits(user_id, 10.0)
             return True
         except Exception as e:
             logging.error(f"Rate limit check error: {str(e)}")
