@@ -53,9 +53,9 @@ Note:
     NO_CREDITS = """⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini.
 
 Biaya kredit untuk kontak ini:
-• 2 kredit - jika memiliki WhatsApp dan semua kontak lengkap
-• 1 kredit - jika tidak ada WhatsApp tapi kontak lengkap
-• 0.5 kredit - jika tidak ada WhatsApp dan kontak tidak lengkap
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap tanpa WhatsApp
 
 Silakan beli kredit tambahan dengan mengetik /credits"""
     CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
