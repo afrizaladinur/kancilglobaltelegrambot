@@ -99,19 +99,11 @@ Contoh pencarian:
 /search 0303
 /search 0303 malaysia
 
-*Data Tersedia*
-
-*Data Importir:*
-• 0301 - Ikan hidup
-• 0302 - Ikan segar
-• 0303 - Ikan beku
-• 0304 - Fillet ikan
-• 0901 - Kopi
-
 Catatan: 
 - Kontak yang belum disimpan akan disensor
 - Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 10 kredit untuk pengguna baru
+- Lihat data tersedia dengan tombol "📦 Data Tersedia"
 """
     SEARCH_NO_QUERY = """🔍 *Panduan Pencarian Importir*
 
