@@ -50,7 +50,7 @@ class Messages:
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
 *Menu Utama:*
-• 🔍 *Cari Importir* - Pencarian data importir:
+• 🔍 *Cari Importir* - Pencarian kontak importir:
   ├ *Berdasarkan Negara:*
   │ Format: /search [nama negara]
   │ Contoh: `/search malaysia`, `/search japan`
@@ -70,7 +70,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • 💰 *Beli Kredit* - Tambah kredit untuk menyimpan kontak
 • 📊 *Statistik* - Lihat riwayat penggunaan
 • ❓ *Bantuan* - Panduan lengkap
-• 📦 *Data Tersedia* - Lihat daftar kode HS yang tersedia
+• 📦 *Kontak Tersedia* - Lihat daftar kode HS yang tersedia
 
 *Sistem Kredit:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
@@ -124,11 +124,11 @@ Catatan:
 💡 *Tips:*
 • Gunakan kode HS untuk hasil yang lebih spesifik
 • Kombinasikan dengan negara untuk filter terbaik
-• Data akan diperbarui secara berkala"""
-    SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
+• Kontak akan diperbarui secara berkala"""
+    SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
-    SEARCH_ERROR = "Data importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
+    SEARCH_ERROR = "Kontak importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
     NO_CREDITS = """⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini.
 
 Biaya kredit untuk kontak ini:
@@ -270,7 +270,7 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
             return message_text, whatsapp_number, callback_data
 
         except Exception as e:
-            logging.error(f"Kesalahan format data importir: {str(e)}", exc_info=True)
+            logging.error(f"Kesalahan format kontak importir: {str(e)}", exc_info=True)
             raise
 
     @staticmethod

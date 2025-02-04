@@ -791,9 +791,9 @@ class CommandHandler:
 
                             counts_dict = {row[0]: row[1] for row in hs_counts}
                             
-                            hs_guide = """📊 *Data Tersedia*
+                            hs_guide = """📊 *Kontak Tersedia*
 
-🗂️ *Data Importir:*
+🗂️ *Kontak Importir:*
 🐟 0301 - Ikan hidup ({} data)
 🐠 0302 - Ikan segar ({} data)
 ❄️ 0303 - Ikan beku ({} data)
