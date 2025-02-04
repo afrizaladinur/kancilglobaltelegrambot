@@ -850,13 +850,16 @@ class CommandHandler:
                                 WHERE user_id = :user_id
                             """), {"user_id": user_id})
 
-                            new_balance = conn.execute(text(
-                                "SELECT credits FROM user_credits WHERE user_id = :user_id"
-                            ), {"user_id": user_id}).scalar()
+                            result = conn.execute(text("""
+                                SELECT credits FROM user_credits 
+                                WHERE user_id = :user_id
+                                FOR UPDATE
+                            """), {"user_id": user_id})
+                            new_balance = result.scalar()
 
                         await query.message.reply_text(
                             f"🎉 Selamat! 10 kredit gratis telah ditambahkan ke akun Anda!\n"
-                            f"Saldo saat ini: {new_balance} kredit"
+                            f"Saldo saat ini: {new_balance:.1f} kredit"
                         )
                     except Exception as e:
                         logging.error(f"Error redeeming free credits: {str(e)}")
