@@ -42,7 +42,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • Kombinasikan negara + kode HS untuk filter terbaik
 • Simpan kontak penting agar bisa diakses kapan saja
 
-Kredit awal: 3 kredit (gratis untuk pengguna baru)
+Kredit awal: 10 kredit (gratis untuk pengguna baru)
 """
     HELP = """
 Daftar perintah yang tersedia:

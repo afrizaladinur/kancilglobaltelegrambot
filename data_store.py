@@ -81,7 +81,7 @@ class DataStore:
             logging.error(f"Error getting user credits: {str(e)}")
             return None
 
-    def initialize_user_credits(self, user_id: int, initial_credits: float = 3.0) -> None:
+    def initialize_user_credits(self, user_id: int, initial_credits: float = 10.0) -> None:
         """Initialize credits for new user"""
         try:
             with self.engine.begin() as conn:
