@@ -602,7 +602,9 @@ async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TY
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
-            await update.callback_query.message.reply_text(Messages.ERROR_MESSAGEasync def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+            await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
         try:
             if not await self.check_rate_limit(update):
