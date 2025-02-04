@@ -4,25 +4,38 @@ class Messages:
     START = """
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
-Silakan pilih menu di bawah ini:
-- 🔍 Cari Importir - untuk mencari importir berdasarkan nama, negara, atau kode HS
-- 📁 Kontak Tersimpan - untuk melihat kontak yang disimpan
-- 💳 Kredit Saya - untuk melihat sisa kredit
-- 💰 Beli Kredit - untuk menambah kredit
-- 📊 Statistik - untuk melihat statistik penggunaan
-- ❓ Bantuan - untuk melihat panduan lengkap
+*Menu Utama:*
+• 🔍 *Cari Importir* - Mencari importir dengan 3 cara:
+  1. Berdasarkan Negara: /search [nama negara]
+     Contoh: `/search malaysia`, `/search japan`
+  2. Berdasarkan Kode HS: /search [kode 4 digit]
+     Contoh: `/search 0302` (untuk produk ikan)
+  3. Kombinasi: /search [kode hs] [negara]
+     Contoh: `/search 0302 malaysia`
 
-Contoh pencarian:
-• /search malaysia - cari importir dari Malaysia
-• /search 0303 - cari importir dengan kode HS 0303
-• /search 0303 malaysia - cari importir dari Malaysia dengan kode HS 0303
+• 📁 *Kontak Tersimpan* - Melihat kontak yang sudah disimpan
+• 💳 *Kredit Saya* - Cek saldo kredit Anda
+• 💰 *Beli Kredit* - Tambah kredit untuk menyimpan kontak
+• 📊 *Statistik* - Lihat riwayat penggunaan
+• ❓ *Bantuan* - Panduan lengkap
 
-Sistem Kredit:
-• 3 kredit - Kontak lengkap dengan WhatsApp (WA + email + website + telepon)
-• 2 kredit - Kontak lengkap tanpa WhatsApp (email + website + telepon)
-• 1 kredit - Kontak tidak lengkap tanpa WhatsApp
+*Panduan Kode HS:*
+• 0301 - Ikan hidup
+• 0302 - Ikan segar
+• 0303 - Ikan beku
+• 0304 - Fillet ikan
 
-Catatan: Anda mendapatkan 3 kredit gratis saat pertama kali bergabung.
+*Sistem Kredit:*
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap
+
+*Tips Pencarian:*
+• Gunakan kode HS untuk hasil lebih spesifik
+• Kombinasikan negara + kode HS untuk filter terbaik
+• Simpan kontak penting agar bisa diakses kapan saja
+
+Kredit awal: 3 kredit (gratis untuk pengguna baru)
 """
     HELP = """
 Daftar perintah yang tersedia:
@@ -44,7 +57,15 @@ Catatan:
 - Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 3 kredit untuk pengguna baru
 """
-    SEARCH_NO_QUERY = "Mohon masukkan kata kunci pencarian. Contoh: /search malaysia"
+    SEARCH_NO_QUERY = """Mohon masukkan kata kunci pencarian setelah perintah /search
+
+*Format Pencarian:*
+1. /search [negara] - Cari berdasarkan negara
+   Contoh: `/search malaysia`
+2. /search [kode hs] - Cari dengan kode HS
+   Contoh: `/search 0302`
+3. /search [kode hs] [negara] - Cari kombinasi
+   Contoh: `/search 0302 malaysia`"""
     SEARCH_NO_RESULTS = "Data importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan data terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
