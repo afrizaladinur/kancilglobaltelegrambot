@@ -348,12 +348,18 @@ class CommandHandler:
                             f"Jumlah Kredit: {credit_amount}"
                         )
                         
+                        admin_keyboard = [[InlineKeyboardButton(
+                            f"✅ Berikan {credit_amount} Kredit",
+                            callback_data=f"give_{user_id}_{credit_amount}"
+                        )]]
+                        
                         admin_ids = [6422072438]  # Your admin ID
                         for admin_id in admin_ids:
                             await context.bot.send_message(
                                 chat_id=admin_id,
                                 text=admin_message,
-                                parse_mode='Markdown'
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
                         
                         # Notify user
@@ -398,6 +404,29 @@ class CommandHandler:
                     else:
                         logging.error(f"Could not find importer {importer_name} to save")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
+                elif query.data.startswith('give_'):
+                    try:
+                        _, target_user_id, credit_amount = query.data.split('_')
+                        if query.from_user.id not in [6422072438]:  # Admin check
+                            await query.answer("Not authorized", show_alert=True)
+                            return
+                            
+                        if self.data_store.add_credits(int(target_user_id), int(credit_amount)):
+                            new_balance = self.data_store.get_user_credits(int(target_user_id))
+                            await query.message.edit_text(
+                                f"{query.message.text}\n\n✅ Kredit telah ditambahkan!\nSaldo baru: {new_balance}",
+                                parse_mode='Markdown'
+                            )
+                            # Notify user
+                            await context.bot.send_message(
+                                chat_id=int(target_user_id),
+                                text=f"✅ {credit_amount} kredit telah ditambahkan ke akun Anda!\nSaldo saat ini: {new_balance} kredit"
+                            )
+                        else:
+                            await query.answer("Failed to add credits", show_alert=True)
+                    except Exception as e:
+                        logging.error(f"Error giving credits: {str(e)}")
+                        await query.answer("Error processing request", show_alert=True)
                 else:
                     logging.warning(f"Unknown callback query data: {query.data}")
 
