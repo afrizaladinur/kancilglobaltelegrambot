@@ -1,0 +1,85 @@
+Python
+
+Xendit Python library adalah salah satu cara bagi developer untuk mengintegrasi produk Xendit dengan menggunakan aplikasi Python!
+
+Saat ini, Xendit Python library mendukung produk berikut:
+
+Credit / Debit Cards (via Payments API)
+E-Wallets (via Payments API)
+Virtual Accounts (via Payments API)
+Retail Outlets (via Payments API)
+QR Code (via Payments API)
+Customers
+Invoices
+Payouts
+Balances
+Transactions
+Kompatibilitas
+
+Xendit Python dapat digunakan dengan Python 3.10+
+
+Instalasi
+
+Berikut adalah beberapa alternatif instalasi menggunakan pip, gunakan salah satu saja dan jika ada masalah baru coba gunakan yang lain.
+
+Install package
+pip install xendit-python
+Install langsung dari Xendit's Github Repository
+pip install git+https://github.com/xendit/xendit-python.git
+Install langsung dari Xendit's Github Repository denga root permission
+sudo pip install git+https://github.com/xendit/xendit-python.git
+Lalu lakukan import
+
+import xendit
+Source Code kami tersedia di Github dengan dokumentasi dan versi SDK yang lebih lengkap.
+
+Otorisasi
+
+SDK membutuhkan inisiasi client menggunakan API Key rahasia yang bisa didapatkan dari Xendit Dashboard. Anda bisa melakukan registrasi dengan untuk Akun Dashboard disini.
+
+import xendit
+from xendit.apis import BalanceApi
+from pprint import pprint
+
+xendit.set_api_key('XENDIT_API_KEY')
+
+client = xendit.ApiClient()
+
+try:
+    response = BalanceApi(client).get_balance('CASH')
+    pprint(response)
+except xendit.XenditSdkException as e:
+    print("Exception when calling BalanceApi->get_balance: %s\n" % e)
+Contoh Penggunaan
+
+Berikut contoh penggunaan BalanceApi Xendit. Untuk memulai menggunakan API, Anda harus mengonfigurasi API Key rahasia dan menginisiasi client.
+
+import time
+import xendit
+from xendit.apis import BalanceApi
+from xendit.balance_and_transaction.model.server_error import ServerError
+from xendit.balance_and_transaction.model.validation_error import ValidationError
+from xendit.balance_and_transaction.model.balance import Balance
+from pprint import pprint
+
+# See configuration.py for a list of all supported configuration parameters.
+xendit.set_api_key('XENDIT API KEY')
+
+
+# Enter a context with an instance of the API client
+api_client = xendit.ApiClient()
+# Create an instance of the API class
+api_instance = BalanceApi(api_client)
+account_type = "CASH" # str | The selected balance type
+currency = "IDR" # str | Currency for filter for customers with multi currency accounts
+for_user_id = "5dbf20d7c8eb0c0896f811b6" # str | The sub-account user-id that you want to make this transaction for. This header is only used if you have access to xenPlatform. See xenPlatform for more information
+
+# example passing only required values which don't have defaults set
+# and optional values
+try:
+    # Retrieves balances for a business, default to CASH type
+    api_response = api_instance.get_balance(account_type=account_type, currency=currency, for_user_id=for_user_id)
+    pprint(api_response)
+except xendit.XenditSdkException as e:
+    print("Exception when calling BalanceApi->get_balance: %s\n" % e)
+Untuk contoh penggunaan lainnya bisa dilihat di Dokumentasi Python SDK di Github.
