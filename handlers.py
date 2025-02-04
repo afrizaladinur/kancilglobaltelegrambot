@@ -210,7 +210,9 @@ class CommandHandler:
             logging.error(f"Error in saved command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
-    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import os
+
+async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
         try:
             query = update.callback_query
@@ -432,8 +434,9 @@ class CommandHandler:
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
                         
+                        external_id = f"BOT_{user_id}_{int(time.time())}"
                         xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
-                        payment_url = f"{xendit_url}?amount={amount}&external_id={order_id}&items[0][name]=Kredit Bot&items[0][quantity]={credits}"
+                        payment_url = f"{xendit_url}?amount={amount}&external_id={external_id}&failure_redirect_url=https://t.me/kancilglobalbot&success_redirect_url=https://t.me/kancilglobalbot"
                         
                         keyboard = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
                         
