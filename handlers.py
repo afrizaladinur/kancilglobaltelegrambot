@@ -147,6 +147,9 @@ class CommandHandler:
                 return
 
             user_id = update.effective_user.id
+            page = getattr(context.user_data, 'saved_page', 0)
+            items_per_page = 2
+
             with app.app_context():
                 self.data_store.track_user_command(user_id, 'saved')
                 saved_contacts = self.data_store.get_saved_contacts(user_id)
@@ -155,7 +158,12 @@ class CommandHandler:
                 await update.message.reply_text(Messages.NO_SAVED_CONTACTS)
                 return
 
-            for contact in saved_contacts:
+            total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            current_contacts = saved_contacts[start_idx:end_idx]
+
+            for contact in current_contacts:
                 try:
                     message_text, whatsapp_number, _ = Messages.format_importer(
                         contact, saved=True
@@ -175,6 +183,19 @@ class CommandHandler:
                 except Exception as e:
                     logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
                     continue
+
+            # Add pagination buttons
+            pagination_buttons = []
+            if page > 0:
+                pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="saved_prev"))
+            pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="page_info"))
+            if page < total_pages - 1:
+                pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
+
+            await update.message.reply_text(
+                f"Halaman {page + 1} dari {total_pages}",
+                reply_markup=InlineKeyboardMarkup([pagination_buttons])
+            )
 
             logging.info(f"Successfully sent saved contacts to user {user_id}")
         except Exception as e:
@@ -238,6 +259,14 @@ class CommandHandler:
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'help')
                     await query.message.reply_text(Messages.HELP, parse_mode='Markdown')
+                elif query.data == "saved_prev":
+                    context.user_data['saved_page'] = max(0, context.user_data.get('saved_page', 0) - 1)
+                    await self.saved(update, context)
+                elif query.data == "saved_next":
+                    context.user_data['saved_page'] = context.user_data.get('saved_page', 0) + 1
+                    await self.saved(update, context)
+                elif query.data == "page_info":
+                    await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data == "show_credits":
                     user_id = query.from_user.id
                     with app.app_context():
