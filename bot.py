@@ -31,8 +31,10 @@ class TelegramBot:
     def _register_handlers(self):
         """Register command handlers"""
         # Register commands with explicit filters
-        from telegram.ext import filters
-        self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start, filters.COMMAND))
+        from telegram.ext import filters, MessageHandler
+        # Add both command and message handlers for /start
+        self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
+        self.application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("help", self.command_handler.help, filters.COMMAND))
         self.application.add_handler(TelegramCommandHandler("search", self.command_handler.search, filters.COMMAND))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved, filters.COMMAND))

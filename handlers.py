@@ -36,9 +36,12 @@ class CommandHandler:
             return True  # Allow operation on error to prevent blocking
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command"""
+        """Handle /start command and message handler"""
         try:
-            if not await self.check_rate_limit(update):
+            # Skip rate limit for /start command
+            if update.message and update.message.text == '/start':
+                pass
+            elif not await self.check_rate_limit(update):
                 return
 
             user_id = update.effective_user.id
