@@ -844,12 +844,6 @@ class CommandHandler:
 
                             # Skip the format since we're building the string differently
                             keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                                counts_dict.get('0301', 0),
-                                counts_dict.get('0302', 0),
-                                counts_dict.get('0303', 0),
-                                counts_dict.get('0304', 0),
-                                counts_dict.get('0901', 0)
-                            )
                             keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                         await query.message.reply_text(
                             hs_guide,
