@@ -322,7 +322,50 @@ class CommandHandler:
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 elif query.data == "buy_credits":
-                    await query.message.reply_text(Messages.BUY_CREDITS_INFO)
+                    keyboard = [
+                        [InlineKeyboardButton("🛒 Beli 10 Kredit - Rp 50.000", callback_data="order_10")],
+                        [InlineKeyboardButton("🛒 Beli 25 Kredit - Rp 100.000", callback_data="order_25")],
+                        [InlineKeyboardButton("🛒 Beli 50 Kredit - Rp 175.000", callback_data="order_50")]
+                    ]
+                    await query.message.reply_text(
+                        Messages.BUY_CREDITS_INFO,
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                elif query.data.startswith('order_'):
+                    try:
+                        credit_amount = query.data.split('_')[1]
+                        user_id = query.from_user.id
+                        username = query.from_user.username or "NoUsername"
+                        order_id = f"ORD{user_id}{int(time.time())}"
+                        
+                        # Notify admin
+                        admin_message = (
+                            f"🔔 Pesanan Kredit Baru!\n\n"
+                            f"Order ID: `{order_id}`\n"
+                            f"User ID: `{user_id}`\n"
+                            f"Username: @{username}\n"
+                            f"Jumlah Kredit: {credit_amount}"
+                        )
+                        
+                        admin_ids = [6422072438]  # Your admin ID
+                        for admin_id in admin_ids:
+                            await context.bot.send_message(
+                                chat_id=admin_id,
+                                text=admin_message,
+                                parse_mode='Markdown'
+                            )
+                        
+                        # Notify user
+                        await query.message.reply_text(
+                            f"✅ Pesanan dibuat!\n\n"
+                            f"ID Pesanan: `{order_id}`\n"
+                            f"Jumlah Kredit: {credit_amount}\n\n"
+                            "Admin akan segera menghubungi Anda.",
+                            parse_mode='Markdown'
+                        )
+                    except Exception as e:
+                        logging.error(f"Error processing order: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
                 elif query.data.startswith('save_'):
                     importer_name = query.data[5:]  # Remove 'save_' prefix
                     user_id = query.from_user.id
