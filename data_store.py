@@ -30,6 +30,8 @@ class DataStore:
                 email VARCHAR(255),
                 website TEXT,
                 wa_availability BOOLEAN,
+                hs_code VARCHAR(255),
+                product_description TEXT,
                 saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, importer_name)
             );
@@ -309,7 +311,7 @@ class DataStore:
                             "email": importer['email'],
                             "website": importer['website'],
                             "wa_available": importer['wa_available'],
-                            "hs_code": importer.get('product', ''),
+                            "hs_code": importer.get('hs_code', ''),
                             "product_description": importer.get('product_description', '')
                         }
                     )
