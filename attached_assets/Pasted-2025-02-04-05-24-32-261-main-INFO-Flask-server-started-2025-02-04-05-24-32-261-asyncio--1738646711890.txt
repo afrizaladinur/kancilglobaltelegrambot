@@ -1,0 +1,86 @@
+2025-02-04 05:24:32,261 - __main__ - INFO - Flask server started
+2025-02-04 05:24:32,261 - asyncio - DEBUG - Using selector: EpollSelector
+ * Serving Flask app 'app'
+ * Debug mode: on
+2025-02-04 05:24:32,325 - werkzeug - INFO - WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.128.106:5000
+2025-02-04 05:24:32,326 - werkzeug - INFO - Press CTRL+C to quit
+2025-02-04 05:24:33,206 - root - INFO - Tables initialized successfully
+2025-02-04 05:24:33,206 - root - INFO - DataStore initialized with PostgreSQL
+2025-02-04 05:24:33,206 - root - INFO - CommandHandler initialized
+2025-02-04 05:24:33,386 - root - INFO - Bot initialized
+2025-02-04 05:24:33,386 - __main__ - INFO - Starting bot...
+2025-02-04 05:24:33,386 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `setMyCommands` with parameters `{'commands': [BotCommand(command='start', description='Mulai bot dan lihat menu utama'), BotCommand(command='search', description='Cari importir berdasarkan nama/negara/kode HS'), BotCommand(command='saved', description='Lihat daftar kontak yang tersimpan'), BotCommand(command='credits', description='Cek sisa kredit dan beli kredit'), BotCommand(command='stats', description='Lihat statistik penggunaan'), BotCommand(command='help', description='Tampilkan panduan lengkap')]}`
+2025-02-04 05:24:33,399 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-02-04 05:24:33,522 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x7f43eb33e9d0>
+2025-02-04 05:24:33,523 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x7f43eb7c6690> server_hostname='api.telegram.org' timeout=5.0
+2025-02-04 05:24:33,641 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x7f43eb36de90>
+2025-02-04 05:24:33,641 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-04 05:24:33,642 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-04 05:24:33,642 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-04 05:24:33,642 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-04 05:24:33,642 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-04 05:24:33,928 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 04 Feb 2025 05:24:33 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'25'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-04 05:24:33,929 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/setMyCommands "HTTP/1.1 200 OK"
+2025-02-04 05:24:33,929 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-04 05:24:33,929 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-04 05:24:33,929 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-04 05:24:33,930 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-04 05:24:33,930 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `setMyCommands` finished with return value `True`
+2025-02-04 05:24:33,930 - root - INFO - Bot commands registered successfully
+2025-02-04 05:24:33,931 - __main__ - ERROR - Error running bot: Cannot close a running event loop
+2025-02-04 05:24:33,932 - __main__ - ERROR - Error running application: Cannot close a running event loop
+2025-02-04 05:24:33,932 - __main__ - INFO - Application shutdown complete
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/telegram/ext/_application.py", line 1069, in __run
+    loop.run_until_complete(self.initialize())
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/base_events.py", line 630, in run_until_complete
+    self._check_running()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/base_events.py", line 589, in _check_running
+    raise RuntimeError('This event loop is already running')
+RuntimeError: This event loop is already running
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/telegram/ext/_application.py", line 1094, in __run
+    loop.run_until_complete(self.shutdown())
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/base_events.py", line 630, in run_until_complete
+    self._check_running()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/base_events.py", line 589, in _check_running
+    raise RuntimeError('This event loop is already running')
+RuntimeError: This event loop is already running
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/main.py", line 53, in <module>
+    main()
+  File "/home/runner/workspace/main.py", line 45, in main
+    asyncio.run(run_bot())
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/main.py", line 29, in run_bot
+    await app.run_polling(drop_pending_updates=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/telegram/ext/_application.py", line 868, in run_polling
+    return self.__run(
+           ^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/telegram/ext/_application.py", line 1099, in __run
+    loop.close()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/unix_events.py", line 68, in close
+    super().close()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/asyncio/selector_events.py", line 88, in close
+    raise RuntimeError("Cannot close a running event loop")
+RuntimeError: Cannot close a running event loop
+sys:1: RuntimeWarning: coroutine 'Application.shutdown' was never awaited
+sys:1: RuntimeWarning: coroutine 'Application.initialize' was never awaited
