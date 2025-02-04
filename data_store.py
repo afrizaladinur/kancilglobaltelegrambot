@@ -56,6 +56,7 @@ class DataStore:
                 user_id BIGINT NOT NULL UNIQUE,
                 credits NUMERIC(10,1) NOT NULL DEFAULT 3.0 CHECK (credits >= 0),
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                has_redeemed_free_credits BOOLEAN DEFAULT FALSE,
                 CONSTRAINT positive_credits CHECK (credits >= 0)
             );
             """

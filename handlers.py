@@ -45,6 +45,12 @@ class CommandHandler:
                 # Then track command usage
                 self.data_store.track_user_command(user_id, 'start')
 
+            # Check if user has redeemed free credits
+            with self.engine.connect() as conn:
+                has_redeemed = conn.execute(text(
+                    "SELECT has_redeemed_free_credits FROM user_credits WHERE user_id = :user_id"
+                ), {"user_id": user_id}).scalar() or False
+
             keyboard = [
                 [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
@@ -55,6 +61,9 @@ class CommandHandler:
                 [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
+
+            if not has_redeemed:
+                keyboard.insert(1, [InlineKeyboardButton("🎁 Cairkan 10 Kredit Gratis", callback_data="redeem_free_credits")])
 
             await update.message.reply_text(
                 f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}",
@@ -725,6 +734,39 @@ class CommandHandler:
                     else:
                         logging.error(f"Could not find importer {importer_name} to save")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
+                elif query.data == "redeem_free_credits":
+                    user_id = query.from_user.id
+                    try:
+                        with self.engine.begin() as conn:
+                            # Check if already redeemed
+                            has_redeemed = conn.execute(text(
+                                "SELECT has_redeemed_free_credits FROM user_credits WHERE user_id = :user_id"
+                            ), {"user_id": user_id}).scalar() or False
+
+                            if has_redeemed:
+                                await query.message.reply_text("Anda sudah pernah mengklaim kredit gratis!")
+                                return
+
+                            # Add credits and mark as redeemed
+                            conn.execute(text("""
+                                UPDATE user_credits 
+                                SET credits = credits + 10,
+                                    has_redeemed_free_credits = true
+                                WHERE user_id = :user_id
+                            """), {"user_id": user_id})
+
+                            new_balance = conn.execute(text(
+                                "SELECT credits FROM user_credits WHERE user_id = :user_id"
+                            ), {"user_id": user_id}).scalar()
+
+                        await query.message.reply_text(
+                            f"🎉 Selamat! 10 kredit gratis telah ditambahkan ke akun Anda!\n"
+                            f"Saldo saat ini: {new_balance} kredit"
+                        )
+                    except Exception as e:
+                        logging.error(f"Error redeeming free credits: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
+
                 elif query.data == "show_hs_codes":
                     hs_guide = """📊 *Data Tersedia*
 
