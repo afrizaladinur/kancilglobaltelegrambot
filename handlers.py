@@ -93,7 +93,12 @@ class CommandHandler:
                     # Continue execution even if tracking fails
 
             if not context.args:
-                await update.message.reply_text(Messages.SEARCH_NO_QUERY)
+                keyboard = [[InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]]
+                await update.message.reply_text(
+                    Messages.SEARCH_NO_QUERY,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='Markdown'
+                )
                 return
 
             query = ' '.join(context.args)
