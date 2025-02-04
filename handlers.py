@@ -911,8 +911,8 @@ class CommandHandler:
 
                             hs_guide = """📊 *Kontak Tersedia*
 
-🗂️ *Kontak Importir:*
-{}""".format("\n".join(contacts_list))
+                            🗂️ *Kontak Importir:*
+                            {}""".format("\n".join(contacts_list))
 
                             # Skip the format since we're building the string differently
                             keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
