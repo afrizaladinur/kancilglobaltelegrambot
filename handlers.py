@@ -741,7 +741,7 @@ class CommandHandler:
                         )
                     except Exception as e:
                         logging.error(f"Error processing order: {str(e)}")
-                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan cobalagi nanti.")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
                 elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
@@ -883,11 +883,10 @@ class CommandHandler:
                                         WHEN product LIKE '%0303%' THEN '0303'
                                         WHEN product LIKE '%0304%' THEN '0304'
                                         WHEN product LIKE '%0901%' THEN '0901'
-                                        WHEN product LIKE '%4401.31%' THEN '4401.31'
                                     END as hs_code,
                                     COUNT(*) as count
                                 FROM importers
-                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901|4401.31)%'
+                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901)%'
                                 GROUP BY hs_code
                                 ORDER BY hs_code;
                             """)).fetchall()
@@ -906,13 +905,11 @@ class CommandHandler:
                                 contacts_list.append(f"🍣 0304 - Fillet ikan ({counts_dict.get('0304')} kontak)")
                             if counts_dict.get('0901', 0) > 0:
                                 contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
-                            if counts_dict.get('4401.31', 0) > 0:
-                                contacts_list.append(f"🥥 4401.31 - Coconut Shell Briquette ({counts_dict.get('4401.31')} kontak)")
 
                             hs_guide = """📊 *Kontak Tersedia*
 
-                            🗂️ *Kontak Importir:*
-                            {}""".format("\n".join(contacts_list))
+🗂️ *Kontak Importir:*
+{}""".format("\n".join(contacts_list))
 
                             # Skip the format since we're building the string differently
                             keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
