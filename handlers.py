@@ -283,9 +283,31 @@ class CommandHandler:
                         
                         # Create CSV in memory
                         output = io.StringIO()
-                        writer = csv.DictWriter(output, fieldnames=['name', 'country', 'contact', 'email', 'website', 'wa_available', 'hs_code', 'product_description', 'saved_at'])
-                        writer.writeheader()
-                        writer.writerows(contacts)
+                        fieldnames = ['product_description', 'name', 'country', 'contact', 'email', 'website', 'wa_available', 'hs_code', 'saved_at']
+                        writer = csv.DictWriter(output, fieldnames=fieldnames)
+                        
+                        # Write custom headers
+                        writer.writerow({
+                            'product_description': 'Peran',
+                            'name': 'Nama Perusahaan',
+                            'country': 'Negara',
+                            'contact': 'Telepon',
+                            'email': 'E-mail',
+                            'website': 'Website',
+                            'wa_available': 'WhatsApp',
+                            'hs_code': 'HS Code',
+                            'saved_at': 'Tanggal Penyimpanan'
+                        })
+                        
+                        # Process and write rows
+                        for contact in contacts:
+                            # Convert WhatsApp status
+                            contact['wa_available'] = 'Tersedia' if contact['wa_available'] else 'Tidak Tersedia'
+                            # Process HS Code to show only last 4 digits
+                            if contact['hs_code']:
+                                digits = ''.join(filter(str.isdigit, contact['hs_code']))
+                                contact['hs_code'] = digits[-4:] if len(digits) >= 4 else digits
+                            writer.writerow(contact)
                         
                         # Convert to bytes for sending
                         csv_bytes = output.getvalue().encode('utf-8')
