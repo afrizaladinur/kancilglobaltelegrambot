@@ -259,12 +259,56 @@ class CommandHandler:
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'help')
                     await query.message.reply_text(Messages.HELP, parse_mode='Markdown')
-                elif query.data == "saved_prev":
-                    context.user_data['saved_page'] = max(0, context.user_data.get('saved_page', 0) - 1)
-                    await self.saved(update, context)
-                elif query.data == "saved_next":
-                    context.user_data['saved_page'] = context.user_data.get('saved_page', 0) + 1
-                    await self.saved(update, context)
+                elif query.data == "saved_prev" or query.data == "saved_next":
+                    user_id = query.from_user.id
+                    items_per_page = 2
+                    
+                    with app.app_context():
+                        saved_contacts = self.data_store.get_saved_contacts(user_id)
+                        
+                    if not saved_contacts:
+                        await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
+                        return
+                        
+                    total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
+                    current_page = context.user_data.get('saved_page', 0)
+                    
+                    if query.data == "saved_prev":
+                        current_page = max(0, current_page - 1)
+                    else:
+                        current_page = min(total_pages - 1, current_page + 1)
+                        
+                    context.user_data['saved_page'] = current_page
+                    start_idx = current_page * items_per_page
+                    end_idx = min(start_idx + items_per_page, len(saved_contacts))
+                    current_contacts = saved_contacts[start_idx:end_idx]
+
+                    for contact in current_contacts:
+                        message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
+                        keyboard = []
+                        if whatsapp_number:
+                            keyboard.append([InlineKeyboardButton(
+                                "💬 Chat di WhatsApp",
+                                url=f"https://wa.me/{whatsapp_number}"
+                            )])
+                        await query.message.reply_text(
+                            message_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                        )
+
+                    # Add pagination buttons
+                    pagination_buttons = []
+                    if current_page > 0:
+                        pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="saved_prev"))
+                    pagination_buttons.append(InlineKeyboardButton(f"{current_page + 1}/{total_pages}", callback_data="page_info"))
+                    if current_page < total_pages - 1:
+                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
+
+                    await query.message.reply_text(
+                        f"Halaman {current_page + 1} dari {total_pages}",
+                        reply_markup=InlineKeyboardMarkup([pagination_buttons])
+                    )
                 elif query.data == "page_info":
                     await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data == "show_credits":
