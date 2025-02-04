@@ -281,19 +281,19 @@ class CommandHandler:
                         user_id = query.from_user.id
                         with app.app_context():
                             contacts = self.data_store.get_saved_contacts(user_id)
-                        
+
                         if not contacts:
                             await query.message.reply_text("No contacts to export.")
                             return
-                            
+
                         import csv
                         import io
-                        
+
                         # Create CSV in memory
                         output = io.StringIO()
                         fieldnames = ['product_description', 'name', 'country', 'contact', 'email', 'website', 'wa_available', 'hs_code', 'saved_at']
                         writer = csv.DictWriter(output, fieldnames=fieldnames)
-                        
+
                         # Write custom headers
                         writer.writerow({
                             'product_description': 'Peran',
@@ -306,7 +306,7 @@ class CommandHandler:
                             'hs_code': 'HS Code',
                             'saved_at': 'Tanggal Penyimpanan'
                         })
-                        
+
                         # Process and write rows
                         for contact in contacts:
                             # Convert WhatsApp status
@@ -316,22 +316,22 @@ class CommandHandler:
                                 digits = ''.join(filter(str.isdigit, contact['hs_code']))
                                 contact['hs_code'] = digits[-4:] if len(digits) >= 4 else digits
                             writer.writerow(contact)
-                        
+
                         # Convert to bytes for sending
                         csv_bytes = output.getvalue().encode('utf-8')
                         output.close()
-                        
+
                         # Send CSV file
                         from io import BytesIO
                         bio = BytesIO(csv_bytes)
                         bio.name = f'saved_contacts_{user_id}.csv'
-                        
+
                         await query.message.reply_document(
                             document=bio,
                             filename=f'saved_contacts_{user_id}.csv',
                             caption="Berikut adalah daftar kontak yang tersimpan!"
                         )
-                        
+
                     except Exception as e:
                         logging.error(f"Error exporting contacts: {str(e)}")
                         await query.message.reply_text("Error exporting contacts. Please try again later.")
@@ -352,22 +352,22 @@ class CommandHandler:
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
-                    
+
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
-                        
+
                     if not saved_contacts:
                         await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
                         return
-                        
+
                     total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
                     current_page = context.user_data.get('saved_page', 0)
-                    
+
                     if query.data == "saved_prev":
                         current_page = max(0, current_page - 1)
                     else:
                         current_page = min(total_pages - 1, current_page + 1)
-                        
+
                     context.user_data['saved_page'] = current_page
                     start_idx = current_page * items_per_page
                     end_idx = min(start_idx + items_per_page, len(saved_contacts))
@@ -430,11 +430,17 @@ class CommandHandler:
 
                         # Generate Xendit payment link first
                         xendit_id = os.environ.get('XENDIT_ID')
-                        
+
                         payment_url = None
                         if xendit_id:
-                            xendit_url = "https://checkout-staging.xendit.co/v2"
-                            payment_url = f"{xendit_url}/{xendit_id}?amount={amount}&external_id={order_id}&payer_email={username}@telegram.org&items[0][name]=Kredit%20Bot&items[0][quantity]={credits}&items[0][price]={amount}"
+                            payment_url = f"https://checkout.xendit.co/v2/{xendit_id}"
+                            payment_url += f"?amount={amount}"
+                            payment_url += f"&external_id={order_id}"
+                            payment_url += "&currency=IDR"
+                            payment_url += f"&payer_email={username}@telegram.org"
+                            payment_url += "&redirect_after_success=https://t.me/your_bot_username"
+                            payment_url += "&failure_redirect_url=https://t.me/your_bot_username"
+
 
                         # Then notify admin and create order  
                         admin_message = (
@@ -445,12 +451,12 @@ class CommandHandler:
                             f"Jumlah Kredit: {credits}\n"
                             f"Total: Rp {int(amount):,}"
                         )
-                        
+
                         admin_keyboard = [[InlineKeyboardButton(
                             f"✅ Berikan {credits} Kredit",
                             callback_data=f"give_{user_id}_{credits}"
                         )]]
-                        
+
                         admin_ids = [6422072438]  # Admin ID
                         for admin_id in admin_ids:
                             await context.bot.send_message(
@@ -488,10 +494,16 @@ class CommandHandler:
 
                         # Generate payment link if Xendit is configured
                         if xendit_id:
-                            xendit_url = f"https://checkout-staging.xendit.co/v2/{xendit_id}"
-                            payment_url = f"{xendit_url}?amount={amount}&external_id={order_id}&payer_email={username}@telegram.org&items[0][name]=Kredit%20Bot&items[0][quantity]={credits}"
+                            payment_url = f"https://checkout.xendit.co/v2/{xendit_id}"
+                            payment_url += f"?amount={amount}"
+                            payment_url += f"&external_id={order_id}"
+                            payment_url += "&currency=IDR"
+                            payment_url += f"&payer_email={username}@telegram.org"
+                            payment_url += "&redirect_after_success=https://t.me/your_bot_username"
+                            payment_url += "&failure_redirect_url=https://t.me/your_bot_username"
+
                             payment_button = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
-                            
+
                             await query.message.reply_text(
                                 f"✅ Pesanan dibuat!\n\n"
                                 f"ID Pesanan: `{order_id}`\n"
@@ -510,7 +522,7 @@ class CommandHandler:
                                 f"Admin akan segera menghubungi Anda untuk proses pembayaran.",
                                 parse_mode='Markdown'
                             )
-                            
+
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                         await query.message.reply_text(
@@ -522,7 +534,7 @@ class CommandHandler:
                         user_id = query.from_user.id
                         username = query.from_user.username or "NoUsername"
                         order_id = f"ORD{user_id}{int(time.time())}"
-                        
+
                         # Notify admin
                         admin_message = (
                             f"🔔 Pesanan Kredit Baru!\n\n"
@@ -531,12 +543,12 @@ class CommandHandler:
                             f"Username: @{username}\n"
                             f"Jumlah Kredit: {credit_amount}"
                         )
-                        
+
                         admin_keyboard = [[InlineKeyboardButton(
                             f"✅ Berikan {credit_amount} Kredit",
                             callback_data=f"give_{user_id}_{credit_amount}"
                         )]]
-                        
+
                         admin_ids = [6422072438]  # Your admin ID
                         for admin_id in admin_ids:
                             await context.bot.send_message(
@@ -545,7 +557,7 @@ class CommandHandler:
                                 parse_mode='Markdown',
                                 reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
-                        
+
                         # Notify user
                         await query.message.reply_text(
                             f"✅ Pesanan dibuat!\n\n"
@@ -561,12 +573,12 @@ class CommandHandler:
                     user_id = query.from_user.id
                     items_per_page = 2
                     current_page = context.user_data.get('show_saved_page', 0)
-                    
+
                     if query.data == "show_saved_prev":
                         context.user_data['show_saved_page'] = max(0, current_page - 1)
                     else:
                         context.user_data['show_saved_page'] = current_page + 1
-                        
+
                     # Trigger show_saved again with new page
                     query.data = "show_saved"
                     await self.button_callback(update, context)
@@ -618,7 +630,7 @@ class CommandHandler:
                         if query.from_user.id not in [6422072438]:  # Admin check
                             await query.answer("Not authorized", show_alert=True)
                             return
-                            
+
                         if self.data_store.add_credits(int(target_user_id), int(credit_amount)):
                             new_balance = self.data_store.get_user_credits(int(target_user_id))
                             await query.message.edit_text(
