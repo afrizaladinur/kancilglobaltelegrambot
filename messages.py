@@ -104,9 +104,9 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
     CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
     BUY_CREDITS_INFO = """
 💰 Paket Kredit:
-- 10 kredit: Rp 50.000
-- 25 kredit: Rp 100.000
-- 50 kredit: Rp 175.000
+- 20 kredit: Rp 50.000
+- 45 kredit: Rp 100.000
+- 100 kredit: Rp 200.000
 """
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."

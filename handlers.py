@@ -414,9 +414,9 @@ class CommandHandler:
                     )
                 elif query.data == "buy_credits":
                     keyboard = [
-                        [InlineKeyboardButton("🛒 Beli 10 Kredit - Rp 50.000", callback_data="pay_10_50000")],
-                        [InlineKeyboardButton("🛒 Beli 25 Kredit - Rp 100.000", callback_data="pay_25_100000")],
-                        [InlineKeyboardButton("🛒 Beli 50 Kredit - Rp 175.000", callback_data="pay_50_175000")]
+                        [InlineKeyboardButton("🛒 Beli 20 Kredit - Rp 50.000", callback_data="pay_20_50000")],
+                        [InlineKeyboardButton("🛒 Beli 45 Kredit - Rp 100.000", callback_data="pay_45_100000")],
+                        [InlineKeyboardButton("🛒 Beli 100 Kredit - Rp 200.000", callback_data="pay_100_200000")]
                     ]
                     await query.message.reply_text(
                         "Pilih paket kredit yang ingin Anda beli:",
