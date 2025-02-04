@@ -433,30 +433,33 @@ class CommandHandler:
                         xendit.set_api_key(os.environ.get('XENDIT_API_KEY'))
 
                         try:
-                            from xendit.apis import PaymentApi
-                            from xendit.apis.payment_api import CreatePaymentRequest
-
-                            api_instance = PaymentApi(xendit.ApiClient())
-                            payment_params = CreatePaymentRequest(
-                                reference_id=order_id,
+                            from xendit.models.invoice import Invoice
+                            
+                            # Create invoice
+                            invoice = Invoice.create(
+                                external_id=order_id,
                                 amount=int(amount),
-                                currency="IDR",
-                                payment_method=dict(
-                                    type="EWALLET",
-                                    ewallet=dict(
-                                        channel_code="ID_OVO",
-                                        channel_properties=dict(
-                                            success_redirect_url="https://t.me/kancilglobalbot",
-                                            failure_redirect_url="https://t.me/kancilglobalbot"
-                                        )
-                                    )
-                                )
+                                payer_email="customer@example.com",
+                                description=f"Payment for {credits} credits",
+                                success_redirect_url="https://t.me/kancilglobalbot",
+                                failure_redirect_url="https://t.me/kancilglobalbot"
                             )
-                            payment_response = api_instance.create_payment(payment_params)
-                            payment_url = payment_response.actions[0].url
+                            
+                            payment_url = invoice.invoice_url
+                            
+                            # Log successful invoice creation
+                            logging.info(f"Invoice created: {invoice.id} for order {order_id}")
                         except Exception as xendit_error:
-                            logging.error(f"Xendit error: {str(xendit_error)}")
-                            await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
+                            error_msg = str(xendit_error)
+                            logging.error(f"Xendit error details: {error_msg}")
+                            
+                            if "API key" in error_msg:
+                                await query.message.reply_text("Konfigurasi API key belum benar. Mohon hubungi admin.")
+                            elif "Invoice" in error_msg:
+                                await query.message.reply_text("Gagal membuat invoice. Mohon coba lagi atau hubungi admin.")
+                            else:
+                                await query.message.reply_text("Maaf, terjadi kesalahan dalam memproses pembayaran. Silakan coba lagi nanti.")
+                            return
                             return
 
 
