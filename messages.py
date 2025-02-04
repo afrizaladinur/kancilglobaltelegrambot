@@ -1,12 +1,6 @@
 import logging
 
 class Messages:
-    START = """
-Selamat datang di Bot Eksportir Indonesia! 🇮🇩
-
-*Menu Utama:*
-• 🔍 *Cari Importir* - Pencarian data importir:
-  ├ *Berdasarkan Negara:*
 
     @staticmethod
     def get_country_emoji(country: str) -> str:
@@ -18,7 +12,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
             'United States': '🇺🇸',
             'Vietnam': '🇻🇳',
             'Thailand': '🇹🇭',
-            'Singapore': '🇸🇬',
+            'Singapore': '🇸🇬', 
             'Malaysia': '🇲🇾',
             'Indonesia': '🇮🇩',
             'India': '🇮🇳'
@@ -26,6 +20,12 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
         return country_emojis.get(country, '🌐')
 
 
+    START = """
+Selamat datang di Bot Eksportir Indonesia! 🇮🇩
+
+*Menu Utama:*
+• 🔍 *Cari Importir* - Pencarian data importir:
+  ├ *Berdasarkan Negara:*
   │ Format: /search [nama negara]
   │ Contoh: `/search malaysia`, `/search japan`
   │
