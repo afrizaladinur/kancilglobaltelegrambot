@@ -485,36 +485,7 @@ class CommandHandler:
 
                         logging.info(f"Manual payment order created: {order_id}")
 
-                        except Exception as xendit_error:
-                            error_msg = str(xendit_error)
-                            logging.error(f"Xendit error details: {error_msg}")
-                            
-                            # Create manual alternative
-                            admin_message = (
-                                f"⚠️ *Payment Error - Manual Process Required*\n"
-                                f"Order ID: `{order_id}`\n"
-                                f"User: @{query.from_user.username or query.from_user.id}\n"
-                                f"Amount: Rp {int(amount):,}"
-                            )
-                            
-                            # Send to admin
-                            admin_ids = [6422072438]
-                            for admin_id in admin_ids:
-                                await context.bot.send_message(
-                                    chat_id=admin_id,
-                                    text=admin_message,
-                                    parse_mode='Markdown'
-                                )
-                            
-                            # Inform user about manual process
-                            await query.message.reply_text(
-                                "Sistem pembayaran otomatis sedang dalam perbaikan.\n"
-                                "Admin akan menghubungi Anda untuk proses pembayaran manual."
-                            )
-                            return
-
-
-                        # Then notify admin and create order  
+                        # Notify admin about new order
                         admin_message = (
                             f"🔔 *Pesanan Kredit Baru!*\n\n"
                             f"Order ID: `{order_id}`\n"
@@ -529,7 +500,7 @@ class CommandHandler:
                             callback_data=f"give_{user_id}_{credits}"
                         )]]
 
-                        admin_ids = [6422072438]  # Admin ID
+                        admin_ids = [6422072438]
                         for admin_id in admin_ids:
                             await context.bot.send_message(
                                 chat_id=admin_id,
@@ -538,25 +509,11 @@ class CommandHandler:
                                 reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
-                        # Generate Xendit payment link and notify admin in one place
-                        
-
-                        # Send notification to admin
-                        
-
-                        # Generate payment link if Xendit is configured
-                        
-
-                        payment_button = [[InlineKeyboardButton("💳 Bayar Sekarang", url=payment_url)]]
-
+                    except Exception as e:
+                        logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                         await query.message.reply_text(
-                            f"✅ Pesanan dibuat!\n\n"
-                            f"ID Pesanan: `{order_id}`\n"
-                            f"Jumlah Kredit: {credits}\n"
-                            f"Total: Rp {int(amount):,}\n\n"
-                            f"Klik tombol di bawah untuk melanjutkan pembayaran",
-                            parse_mode='Markdown',
-                            reply_markup=InlineKeyboardMarkup(payment_button)
+                            "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
+                            "Admin akan segera menghubungi Anda untuk proses manual."
                         )
                         
 
