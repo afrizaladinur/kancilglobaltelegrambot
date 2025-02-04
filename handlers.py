@@ -741,7 +741,7 @@ class CommandHandler:
                         )
                     except Exception as e:
                         logging.error(f"Error processing order: {str(e)}")
-                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan cobalagi nanti.")
                 elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
