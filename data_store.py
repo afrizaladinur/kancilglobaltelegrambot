@@ -89,7 +89,7 @@ class DataStore:
                 result = conn.execute(text(
                     "SELECT credits FROM user_credits WHERE user_id = :user_id"
                 ), {"user_id": user_id}).first()
-                
+
                 if result is None:
                     # Only initialize if user doesn't exist
                     conn.execute(text("""
@@ -111,7 +111,7 @@ class DataStore:
             has_website = bool(importer.get('website', '').strip())
             has_email = bool(importer.get('email', '').strip())
             has_phone = bool(importer.get('contact', '').strip())
-            
+
             # Complete contact info without WA = 1 credit
             if has_website and has_email and has_phone:
                 return 1.0
@@ -331,7 +331,7 @@ class DataStore:
                     # Deduct credits in the same transaction
                     update_credits_sql = """
                     UPDATE user_credits 
-                    SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                    SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
                         last_updated = CURRENT_TIMESTAMP
                     WHERE user_id = :user_id
                     """
