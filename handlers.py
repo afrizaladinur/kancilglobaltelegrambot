@@ -49,7 +49,8 @@ class CommandHandler:
                 [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
                  InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
-                 InlineKeyboardButton("❓ Bantuan", callback_data="show_help")]
+                 InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                [InlineKeyboardButton("📦 Data Tersedia", callback_data="show_hs_codes")]
             ]
 
             await update.message.reply_text(
@@ -500,6 +501,14 @@ class CommandHandler:
                     else:
                         logging.error(f"Could not find importer {importer_name} to save")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
+                elif query.data == "show_hs_codes":
+                    hs_guide = """*Data Produk Tersedia:*
+
+• 0301 - Ikan hidup
+• 0302 - Ikan segar
+• 0303 - Ikan beku
+• 0304 - Fillet ikan"""
+                    await query.message.reply_text(hs_guide, parse_mode='Markdown')
                 elif query.data.startswith('give_'):
                     try:
                         _, target_user_id, credit_amount = query.data.split('_')

@@ -26,12 +26,6 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • 📊 *Statistik* - Lihat riwayat penggunaan
 • ❓ *Bantuan* - Panduan lengkap
 
-*Panduan Kode HS:*
-• 0301 - Ikan hidup
-• 0302 - Ikan segar
-• 0303 - Ikan beku
-• 0304 - Fillet ikan
-
 *Sistem Kredit:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
 • 2 kredit - Kontak lengkap tanpa WhatsApp
