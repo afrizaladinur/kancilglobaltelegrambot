@@ -272,7 +272,8 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 
             callback_data = None
             if not saved:
-                callback_data = f"save_{importer['name']}"
+                # Truncate company name to 60 chars for callback data
+                callback_data = f"save_{importer['name'][:60]}"
 
             return message_text, whatsapp_number, callback_data
 
