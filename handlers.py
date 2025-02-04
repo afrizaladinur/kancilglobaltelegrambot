@@ -263,7 +263,7 @@ class CommandHandler:
                     if page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
 
-                    export_buttons = [[InlineKeyboardButton("📥 Export to CSV", callback_data="export_contacts")]]
+                    export_buttons = [[InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")]]
                     await query.message.reply_text(
                         f"Halaman {page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
