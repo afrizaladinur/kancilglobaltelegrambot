@@ -181,12 +181,12 @@ Untuk membeli kredit, silakan hubungi admin: @afrizaladinur
             if not saved:
                 credit_cost = Messages._calculate_credit_cost(importer)
                 message_parts.append("\n💳 Biaya kredit yang diperlukan:")
-                if credit_cost == 2.0:
-                    message_parts.append("2 kredit - Kontak lengkap dengan WhatsApp")
-                elif credit_cost == 1.0:
-                    message_parts.append("1 kredit - Kontak lengkap tanpa WhatsApp")
+                if credit_cost == 3.0:
+                    message_parts.append("3 kredit - Kontak lengkap dengan WhatsApp")
+                elif credit_cost == 2.0:
+                    message_parts.append("2 kredit - Kontak lengkap tanpa WhatsApp")
                 else:
-                    message_parts.append("0.5 kredit - Kontak tidak lengkap")
+                    message_parts.append("1 kredit - Kontak tidak lengkap tanpa WhatsApp")
                 message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
             else:
                 message_parts.append(f"📅 Disimpan pada: {importer.get('saved_at', '')}")
