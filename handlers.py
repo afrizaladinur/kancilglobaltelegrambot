@@ -427,7 +427,15 @@ class CommandHandler:
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
 
-                        # First notify admin and create order
+                        # Generate Xendit payment link first
+                        xendit_id = os.environ.get('XENDIT_ID')
+                        
+                        payment_url = None
+                        if xendit_id:
+                            xendit_url = "https://checkout-staging.xendit.co/v2"
+                            payment_url = f"{xendit_url}/{xendit_id}?amount={amount}&external_id={order_id}&payer_email={username}@telegram.org&items[0][name]=Kredit%20Bot&items[0][quantity]={credits}&items[0][price]={amount}"
+
+                        # Then notify admin and create order  
                         admin_message = (
                             f"🔔 *Pesanan Kredit Baru!*\n\n"
                             f"Order ID: `{order_id}`\n"
