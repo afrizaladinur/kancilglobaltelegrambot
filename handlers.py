@@ -45,8 +45,8 @@ class CommandHandler:
                     credits = 10.0
 
             keyboard = [
-                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="trigger_contacts")],
+                [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="trigger_saved")],
                 [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
                 [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
@@ -78,8 +78,9 @@ class CommandHandler:
                 [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
                 [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
             ]
+
             await update.message.reply_text(
-                f"{Messages.CREDITS_REMAINING.format(credits)}",
+                f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                 parse_mode='Markdown',
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
@@ -88,6 +89,323 @@ class CommandHandler:
             logging.error(f"Error in credits command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
+    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle button callbacks"""
+        query = update.callback_query
+        await query.answer()
+
+        try:
+            if query.data == "back_to_main":
+                # Delete current message and show main menu
+                await query.message.delete()
+                keyboard = [
+                    [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="trigger_contacts")],
+                    [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="trigger_saved")],
+                    [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
+                    [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                    [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
+                ]
+                await context.bot.send_message(
+                    chat_id=query.message.chat.id,
+                    text=Messages.START,
+                    parse_mode='Markdown',
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+
+            elif query.data == "trigger_contacts":
+                try:
+                    chat_id = query.message.chat.id
+                    user_id = query.from_user.id
+                    logging.info(f"Processing trigger_contacts for user {user_id}")
+
+                    # Delete current message
+                    await query.message.delete()
+
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'contacts')
+
+                    # Show HS code categories menu
+                    header_text = """📊 *Kontak Tersedia*\n\nPilih kategori produk:"""
+
+                    try:
+                        with self.engine.connect() as conn:
+                            seafood_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
+                            """)).scalar()
+
+                            agriculture_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
+                            """)).scalar()
+
+                            processed_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) LIKE '%44029010%'
+                            """)).scalar()
+                    except Exception as e:
+                        logging.error(f"Database error in trigger_contacts: {str(e)}")
+                        raise
+
+                    keyboard = [
+                        [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
+                        [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
+                        [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
+
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=header_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                    logging.info(f"Contacts menu shown successfully for user {user_id}")
+                except Exception as e:
+                    logging.error(f"Error in trigger_contacts: {str(e)}", exc_info=True)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Terjadi kesalahan. Silakan coba lagi."
+                        )
+                    except:
+                        logging.error("Failed to send error message")
+
+            elif query.data == "trigger_saved":
+                try:
+                    chat_id = query.message.chat.id
+                    user_id = query.from_user.id
+                    logging.info(f"Processing trigger_saved for user {user_id}")
+
+                    # Delete current message
+                    await query.message.delete()
+
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'saved')
+                        saved_contacts = self.data_store.get_saved_contacts(user_id)
+
+                    if not saved_contacts:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=Messages.NO_SAVED_CONTACTS
+                        )
+                        return
+
+                    items_per_page = 2
+                    total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
+                    current_page = 0
+                    start_idx = current_page * items_per_page
+                    end_idx = min(start_idx + items_per_page, len(saved_contacts))
+                    current_contacts = saved_contacts[start_idx:end_idx]
+
+                    for contact in current_contacts:
+                        try:
+                            message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
+                            keyboard = []
+                            if whatsapp_number:
+                                keyboard.append([InlineKeyboardButton(
+                                    "💬 Chat di WhatsApp",
+                                    url=f"https://wa.me/{whatsapp_number}"
+                                )])
+
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text=message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                            )
+                        except Exception as e:
+                            logging.error(f"Error sending contact message: {str(e)}")
+                            continue
+
+                    # Add pagination buttons
+                    pagination_buttons = []
+                    if total_pages > 1:
+                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
+
+                    export_buttons = [
+                        [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
+
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"Halaman 1 dari {total_pages}",
+                        reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
+                    )
+                    logging.info(f"Saved contacts shown successfully for user {user_id}")
+                except Exception as e:
+                    logging.error(f"Error in trigger_saved: {str(e)}", exc_info=True)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Terjadi kesalahan. Silakan coba lagi."
+                        )
+                    except:
+                        logging.error("Failed to send error message")
+
+            elif query.data == "show_credits":
+                try:
+                    chat_id = query.message.chat.id
+                    user_id = query.from_user.id
+                    logging.info(f"Processing show_credits for user {user_id}")
+
+                    # Delete current message to avoid clutter
+                    await query.message.delete()
+
+                    with app.app_context():
+                        self.data_store.track_user_command(user_id, 'credits')
+                        credits = self.data_store.get_user_credits(user_id)
+
+                    keyboard = [
+                        [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
+                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
+                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
+
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                    logging.info(f"Credits menu shown successfully for user {user_id}")
+                except Exception as e:
+                    logging.error(f"Error in show_credits: {str(e)}", exc_info=True)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Terjadi kesalahan. Silakan coba lagi."
+                        )
+                    except:
+                        logging.error("Failed to send error message")
+
+            elif query.data.startswith('pay_'):
+                try:
+                    _, credits, amount = query.data.split('_')
+                    user_id = query.from_user.id
+                    chat_id = query.message.chat.id
+                    username = query.from_user.username or str(user_id)
+                    order_id = f"BOT_{user_id}_{int(time.time())}"
+
+                    logging.info(f"Processing payment request: credits={credits}, amount={amount}, user={user_id}")
+
+                    # Insert order into database
+                    with self.engine.begin() as conn:
+                        conn.execute(text("""
+                            INSERT INTO credit_orders (order_id, user_id, credits, amount, status)
+                            VALUES (:order_id, :user_id, :credits, :amount, 'pending')
+                        """), {
+                            "order_id": order_id,
+                            "user_id": user_id,
+                            "credits": int(credits),
+                            "amount": int(amount)
+                        })
+
+                    payment_message = (
+                        f"💳 *Detail Pembayaran*\n\n"
+                        f"Order ID: `{order_id}`\n"
+                        f"Jumlah Kredit: {credits}\n"
+                        f"Total: Rp {int(amount):,}\n\n"
+                        f"*Metode Pembayaran:*\n\n"
+                        f"1️⃣ *Transfer BCA*\n"
+                        f"Nama: Nanda Amalia\n"
+                        f"No. Rek: `4452385892`\n"
+                        f"Kode Bank: 014\n\n"
+                        f"2️⃣ *Transfer Jenius/SMBC*\n"
+                        f"Nama: Nanda Amalia\n"
+                        f"No. Rek: `90020380969`\n"
+                        f"$cashtag: `$kancilglobalbot`\n\n"
+                        f"Setelah melakukan pembayaran, silakan kirim bukti transfer ke admin."
+                    )
+
+                    keyboard = [[
+                        InlineKeyboardButton(
+                            "📎 Kirim Bukti Pembayaran",
+                            url="https://t.me/afrizaladinur"
+                        )
+                    ]]
+
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=payment_message,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
+                    # Notify admin
+                    admin_message = (
+                        f"🔔 *Pesanan Kredit Baru!*\n\n"
+                        f"Order ID: `{order_id}`\n"
+                        f"User ID: `{user_id}`\n"
+                        f"Username: @{username}\n"
+                        f"Jumlah Kredit: {credits}\n"
+                        f"Total: Rp {int(amount):,}"
+                    )
+
+                    admin_keyboard = [[InlineKeyboardButton(
+                        f"✅ Berikan {credits} Kredit",
+                        callback_data=f"give_{user_id}_{credits}"
+                    )]]
+
+                    # Send notification to admin
+                    admin_ids = [6422072438]
+                    for admin_id in admin_ids:
+                        await context.bot.send_message(
+                            chat_id=admin_id,
+                            text=admin_message,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                        )
+
+                    logging.info(f"Manual payment order created successfully: {order_id}")
+
+                except Exception as e:
+                    logging.error(f"Error processing payment: {str(e)}", exc_info=True)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
+                                "Admin akan segera menghubungi Anda untuk proses manual."
+                        )
+                    except:
+                        logging.error("Failed to send error message")
+
+            elif query.data == "show_help":
+                keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                await query.message.reply_text(
+                    Messages.HELP,
+                    parse_mode='Markdown',
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+
+            else:
+                logging.warning(f"Unknown callback query data: {query.data}")
+
+        except Exception as e:
+            logging.error(f"Error in button callback: {str(e)}", exc_info=True)
+            await query.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /stats command"""
+        try:
+            if not await self.check_rate_limit(update):
+                return
+
+            user_id = update.effective_user.id
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'stats')
+                stats = self.data_store.get_user_stats(user_id)
+            await update.message.reply_text(
+                Messages.format_stats(stats),
+                parse_mode='Markdown'
+            )
+            logging.info(f"Stats command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in stats command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
+    
     async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /saved command"""
         try:
@@ -187,81 +505,6 @@ class CommandHandler:
             logging.info(f"Contacts command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in contacts command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle button callbacks"""
-        query = update.callback_query
-        await query.answer()
-
-        try:
-            if query.data == "back_to_main":
-                # Delete current message and show main menu
-                await query.message.delete()
-                with app.app_context():
-                    credits = self.data_store.get_user_credits(query.from_user.id)
-                keyboard = [
-                    [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                    [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                    [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
-                    [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                    [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-                ]
-                await query.message.reply_text(
-                    Messages.START,
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-
-            elif query.data == "show_credits":
-                user_id = query.from_user.id
-                with app.app_context():
-                    self.data_store.track_user_command(user_id, 'credits')
-                    credits = self.data_store.get_user_credits(user_id)
-                keyboard = [
-                    [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                    [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                    [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
-                    [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                ]
-                await query.message.reply_text(
-                    f"{Messages.CREDITS_REMAINING.format(credits)}",
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-
-            elif query.data == "show_help":
-                keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                await query.message.reply_text(
-                    Messages.HELP,
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-
-            else:
-                logging.warning(f"Unknown callback query data: {query.data}")
-
-        except Exception as e:
-            logging.error(f"Error in button callback: {str(e)}", exc_info=True)
-            await query.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stats command"""
-        try:
-            if not await self.check_rate_limit(update):
-                return
-
-            user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'stats')
-                stats = self.data_store.get_user_stats(user_id)
-            await update.message.reply_text(
-                Messages.format_stats(stats),
-                parse_mode='Markdown'
-            )
-            logging.info(f"Stats command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in stats command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
