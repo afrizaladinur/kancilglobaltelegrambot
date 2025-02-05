@@ -1243,10 +1243,10 @@ Pilih produk:"""
                                 logging.info(f"Search for {search_query} returned {len(results)} results")
 
                             if not results:
-                            await query.message.reply_text(
-                                f"Tidak ada hasil untuk pencarian '{search_query}'"
-                            )
-                            return
+                                await query.message.reply_text(
+                                    f"Tidak ada hasil untuk pencarian '{search_query}'"
+                                )
+                                return
 
                         # Store results and reset page
                         context.user_data['last_search_results'] = results
