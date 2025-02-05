@@ -332,9 +332,20 @@ class DataStore:
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
-            logging.info(f"Attempting to save contact for user {user_id}")
+            logging.info(f"Attempting to save contact for user {user_id}, importer: {importer['name']}")
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
+
+            # First check if contact is already saved
+            with self.engine.connect() as conn:
+                existing = conn.execute(text("""
+                    SELECT id FROM saved_contacts 
+                    WHERE user_id = :user_id AND importer_name = :name
+                """), {"user_id": user_id, "name": importer['name']}).first()
+                
+                if existing:
+                    logging.info(f"Contact {importer['name']} already saved for user {user_id}")
+                    return False
 
             # Use a single transaction for both operations
             with self.engine.begin() as conn:
@@ -398,6 +409,8 @@ class DataStore:
                 return False
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+            logging.error(f"Failed contact details - Name: {importer.get('name')}, User: {user_id}")
+            logging.error(f"Contact data: {importer}")
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
