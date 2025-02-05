@@ -351,9 +351,23 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            # Use a single transaction for both operations
             with self.engine.begin() as conn:
-                # First check if we have enough credits
+                # Check if contact already exists
+                check_existing_sql = """
+                SELECT id FROM saved_contacts 
+                WHERE user_id = :user_id 
+                AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name));
+                """
+                existing = conn.execute(
+                    text(check_existing_sql),
+                    {"user_id": user_id, "name": importer['name']}
+                ).scalar()
+
+                if existing:
+                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
+                    return True
+
+                # Check if we have enough credits
                 check_credits_sql = """
                 SELECT credits FROM user_credits 
                 WHERE user_id = :user_id AND credits >= :credit_cost
@@ -368,23 +382,7 @@ class DataStore:
                     logging.error("Insufficient credits")
                     return False
 
-                # Check if contact already exists with exact match first
-                check_existing_sql = """
-                SELECT id FROM saved_contacts 
-                WHERE user_id = :user_id 
-                AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name));
-                """
-                existing = conn.execute(
-                    text(check_existing_sql),
-                    {"user_id": user_id, "name": importer['name']}
-                ).scalar()
-
-                if existing:
-                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
-                    return True
-
-                # If not exists, insert new contact
+                # Insert new contact
                 save_contact_sql = """
                 INSERT INTO saved_contacts (
                     user_id, importer_name, country, phone, email, 
@@ -395,7 +393,8 @@ class DataStore:
                 )
                 RETURNING id;
                 """
-                result = conn.execute(
+
+                contact_result = conn.execute(
                     text(save_contact_sql),
                     {
                         "user_id": user_id,
@@ -410,38 +409,34 @@ class DataStore:
                     }
                 )
 
-                if result.rowcount > 0:
-                    try:
-                        # Update credits atomically
-                        update_credits_sql = """
-                        UPDATE user_credits 
-                        SET credits = credits - :credit_cost,
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id 
-                        AND credits >= :credit_cost
-                        RETURNING credits;
-                        """
-                        
-                        result = conn.execute(
-                            text(update_credits_sql),
-                            {"user_id": user_id, "credit_cost": float(credit_cost)}
-                        )
-                        new_credits = result.scalar()
+                if contact_result.rowcount == 0:
+                    logging.error("Failed to insert contact")
+                    return False
 
-                        if new_credits is not None:
-                            conn.commit()
-                            logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
-                            return True
-                        else:
-                            conn.rollback()
-                            logging.error("Failed to update credits - insufficient balance")
-                            return False
-                    except Exception as e:
-                        conn.rollback()
-                        logging.error(f"Error updating credits: {str(e)}")
-                        raise
+                # Update credits atomically
+                update_credits_sql = """
+                UPDATE user_credits 
+                SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = :user_id 
+                AND credits >= :credit_cost
+                RETURNING credits;
+                """
 
-                return False
+                credit_result = conn.execute(
+                    text(update_credits_sql),
+                    {"user_id": user_id, "credit_cost": float(credit_cost)}
+                )
+
+                new_credits = credit_result.scalar()
+
+                if new_credits is None:
+                    logging.error("Failed to update credits")
+                    return False
+
+                logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
+                return True
+
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             return False
