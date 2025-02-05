@@ -464,6 +464,42 @@ class CommandHandler:
                     else:
                         await query.message.reply_text("Silakan lakukan pencarian baru terlebih dahulu.")
 
+                elif query.data == "back_to_categories":
+                    # Delete current message and show categories
+                    await query.message.delete()
+                    # Show categories menu again
+                    header_text = """📊 *Kontak Tersedia*
+                        
+Pilih kategori produk:"""
+                    with self.engine.connect() as conn:
+                        seafood_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
+                        """)).scalar()
+                        
+                        agriculture_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
+                        """)).scalar()
+                        
+                        processed_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) LIKE '%44029010%'
+                        """)).scalar()
+
+                    keyboard = [
+                        [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
+                        [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
+                        [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                    ]
+                    
+                    await query.message.reply_text(
+                        header_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
                 elif query.data == "back_to_main":
                     # Delete current message and show main menu
                     await query.message.delete()
@@ -939,7 +975,7 @@ Pilih produk:"""
                             [InlineKeyboardButton(f"❄️ Ikan Beku ({counts['0303']} kontak)", callback_data="search_0303")],
                             [InlineKeyboardButton(f"🍣 Fillet Ikan ({counts['0304']} kontak)", callback_data="search_0304")],
                             [InlineKeyboardButton(f"🐟 Anchovy ({counts['anchovy']} kontak)", callback_data="search_anchovy")],
-                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
                         await query.message.reply_text(
                             folder_text,
@@ -971,7 +1007,7 @@ Pilih produk:"""
                     keyboard = [
                         [InlineKeyboardButton(f"☕ Kopi ({coffee_count} kontak)", callback_data="search_0901")],
                         [InlineKeyboardButton(f"🫐 Manggis ({manggis_count} kontak)", callback_data="search_manggis")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
                     await query.message.reply_text(
                         folder_text,
@@ -1000,7 +1036,7 @@ Pilih produk:"""
                     keyboard = [
                         [InlineKeyboardButton(f"🪵 Briket Batok ({briket_count} kontak)", callback_data="search_briket")],
                         [InlineKeyboardButton(f"🥥 Minyak Kelapa ({coconut_count} kontak)", callback_data="search_coconut_oil")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
                     await query.message.reply_text(
                         folder_text,
