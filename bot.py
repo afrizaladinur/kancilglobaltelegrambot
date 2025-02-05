@@ -12,7 +12,7 @@ BOT_INFO = {
 
 class TelegramBot:
     def __init__(self):
-        # Configure application with optimized connection settings
+        # Configure application with proper connection settings
         self.application = (
             ApplicationBuilder()
             .token(TELEGRAM_TOKEN)
@@ -23,8 +23,6 @@ class TelegramBot:
             .read_timeout(30.0)
             .write_timeout(30.0)
             .get_updates_read_timeout(30.0)
-            .connect_retry_delay(1.0)  # Added retry delay
-            .connect_attempts(3)      # Added retry attempts
             .build()
         )
         self.command_handler = CommandHandler()
@@ -60,14 +58,15 @@ class TelegramBot:
     def _register_handlers(self):
         """Register command handlers"""
         try:
+            # Updated handlers with proper error handling
             handlers = [
-                TelegramCommandHandler("start", self.command_handler.start),
-                TelegramCommandHandler("saved", self.command_handler.saved),
-                TelegramCommandHandler("contacts", self.command_handler.contacts),
-                TelegramCommandHandler("credits", self.command_handler.credits),
-                TelegramCommandHandler("orders", self.command_handler.orders),   # Admin only
-                MessageHandler(filters.Text(['/start']), self.command_handler.start),
-                CallbackQueryHandler(self.command_handler.button_callback)
+                TelegramCommandHandler("start", self.command_handler.start, block=False),
+                TelegramCommandHandler("saved", self.command_handler.saved, block=False),
+                TelegramCommandHandler("contacts", self.command_handler.contacts, block=False),
+                TelegramCommandHandler("credits", self.command_handler.credits, block=False),
+                TelegramCommandHandler("orders", self.command_handler.orders, block=False),  # Admin only
+                MessageHandler(filters.Text(['/start']), self.command_handler.start, block=False),
+                CallbackQueryHandler(self.command_handler.button_callback, block=False)
             ]
 
             for handler in handlers:
