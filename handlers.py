@@ -896,31 +896,33 @@ class CommandHandler:
 
                             counts_dict = {row[0]: row[1] for row in hs_counts}
 
-                            # Build list of available contacts
-                            contacts_list = [
-                                "🌊 *Produk Laut*",
-                                f"🐟 0301 - Ikan hidup ({counts_dict.get('0301', 0)} kontak)",
-                                f"🐠 0302 - Ikan segar ({counts_dict.get('0302', 0)} kontak)",
-                                f"❄️ 0303 - Ikan beku ({counts_dict.get('0303', 0)} kontak)",
-                                f"🍣 0304 - Fillet ikan ({counts_dict.get('0304', 0)} kontak)",
-                                f"🐟 Anchovy ({counts_dict.get('0305', 0)} kontak)",
-                                "",
-                                "🌿 *Produk Agrikultur*",
-                                f"☕ 0901 - Kopi ({counts_dict.get('0901', 0)} kontak)",
-                                f"🥥 Minyak Kelapa ({counts_dict.get('1513', 0)} kontak)",
-                                "",
-                                "🌳 *Produk Olahan*",
-                                f"🪵 44029010 - Briket Batok Kelapa ({counts_dict.get('44029010', 0)} kontak)"
+                            # Build header text
+                            header_text = """📊 *Kontak Tersedia*
+
+🌊 *Produk Laut*"""
+
+                            # Build keyboard with sections
+                            keyboard = [
+                                [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
+                                                    callback_data="search_0301")],
+                                [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
+                                                    callback_data="search_0302")],
+                                [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
+                                                    callback_data="search_0303")],
+                                [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
+                                                    callback_data="search_0304")],
+                                [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
+                                                    callback_data="search_anchovy")],
+                                [InlineKeyboardButton("🌿 *PRODUK AGRIKULTUR*", callback_data="section_agriculture")],
+                                [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
+                                                    callback_data="search_0901")],
+                                [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
+                                                    callback_data="search_coconut_oil")],
+                                [InlineKeyboardButton("🌳 *PRODUK OLAHAN*", callback_data="section_processed")],
+                                [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {counts_dict.get('44029010', 0)} kontak",
+                                                    callback_data="search_briket")],
+                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                             ]
-
-                            hs_guide = """📊 *Kontak Tersedia*
-
-🗂️ *Kontak Importir:*
-{}""".format("\n".join(contacts_list))
-
-                            # Skip the format since we're building the string differently
-                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                         await query.message.reply_text(
                             hs_guide,
                             parse_mode='Markdown',
@@ -929,6 +931,30 @@ class CommandHandler:
                     except Exception as e:
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
+                elif query.data.startswith('search_'):
+                    search_term = query.data.replace('search_', '')
+                    search_terms = {
+                        '0301': '0301',
+                        '0302': '0302',
+                        '0303': '0303', 
+                        '0304': '0304',
+                        'anchovy': 'anchovy',
+                        '0901': '0901',
+                        'coconut_oil': 'coconut oil',
+                        'briket': '44029010'
+                    }
+                    
+                    if search_term in search_terms:
+                        # Simulate /search command
+                        context.args = [search_terms[search_term]]
+                        await self.search(update.callback_query, context)
+                    else:
+                        await query.message.reply_text("Pencarian tidak tersedia")
+                
+                elif query.data.startswith('section_'):
+                    # Just ignore section headers
+                    await query.answer()
+                
                 elif query.data.startswith('give_'):
                     try:
                         _, target_user_id, credit_amount = query.data.split('_')
