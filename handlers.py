@@ -380,6 +380,42 @@ class CommandHandler:
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
 
+            elif query.data.startswith("give_"):
+                try:
+                    _, user_id, credits = query.data.split("_")
+                    admin_ids = [6422072438]  # Admin check
+
+                    if query.from_user.id not in admin_ids:
+                        await query.message.reply_text("⛔️ You are not authorized for this action.")
+                        return
+
+                    with app.app_context():
+                        if self.data_store.add_credits(int(user_id), int(credits)):
+                            # Update order status
+                            with self.engine.begin() as conn:
+                                conn.execute(text("""
+                                    UPDATE credit_orders 
+                                    SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP 
+                                    WHERE user_id = :user_id AND credits = :credits AND status = 'pending'
+                                """), {"user_id": int(user_id), "credits": int(credits)})
+
+                            # Notify user
+                            try:
+                                await context.bot.send_message(
+                                    chat_id=int(user_id),
+                                    text=f"✅ {credits} kredit telah ditambahkan ke akun Anda!"
+                                )
+                            except Exception as e:
+                                logging.error(f"Error notifying user: {str(e)}")
+
+                            # Notify admin
+                            await query.message.reply_text(f"✅ Successfully added {credits} credits to user {user_id}")
+                        else:
+                            await query.message.reply_text("❌ Failed to add credits")
+                except Exception as e:
+                    logging.error(f"Error in give_credits callback: {str(e)}")
+                    await query.message.reply_text("❌ An error occurred while processing credits")
+
             else:
                 logging.warning(f"Unknown callback query data: {query.data}")
 
@@ -405,7 +441,7 @@ class CommandHandler:
         except Exception as e:
             logging.error(f"Error in stats command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
-    
+
     async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /saved command"""
         try:
