@@ -378,7 +378,25 @@ class DataStore:
                         logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
                         return False
 
-                    # Insert contact
+                    # First deduct credits to ensure user has enough
+                    credit_result = conn.execute(
+                        text("""
+                        UPDATE user_credits 
+                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id 
+                        AND credits >= :credit_cost
+                        RETURNING credits;
+                        """),
+                        {"user_id": user_id, "credit_cost": float(credit_cost)}
+                    )
+
+                    new_credits = credit_result.scalar()
+                    if new_credits is None:
+                        logging.error("Failed to deduct credits")
+                        return False
+
+                    # Then insert contact
                     contact_result = conn.execute(
                         text("""
                         INSERT INTO saved_contacts (
@@ -405,19 +423,10 @@ class DataStore:
 
                     if contact_result.rowcount == 0:
                         logging.error("Failed to insert contact")
+                        conn.rollback()
                         return False
-
-                    # Deduct credits
-                    credit_result = conn.execute(
-                        text("""
-                        UPDATE user_credits 
-                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id 
-                        RETURNING credits;
-                        """),
-                        {"user_id": user_id, "credit_cost": float(credit_cost)}
-                    )
+                        
+                    conn.commit()
 
                     new_credits = credit_result.scalar()
                     if new_credits is None:
