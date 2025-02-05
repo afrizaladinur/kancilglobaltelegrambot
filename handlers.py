@@ -883,10 +883,11 @@ class CommandHandler:
                                         WHEN product LIKE '%0303%' THEN '0303'
                                         WHEN product LIKE '%0304%' THEN '0304'
                                         WHEN product LIKE '%0901%' THEN '0901'
+                                        WHEN product LIKE '%44029010%' THEN '44029010'
                                     END as hs_code,
                                     COUNT(*) as count
                                 FROM importers
-                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901)%'
+                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901|44029010)%'
                                 GROUP BY hs_code
                                 ORDER BY hs_code;
                             """)).fetchall()
@@ -905,6 +906,8 @@ class CommandHandler:
                                 contacts_list.append(f"🍣 0304 - Fillet ikan ({counts_dict.get('0304')} kontak)")
                             if counts_dict.get('0901', 0) > 0:
                                 contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
+                            if counts_dict.get('44029010', 0) > 0:
+                                contacts_list.append(f"🪵 44029010 - Coconut Shell Briquette ({counts_dict.get('44029010')} kontak)")
 
                             hs_guide = """📊 *Kontak Tersedia*
 
