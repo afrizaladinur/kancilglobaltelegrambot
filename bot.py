@@ -2,8 +2,8 @@ import logging
 from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
 from config import TELEGRAM_TOKEN
 from handlers import CommandHandler
-from telegram.ext import filters, MessageHandler
-from telegram import BotCommand
+from telegram.ext import filters, MessageHandler 
+from telegram import BotCommand, CallbackQuery
 
 BOT_INFO = {
     'name': 'Direktori Ekspor Impor',
@@ -40,8 +40,8 @@ class TelegramBot:
         # Only register the essential command handlers
         self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
-        self.application.add_handler(TelegramCommandHandler("credits", lambda update, context: self.command_handler.button_callback(update.callback_query or CallbackQuery(id='', from_user=update.effective_user, chat_instance='', data='show_credits'))))
-        self.application.add_handler(TelegramCommandHandler("contacts", lambda update, context: self.command_handler.button_callback(update.callback_query or CallbackQuery(id='', from_user=update.effective_user, chat_instance='', data='show_hs_codes'))))
+        self.application.add_handler(TelegramCommandHandler("credits", lambda update, context: self.command_handler.button_callback(CallbackQuery(id='', from_user=update.effective_user, chat_instance='', data='show_credits'))))
+        self.application.add_handler(TelegramCommandHandler("contacts", lambda update, context: self.command_handler.button_callback(CallbackQuery(id='', from_user=update.effective_user, chat_instance='', data='show_hs_codes'))))
         self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
         # Add the text handler for /start as fallback
