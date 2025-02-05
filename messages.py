@@ -201,9 +201,23 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
             return 1.0
 
     @staticmethod
-    def format_importer(importer: dict, saved: bool = False):
+    def format_importer(importer: dict, saved: bool = False, user_id: Optional[int] = None):
         try:
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
+            
+            # Check if contact is already saved
+            if not saved and user_id:
+                try:
+                    from data_store import DataStore
+                    data_store = DataStore()
+                    saved_contacts = data_store.get_saved_contacts(user_id)
+                    is_saved = any(contact['name'] == importer['name'] for contact in saved_contacts)
+                    save_status = "📌 Sudah tersimpan" if is_saved else "💾 Belum tersimpan"
+                except Exception as e:
+                    logging.error(f"Error checking save status: {str(e)}")
+                    save_status = ""
+            else:
+                save_status = ""
 
             name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
             email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
@@ -233,6 +247,8 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
             message_parts.append(f"📱 WhatsApp: {wa_status}")
 
             if not saved:
+                if save_status:
+                    message_parts.append(f"\n{save_status}")
                 credit_cost = Messages._calculate_credit_cost(importer)
                 message_parts.append("\n💳 Biaya kredit yang diperlukan:")
                 if credit_cost == 3.0:

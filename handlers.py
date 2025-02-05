@@ -161,7 +161,7 @@ class CommandHandler:
 
             for importer in current_results:
                 try:
-                    message_text, _, callback_data = Messages.format_importer(importer)
+                    message_text, _, callback_data = Messages.format_importer(importer, user_id=user_id)
 
                     keyboard = [[InlineKeyboardButton(
                         "💾 Simpan Kontak",
@@ -736,7 +736,7 @@ Pilih kategori produk:"""
 
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
-                        await query.message.reply_text(
+                        await query.message.message.reply_text(
                             "Pesanan tetap diproses! Admin akan segera menghubungi Anda."
                         )
                 elif query.data.startswith('order_'):
@@ -1182,7 +1182,7 @@ Pilih produk:"""
                         current_results = results[start_idx:end_idx]
 
                         for importer in current_results:
-                            message_text, _, _ = Messages.format_importer(importer)
+                            message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
                             keyboard = [[InlineKeyboardButton(
                                 "💾 Simpan Kontak",
                                 callback_data=f"save_{importer['name'][:50]}"
