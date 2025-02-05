@@ -380,6 +380,80 @@ class CommandHandler:
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
 
+            elif query.data == "export_orders":
+                try:
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await query.message.reply_text("⛔️ You are not authorized for this action.")
+                        return
+
+                    with self.engine.connect() as conn:
+                        orders = conn.execute(text("""
+                            SELECT order_id, user_id, credits, amount, status, created_at, fulfilled_at
+                            FROM credit_orders 
+                            ORDER BY created_at DESC
+                        """)).fetchall()
+
+                        csv_content = "Order ID,User ID,Credits,Amount,Status,Created At,Fulfilled At\n"
+                        for order in orders:
+                            csv_content += f"{order.order_id},{order.user_id},{order.credits},{order.amount},"
+                            csv_content += f"{order.status},{order.created_at},{order.fulfilled_at or ''}\n"
+
+                        # Send as document
+                        await context.bot.send_document(
+                            chat_id=query.message.chat_id,
+                            document=csv_content.encode(),
+                            filename="orders.csv",
+                            caption="📊 Orders Export"
+                        )
+                except Exception as e:
+                    logging.error(f"Error exporting orders: {str(e)}")
+                    await query.message.reply_text("❌ Failed to export orders")
+
+            elif query.data.startswith("fulfill_"):
+                try:
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await query.message.reply_text("⛔️ You are not authorized for this action.")
+                        return
+
+                    order_id = query.data.split("_")[1]
+                    with self.engine.begin() as conn:
+                        # Get order details
+                        order = conn.execute(text("""
+                            SELECT user_id, credits FROM credit_orders 
+                            WHERE order_id = :order_id AND status = 'pending'
+                        """), {"order_id": order_id}).first()
+
+                        if not order:
+                            await query.message.reply_text("❌ Order not found or already fulfilled")
+                            return
+
+                        # Add credits to user
+                        if self.data_store.add_credits(order.user_id, order.credits):
+                            # Update order status
+                            conn.execute(text("""
+                                UPDATE credit_orders 
+                                SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP 
+                                WHERE order_id = :order_id
+                            """), {"order_id": order_id})
+
+                            # Notify user
+                            await context.bot.send_message(
+                                chat_id=order.user_id,
+                                text=f"✅ {order.credits} kredit telah ditambahkan ke akun Anda!"
+                            )
+
+                            # Notify admin
+                            await query.message.reply_text(
+                                f"✅ Order {order_id} fulfilled successfully\n"
+                                f"Added {order.credits} credits to user {order.user_id}"
+                            )
+                        else:
+                            await query.message.reply_text("❌ Failed to add credits")
+
+                except Exception as e:
+                    logging.error(f"Error fulfilling order: {str(e)}")
+                    await query.message.reply_text("❌ An error occurred while fulfilling the order")
+
             elif query.data.startswith("give_"):
                 try:
                     _, user_id, credits = query.data.split("_")
