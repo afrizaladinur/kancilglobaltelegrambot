@@ -39,6 +39,7 @@ class TelegramBot:
         # Only register the essential command handlers
         self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
+        self.application.add_handler(TelegramCommandHandler("contacts", self.command_handler.contacts))
         self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
         self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
