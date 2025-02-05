@@ -878,16 +878,18 @@ class CommandHandler:
                             hs_counts = conn.execute(text("""
                                 SELECT 
                                     CASE 
-                                        WHEN product LIKE '%0301%' THEN '0301'
-                                        WHEN product LIKE '%0302%' THEN '0302'
-                                        WHEN product LIKE '%0303%' THEN '0303'
-                                        WHEN product LIKE '%0304%' THEN '0304'
-                                        WHEN product LIKE '%0901%' THEN '0901'
-                                        WHEN product LIKE '%44029010%' THEN '44029010'
+                                        WHEN LOWER(product) LIKE '%0301%' THEN '0301'
+                                        WHEN LOWER(product) LIKE '%0302%' THEN '0302'
+                                        WHEN LOWER(product) LIKE '%0303%' THEN '0303'
+                                        WHEN LOWER(product) LIKE '%0304%' THEN '0304'
+                                        WHEN LOWER(product) LIKE '%0305%' OR LOWER(product) LIKE '%anchovy%' THEN '0305'
+                                        WHEN LOWER(product) LIKE '%0901%' THEN '0901'
+                                        WHEN LOWER(product) LIKE '%1513%' OR LOWER(product) LIKE '%coconut oil%' THEN '1513'
+                                        WHEN LOWER(product) LIKE '%44029010%' THEN '44029010'
                                     END as hs_code,
                                     COUNT(*) as count
                                 FROM importers
-                                WHERE product SIMILAR TO '%(0301|0302|0303|0304|0901|44029010)%'
+                                WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|0901|1513|44029010|anchovy|coconut oil)%'
                                 GROUP BY hs_code
                                 ORDER BY hs_code;
                             """)).fetchall()
