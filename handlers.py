@@ -1150,7 +1150,8 @@ Pilih produk:"""
                         'anchovy': 'anchovy',
                         '0901': '0901',
                         'coconut_oil': 'coconut oil',
-                        'briket': '44029010'
+                        'briket': '44029010',
+                        'manggis': 'mangosteen'
                     }
 
                     if search_term in search_terms:
