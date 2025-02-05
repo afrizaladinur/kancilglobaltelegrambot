@@ -387,9 +387,7 @@ class DataStore:
 
                 # Finally, save contact and update credits atomically
                 try:
-                    logging.info(f"[SAVE] Attempting to save new contact - User: {user_id}, Contact: {importer['name']}")
-                    # Log the transaction start
-                    logging.info(f"[SAVE] Starting transaction for user {user_id}")
+                    logging.info(f"[SAVE] Attempting to save/update contact - User: {user_id}, Contact: {importer['name']}")
                     
                     # Get current credits
                     current_credits = conn.execute(
@@ -398,14 +396,34 @@ class DataStore:
                     ).scalar()
                     logging.info(f"[SAVE] Current credits: {current_credits}, Required: {credit_cost}")
                     
-                    # Check if contact exists
-                    existing = conn.execute(
-                        text("SELECT id FROM saved_contacts WHERE user_id = :user_id AND importer_name = :name"),
-                        {"user_id": user_id, "name": importer['name']}
-                    ).scalar()
-                    if existing:
-                        logging.error(f"[SAVE] Contact already exists with ID: {existing}")
-                        return False
+                    # Try to update existing contact first
+                    update_result = conn.execute(text("""
+                        UPDATE saved_contacts 
+                        SET country = :country,
+                            phone = :phone,
+                            email = :email,
+                            website = :website,
+                            wa_availability = :wa_available,
+                            hs_code = :hs_code,
+                            product_description = :product_description,
+                            saved_at = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id 
+                        AND importer_name = :name
+                    """), {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', '')
+                    })
+                    
+                    if update_result.rowcount > 0:
+                        logging.info(f"[SAVE] Contact updated successfully - User: {user_id}, Contact: {importer['name']}")
+                        return True
                         
                     params = {
                         "user_id": user_id,

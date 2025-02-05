@@ -861,17 +861,11 @@ Pilih kategori produk:"""
                                     )
                                     logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
                                 else:
-                                    await query.message.reply_text("❌ Gagal menyimpan kontak. Silakan hubungi admin untuk bantuan.")
-                            except ValueError as e:
-                                if str(e) == "duplicate_contact":
-                                    await query.message.reply_text(
-                                        "ℹ️ Kontak ini sudah tersimpan sebelumnya.\n"
-                                        "Gunakan /saved untuk melihat kontak Anda."
-                                    )
-                                    logging.info(f"[HANDLER] Duplicate contact save attempt - User: {user_id}, Contact: {importer['name']}")
-                                else:
-                                    await query.message.reply_text("❌ Terjadi kesalahan saat menyimpan kontak.")
-                                    logging.error(f"[HANDLER] Save error - {str(e)}")
+                                    await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
+                                    logging.error(f"[HANDLER] Failed to save contact {importer_name} for user {user_id}")
+                            except Exception as e:
+                                logging.error(f"[HANDLER] Save error - {str(e)}")
+                                await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
                             except Exception as e:
                                 logging.error(f"Error saving contact: {str(e)}")
                                 await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
