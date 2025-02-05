@@ -35,26 +35,12 @@ class CommandHandler:
             return True  # Allow operation on error to prevent blocking
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command and message handler"""
+        """Handle /start command"""
         try:
-            # Skip rate limit for /start command
-            if update.message and update.message.text == '/start':
-                pass
-            elif not await self.check_rate_limit(update):
-                return
-
             user_id = update.effective_user.id
             with app.app_context():
-                # Initialize user credits first
                 credits = self.data_store.get_user_credits(user_id)
-                # Then track command usage
                 self.data_store.track_user_command(user_id, 'start')
-
-            # Check if user has redeemed free credits
-            with self.engine.connect() as conn:
-                has_redeemed = conn.execute(text(
-                    "SELECT has_redeemed_free_credits FROM user_credits WHERE user_id = :user_id"
-                ), {"user_id": user_id}).scalar() or False
 
             keyboard = [
                 [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
@@ -65,15 +51,12 @@ class CommandHandler:
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
 
-            if not has_redeemed:
-                keyboard.insert(1, [InlineKeyboardButton("🎁 Cairkan 10 Kredit Gratis", callback_data="redeem_free_credits")])
-
             await update.message.reply_text(
                 f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}",
                 parse_mode='Markdown',
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
-            logging.info(f"Start command processed for user {user_id} with {credits} credits")
+            logging.info(f"Start command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in start command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
@@ -491,8 +474,8 @@ class CommandHandler:
                         logging.error(f"Error deleting messages: {str(e)}")
                     # Show categories menu again
                     header_text = """📊 *Kontak Tersedia*
-
-Pilih kategori produk:"""
+                    
+                    Pilih kategori produk:"""
                     with self.engine.connect() as conn:
                         seafood_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
@@ -992,8 +975,8 @@ Pilih kategori produk:"""
                         await query.message.delete()
 
                         header_text = """📊 *Kontak Tersedia*
-
-Pilih kategori produk:"""
+                        
+                        Pilih kategori produk:"""
 
                         # Count contacts for each category
                         with self.engine.connect() as conn:
@@ -1034,8 +1017,8 @@ Pilih kategori produk:"""
                         await query.message.delete()
 
                         folder_text = """🌊 *Produk Laut*
-
-Pilih produk:"""
+                        
+                        Pilih produk:"""
                         with self.engine.connect() as conn:
                             counts = {
                                 '0301': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0301%'")).scalar(),
@@ -1067,8 +1050,8 @@ Pilih produk:"""
                     await query.message.delete()
 
                     folder_text = """🌿 *Produk Agrikultur*
-
-Pilih produk:"""
+                    
+                    Pilih produk:"""
                     with self.engine.connect() as conn:
                         coffee_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
@@ -1096,8 +1079,8 @@ Pilih produk:"""
                     await query.message.delete()
 
                     folder_text = """🌳 *Produk Olahan*
-
-Pilih produk:"""
+                    
+                    Pilih produk:"""
                     with self.engine.connect() as conn:
                         briket_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
