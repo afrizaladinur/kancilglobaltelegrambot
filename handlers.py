@@ -536,8 +536,7 @@ class CommandHandler:
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
-                         InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                        [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
                     ]

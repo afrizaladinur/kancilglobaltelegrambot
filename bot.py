@@ -30,7 +30,8 @@ class TelegramBot:
         commands = [
             BotCommand('start', '🏠 Menu Utama'),
             BotCommand('saved', '📁 Kontak Tersimpan'),
-            BotCommand('credits', '💳 Kredit Saya')
+            BotCommand('contacts', '📦 Kontak Tersedia'),
+            BotCommand('credits', '💳 Kredit & Pembelian')
         ]
         await self.application.bot.set_my_commands(commands)
 
@@ -40,6 +41,7 @@ class TelegramBot:
         self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
         self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
+        self.application.add_handler(TelegramCommandHandler("contacts", lambda update, context: self.command_handler.button_callback(update, context, data="show_hs_codes")))
         self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
         # Add the text handler for /start as fallback
