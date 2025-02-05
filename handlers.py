@@ -877,51 +877,32 @@ class CommandHandler:
                         header_text = """📊 *Kontak Tersedia*
                         
 Pilih kategori produk:"""
-
-                        # Count contacts for each category
-                        with self.engine.connect() as conn:
-                            seafood_count = conn.execute(text("""
-                                SELECT COUNT(*) FROM importers 
-                                WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
-                            """)).scalar()
-                            
-                            agriculture_count = conn.execute(text("""
-                                SELECT COUNT(*) FROM importers 
-                                WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
-                            """)).scalar()
-                            
-                            processed_count = conn.execute(text("""
-                                SELECT COUNT(*) FROM importers 
-                                WHERE LOWER(product) LIKE '%44029010%'
-                            """)).scalar()
-
+                        
                         keyboard = [
-                            [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
-                            [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
-                            [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
+                            [InlineKeyboardButton("🌊 Produk Laut", callback_data="folder_seafood")],
+                            [InlineKeyboardButton("🌿 Produk Agrikultur", callback_data="folder_agriculture")],
+                            [InlineKeyboardButton("🌳 Produk Olahan", callback_data="folder_processed")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                         ]
                         
-                        await query.message.reply_text(
+                        await query.message.edit_text(
                             header_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
                     except Exception as e:
-                        logging.error(f"Error getting HS code counts: {str(e)}")
-                        await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
+                        logging.error(f"Error showing categories: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
                 elif query.data == "folder_seafood":
                     try:
-                        folder_text = """🌊 *Produk Laut*
-
-Pilih sub-kategori:"""
+                        folder_text = """🌊 *Produk Laut*\n\nPilih sub-kategori:"""
                         keyboard = [
                             [InlineKeyboardButton("🐟 Ikan", callback_data="menu_seafood")],
                             [InlineKeyboardButton("🐠 Anchovy", callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
-                        await query.message.reply_text(
+                        await query.message.edit_text(
                             folder_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
