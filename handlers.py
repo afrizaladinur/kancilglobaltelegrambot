@@ -915,10 +915,13 @@ Pilih kategori produk:"""
                     try:
                         folder_text = """🌊 *Produk Laut*
 
-Pilih sub-kategori:"""
+Pilih produk:"""
                         keyboard = [
-                            [InlineKeyboardButton("🐟 Ikan", callback_data="menu_seafood")],
-                            [InlineKeyboardButton("🐠 Anchovy", callback_data="search_anchovy")],
+                            [InlineKeyboardButton("🐟 Ikan Hidup (0301)", callback_data="search_0301")],
+                            [InlineKeyboardButton("🐠 Ikan Segar (0302)", callback_data="search_0302")],
+                            [InlineKeyboardButton("❄️ Ikan Beku (0303)", callback_data="search_0303")],
+                            [InlineKeyboardButton("🍣 Fillet Ikan (0304)", callback_data="search_0304")],
+                            [InlineKeyboardButton("🐟 Anchovy", callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
                         await query.message.reply_text(
@@ -933,10 +936,10 @@ Pilih sub-kategori:"""
                 elif query.data == "folder_agriculture":
                     folder_text = """🌿 *Produk Agrikultur*
 
-Pilih sub-kategori:"""
+Pilih produk:"""
                     keyboard = [
-                        [InlineKeyboardButton("☕ Kopi", callback_data="search_0901")],
-                        [InlineKeyboardButton("🥥 Minyak Kelapa", callback_data="search_coconut_oil")],
+                        [InlineKeyboardButton("☕ Kopi (0901)", callback_data="search_0901")],
+                        [InlineKeyboardButton("🫐 Manggis (0810)", callback_data="search_manggis")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
                     await query.message.reply_text(
@@ -948,9 +951,10 @@ Pilih sub-kategori:"""
                 elif query.data == "folder_processed":
                     folder_text = """🌳 *Produk Olahan*
 
-Pilih sub-kategori:"""
+Pilih produk:"""
                     keyboard = [
-                        [InlineKeyboardButton("🪵 Briket Batok", callback_data="search_briket")],
+                        [InlineKeyboardButton("🪵 Briket Batok (44029010)", callback_data="search_briket")],
+                        [InlineKeyboardButton("🥥 Minyak Kelapa (1513)", callback_data="search_coconut_oil")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
                     await query.message.reply_text(
