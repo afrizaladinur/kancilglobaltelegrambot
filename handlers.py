@@ -1497,7 +1497,7 @@ class CommandHandler:
             with self.engine.connect() as conn:
                 # Get total count
                 total_count = conn.execute(text("""
-                    SELECT COUNT(*) FROM credit_orders
+                    SELECT COUNT(*) FROM credit_orders WHERE status = 'pending'
                 """)).scalar()
 
                 # Get current page from context
@@ -1508,7 +1508,8 @@ class CommandHandler:
                 offset = page * items_per_page
                 orders = conn.execute(text("""
                     SELECT order_id, user_id, credits, amount, status, created_at
-                    FROM credit_orders
+                    FROM credit_orders 
+                    WHERE status = 'pending'
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                 """), {
