@@ -311,11 +311,12 @@ class CommandHandler:
                                     url=f"https://wa.me/{whatsapp_number}"
                                 )])
 
-                            await query.message.reply_text(
+                            sent_msg = await query.message.reply_text(
                                 message_text,
                                 parse_mode='Markdown',
                                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                             )
+                            new_messages.append(sent_msg.message_id)
                         except Exception as e:
                             logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
                             continue
@@ -520,19 +521,6 @@ Pilih kategori produk:"""
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
 
-                elif query.data == "show_help":
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        self.data_store.track_user_command(user_id, 'help')
-                    keyboard = [
-                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                    ]
-                    await query.message.reply_text(
-                        Messages.HELP,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2  # Define pagination size
@@ -616,7 +604,7 @@ Pilih kategori produk:"""
                     start_idx = current_page * items_per_page
                     end_idx = start_idx + items_per_page
                     current_results = results[start_idx:end_idx]
-                    
+
                     # Initialize list to store new message IDs
                     new_messages = []
 
@@ -654,7 +642,7 @@ Pilih kategori produk:"""
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + cari_lagi_button)
                     )
                     new_messages.append(sent_msg.message_id)
-                    
+
                     # Store new message IDs for next pagination
                     context.user_data['current_page_messages'] = new_messages
                 elif query.data == "show_credits":
@@ -821,6 +809,7 @@ Pilih kategori produk:"""
                     end_idx = min(start_idx + items_per_page, len(saved_contacts))
                     current_contacts = saved_contacts[start_idx:end_idx]
 
+                    new_messages = [] # added
                     for contact in current_contacts:
                         message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
                         keyboard = []
@@ -829,11 +818,12 @@ Pilih kategori produk:"""
                                 "💬 Chat di WhatsApp",
                                 url=f"https://wa.me/{whatsapp_number}"
                             )])
-                        await query.message.reply_text(
+                        sent_msg = await query.message.reply_text( # changed
                             message_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                         )
+                        new_messages.append(sent_msg.message_id) # added
 
                     # Add pagination buttons
                     pagination_buttons = []
