@@ -221,9 +221,8 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 
             product = importer.get('hs_code', '')
             hs_code = ''
-            if product:
-                digits = ''.join(filter(str.isdigit, product))
-                hs_code = digits[-4:] if len(digits) >= 4 else ''
+            if product and len(product) > 3:
+                hs_code = product[3:].strip()
 
             message_parts = []
             message_parts.append(f"🏢 {name}")
