@@ -334,11 +334,11 @@ class DataStore:
         try:
             logging.info(f"[SAVE] Starting save contact for user {user_id}")
             logging.info(f"[SAVE] Importer data: {importer}")
-            
+
             if not importer.get('name'):
                 logging.error("[SAVE] Missing importer name")
                 return False
-                
+
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"[SAVE] Calculated credit cost: {credit_cost}")
 
@@ -349,7 +349,7 @@ class DataStore:
                     WHERE user_id = :user_id 
                     FOR UPDATE;
                 """), {"user_id": user_id}).first()
-                
+
                 logging.info(f"[SAVE] Current credits: {result[0] if result else 0}")
 
                 if not result or result[0] < credit_cost:
@@ -401,7 +401,7 @@ class DataStore:
 
                 logging.info(f"[SAVE] Successfully saved contact and deducted {credit_cost} credits")
                 return True
-            except Exception as insert_error:
+                except Exception as insert_error:
                     logging.error(f"[SAVE] Database insert error: {str(insert_error)}", exc_info=True)
                     conn.rollback()
                     return False
@@ -410,6 +410,8 @@ class DataStore:
             logging.error(f"[SAVE] Error saving contact: {str(e)}", exc_info=True)
             logging.error(f"[SAVE] Failed contact details - Name: {importer.get('name')}, User: {user_id}")
             logging.error(f"[SAVE] Contact data: {importer}")
+            if 'conn' in locals():
+                conn.rollback()
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
