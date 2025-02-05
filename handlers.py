@@ -51,7 +51,7 @@ class CommandHandler:
                 is_member = False
 
             community_button = [InlineKeyboardButton(
-                "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
+                "🔓 Buka Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
             )]
 
@@ -1470,15 +1470,30 @@ class CommandHandler:
                         )
                         return
 
-                    keyboard = [[InlineKeyboardButton(
-                        "🚀 Gabung Sekarang",
-                        url="https://t.me/+kuNU6lDtYoNlMTc1"
-                    )]]
-
                     if self.data_store.use_credit(user_id, 5):
-                        await query.message.reply_text(
+                        keyboard = [[InlineKeyboardButton(
+                            "🚀 Gabung Sekarang",
+                            url="https://t.me/+kuNU6lDtYoNlMTc1"
+                        )]]
+                        sent_message = await query.message.reply_text(
                             Messages.COMMUNITY_INFO,
                             parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                        # Delete the message after 1 second
+                        await asyncio.sleep(1)
+                        await sent_message.delete()
+                        # Update the original keyboard
+                        keyboard = [
+                            [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
+                            [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+                            [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                             InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                            [InlineKeyboardButton("🔓 Buka Kancil Global Network", url="https://t.me/+kuNU6lDtYoNlMTc1")],
+                            [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                            [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
+                        ]
+                        await query.message.edit_reply_markup(
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
                     else:
