@@ -924,7 +924,7 @@ class CommandHandler:
                                 [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                             ]
                         await query.message.reply_text(
-                            hs_guide,
+                            header_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
