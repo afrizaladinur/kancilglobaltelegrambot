@@ -818,15 +818,16 @@ Pilih kategori produk:"""
 
                     # Delete current page messages
                     try:
-                        current_messages = context.user_data.get('current_saved_messages', [])
-                        for msg_id in current_messages:
+                        # Delete the 2 contact messages and pagination message
+                        current_message_id = query.message.message_id
+                        for i in range(3):  # Delete current message and 2 previous messages
                             try:
                                 await context.bot.delete_message(
                                     chat_id=query.message.chat_id,
-                                    message_id=msg_id
+                                    message_id=current_message_id - i
                                 )
                             except Exception as e:
-                                logging.error(f"Error deleting message {msg_id}: {str(e)}")
+                                logging.error(f"Error deleting message {current_message_id - i}: {str(e)}")
                     except Exception as e:
                         logging.error(f"Error deleting messages: {str(e)}")
 
