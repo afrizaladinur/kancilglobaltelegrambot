@@ -1248,10 +1248,10 @@ Pilih produk:"""
                                 )
                                 return
 
-                        # Store results and reset page
-                        context.user_data['last_search_results'] = results
-                        context.user_data['search_page'] = 0
-                        context.user_data['last_search_query'] = search_query
+                            # Store results and reset page
+                            context.user_data['last_search_results'] = results
+                            context.user_data['search_page'] = 0
+                            context.user_data['last_search_query'] = search_query
 
                         # Show first page
                         page = 0
