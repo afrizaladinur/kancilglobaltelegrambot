@@ -412,7 +412,7 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # Update credits in the same transaction
+                        # Update credits atomically
                         update_credits_sql = """
                         UPDATE user_credits 
                         SET credits = credits - :credit_cost,
@@ -422,11 +422,11 @@ class DataStore:
                         RETURNING credits;
                         """
                         
-                        new_credits = conn.execute(
+                        result = conn.execute(
                             text(update_credits_sql),
-                            {"user_id": user_id, "credit_cost": credit_cost}
-                        ).scalar()
-                        conn.commit()
+                            {"user_id": user_id, "credit_cost": float(credit_cost)}
+                        )
+                        new_credits = result.scalar()
 
                         if new_credits is not None:
                             conn.commit()
