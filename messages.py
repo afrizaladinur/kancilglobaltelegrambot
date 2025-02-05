@@ -104,27 +104,18 @@ Catatan:
 - Menyimpan kontak membutuhkan kredit
 - Kredit gratis: 10 kredit untuk pengguna baru
 """
-    SEARCH_NO_QUERY = """🔍 *Panduan Pencarian Importir*
+    SEARCH_NO_QUERY = """🔍 Ketik /search diikuti dengan:
+- Nama negara (contoh: /search vietnam)
+- Kode HS (contoh: /search 0303)
+- Nama produk (contoh: /search coconut oil)
+- Kombinasi (contoh: /search china 0303)
 
-*A. Cari berdasarkan Negara:*
-   Format: /search [nama negara]
-   Contoh: `/search malaysia`
-          `/search japan`
+Beberapa contoh pencarian produk:
+- /search ikan beku
+- /search anchovy
+- /search coconut oil
 
-*B. Cari berdasarkan Kode HS:*
-   Format: /search [kode 4 digit]
-   Contoh: `/search 0302` (ikan segar)
-          `/search 0303` (ikan beku)
-
-*C. Pencarian Kombinasi:*
-   Format: /search [kode hs] [negara]
-   Contoh: `/search 0302 malaysia`
-          `/search 0303 japan`
-
-💡 *Tips:*
-• Gunakan kode HS untuk hasil yang lebih spesifik
-• Kombinasikan dengan negara untuk filter terbaik
-• Kontak akan diperbarui secara berkala"""
+Lihat kode HS yang tersedia dengan klik tombol di bawah:"""
     SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."

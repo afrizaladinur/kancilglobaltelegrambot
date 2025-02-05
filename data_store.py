@@ -210,7 +210,12 @@ class DataStore:
                 if any(c.isdigit() for c in term):
                     conditions.append(f"LOWER(product) LIKE :{param_name}")
                 else:
-                    conditions.append(f"(LOWER(name) LIKE :{param_name} OR LOWER(country) LIKE :{param_name})")
+                    conditions.append(f"""(
+                        LOWER(name) LIKE :{param_name} OR 
+                        LOWER(country) LIKE :{param_name} OR
+                        LOWER(role) LIKE :{param_name} OR
+                        LOWER(product) LIKE :{param_name}
+                    )""")
                 params[param_name] = f"%{term}%"
 
             # Default ranking based on first term
