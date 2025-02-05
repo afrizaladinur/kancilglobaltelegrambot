@@ -417,15 +417,16 @@ class DataStore:
                         UPDATE user_credits 
                         SET credits = credits - :credit_cost,
                             last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id
+                        WHERE user_id = :user_id 
                         AND credits >= :credit_cost
-                        RETURNING credits
+                        RETURNING credits;
                         """
                         
                         new_credits = conn.execute(
                             text(update_credits_sql),
-                            {"user_id": user_id, "credit_cost": float(credit_cost)}
+                            {"user_id": user_id, "credit_cost": credit_cost}
                         ).scalar()
+                        conn.commit()
 
                         if new_credits is not None:
                             conn.commit()
