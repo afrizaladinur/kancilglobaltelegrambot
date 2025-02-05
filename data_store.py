@@ -354,30 +354,36 @@ class DataStore:
                     logging.error(f"Insufficient credits. Required: {credit_cost}, Available: {current_credits}")
                     return False
 
-                # Then check if contact already exists
-                exists = conn.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 
-                        FROM saved_contacts 
-                        WHERE user_id = :user_id 
-                        AND importer_name = :name
-                    );
-                """), {"user_id": user_id, "name": importer['name']}).scalar()
-
-                if exists:
-                    logging.error(f"[SAVE] Duplicate contact check - User: {user_id}, Contact: {importer['name']}")
-                    # Log existing contact details
-                    existing_contact = conn.execute(text("""
-                        SELECT * FROM saved_contacts 
-                        WHERE user_id = :user_id AND importer_name = :name
-                    """), {
-                        "user_id": user_id,
-                        "name": importer['name']
-                    }).first()
-                    if existing_contact:
-                        logging.error(f"[SAVE] Existing contact details: {dict(existing_contact)}")
-                    # Return specific error
-                    raise ValueError("duplicate_contact")
+                # First try to update existing contact
+                update_result = conn.execute(text("""
+                    UPDATE saved_contacts 
+                    SET country = :country,
+                        phone = :phone,
+                        email = :email,
+                        website = :website,
+                        wa_availability = :wa_available,
+                        hs_code = :hs_code,
+                        product_description = :product_description,
+                        saved_at = CURRENT_TIMESTAMP
+                    WHERE user_id = :user_id 
+                    AND importer_name = :name
+                    RETURNING id;
+                """), {
+                    "user_id": user_id,
+                    "name": importer['name'],
+                    "country": importer['country'],
+                    "phone": importer['contact'],
+                    "email": importer['email'],
+                    "website": importer['website'],
+                    "wa_available": importer['wa_available'],
+                    "hs_code": importer.get('hs_code', ''),
+                    "product_description": importer.get('product_description', '')
+                })
+                
+                if update_result.rowcount > 0:
+                    # Contact was updated successfully
+                    conn.commit()
+                    return True
 
                 # Finally, save contact and update credits atomically
                 try:
