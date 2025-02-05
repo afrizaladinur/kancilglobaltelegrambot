@@ -211,21 +211,21 @@ class DataStore:
                 'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
                 'segar': ['fresh', 'segar', 'fresh fish'],
                 'beku': ['frozen', 'beku', 'frozen fish'],
-                
+
                 # Coconut Products (HS 1513)
                 'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
                 'minyak': ['oil', 'minyak', 'virgin oil'],
                 'vco': ['virgin coconut oil', 'vco', 'virgin'],
-                
+
                 # Charcoal/Briquette (HS 44029010)
                 'briket': ['briquette', 'briket', 'charcoal briquette'],
                 'arang': ['charcoal', 'arang', 'carbon'],
                 'batok': ['shell', 'batok', 'tempurung'],
-                
+
                 # Fruits (HS 0810)
                 'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
                 'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-                
+
                 # Coffee (HS 0901)
                 'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
                 'bubuk': ['powder', 'bubuk', 'ground']
@@ -369,40 +369,50 @@ class DataStore:
                     return False
 
                 # Finally, save contact and update credits atomically
-                conn.execute(text("""
-                    WITH save_contact AS (
-                        INSERT INTO saved_contacts (
-                            user_id, importer_name, country, phone, email,
-                            website, wa_availability, hs_code, product_description
-                        ) VALUES (
-                            :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
+                try:
+                    conn.execute(text("""
+                        WITH save_contact AS (
+                            INSERT INTO saved_contacts (
+                                user_id, importer_name, country, phone, email,
+                                website, wa_availability, hs_code, product_description
+                            ) VALUES (
+                                :user_id, :name, :country, :phone, :email,
+                                :website, :wa_available, :hs_code, :product_description
+                            )
+                            RETURNING id
                         )
-                        RETURNING id
-                    )
-                    UPDATE user_credits 
-                    SET credits = credits - :credit_cost
-                    WHERE user_id = :user_id
-                    AND EXISTS (SELECT 1 FROM save_contact);
-                """), {
-                    "user_id": user_id,
-                    "name": importer['name'],
-                    "country": importer['country'],
-                    "phone": importer['contact'],
-                    "email": importer['email'],
-                    "website": importer['website'],
-                    "wa_available": importer['wa_available'],
-                    "hs_code": importer.get('hs_code', ''),
-                    "product_description": importer.get('product_description', ''),
-                    "credit_cost": credit_cost
-                })
+                        UPDATE user_credits 
+                        SET credits = credits - :credit_cost
+                        WHERE user_id = :user_id
+                        AND EXISTS (SELECT 1 FROM save_contact);
+                    """), {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', ''),
+                        "credit_cost": credit_cost
+                    })
 
-                logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
-                return True
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
+                    return True
+                except Exception as insert_error:
+                    logging.error("[SAVE] Database insert error details:", exc_info=True)
+                    logging.error(f"[SAVE] Failed details - User: {user_id}, Contact: {importer.get('name')}")
+                    logging.error(f"[SAVE] Contact data: {importer}")
+                    logging.error(f"[SAVE] Error message: {str(insert_error)}")
+                    conn.rollback()
+                    return False
+
         except Exception as e:
-            logging.error(f"Error saving contact: {str(e)}", exc_info=True)
-            logging.error(f"Failed contact details - Name: {importer.get('name')}, User: {user_id}")
-            logging.error(f"Contact data: {importer}")
+            logging.error("[SAVE] Contact save error details:", exc_info=True)
+            logging.error(f"[SAVE] Failed details - User: {user_id}, Contact: {importer.get('name')}")  
+            logging.error(f"[SAVE] Contact data: {importer}")
+            logging.error(f"[SAVE] Error message: {str(e)}")
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
