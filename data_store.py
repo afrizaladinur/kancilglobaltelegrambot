@@ -400,8 +400,8 @@ class DataStore:
                 })
 
                 logging.info(f"[SAVE] Successfully saved contact and deducted {credit_cost} credits")
-                    return True
-                except Exception as insert_error:
+                return True
+            except Exception as insert_error:
                     logging.error(f"[SAVE] Database insert error: {str(insert_error)}", exc_info=True)
                     conn.rollback()
                     return False
