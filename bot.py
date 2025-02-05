@@ -20,10 +20,8 @@ class TelegramBot:
         """Set bot commands with descriptions"""
         commands = [
             ('start', 'Mulai bot dan lihat menu utama'),
-            ('search', 'Cari importir berdasarkan nama/negara/kode HS'),
             ('saved', 'Lihat daftar kontak yang tersimpan'),
             ('credits', 'Cek sisa kredit dan beli kredit'),
-            ('stats', 'Lihat statistik penggunaan'),
             ('help', 'Tampilkan panduan lengkap')
         ]
         self.application.bot.set_my_commands(commands)
@@ -36,9 +34,7 @@ class TelegramBot:
         self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
         self.application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("help", self.command_handler.help, filters.COMMAND))
-        self.application.add_handler(TelegramCommandHandler("search", self.command_handler.search, filters.COMMAND))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved, filters.COMMAND))
-        self.application.add_handler(TelegramCommandHandler("stats", self.command_handler.stats, filters.COMMAND))
         self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits, filters.COMMAND))
         self.application.add_handler(TelegramCommandHandler("givecredits", self.command_handler.give_credits, filters.COMMAND))
         self.application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))

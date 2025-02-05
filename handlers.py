@@ -57,12 +57,10 @@ class CommandHandler:
                 ), {"user_id": user_id}).scalar() or False
 
             keyboard = [
-                [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
                 [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
                  InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
-                 InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                 [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
