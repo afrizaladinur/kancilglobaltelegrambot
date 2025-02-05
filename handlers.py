@@ -188,7 +188,7 @@ class CommandHandler:
             # Add regenerate button as a separate row
             regenerate_button = [
                 [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
             ]
 
             await update.message.reply_text(
@@ -454,7 +454,7 @@ class CommandHandler:
                         # Add regenerate button
                         regenerate_button = [
                             [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
 
                         await query.message.reply_text(
@@ -469,19 +469,19 @@ class CommandHandler:
                     await query.message.delete()
                     # Show categories menu again
                     header_text = """📊 *Kontak Tersedia*
-                        
+
 Pilih kategori produk:"""
                     with self.engine.connect() as conn:
                         seafood_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
                         """)).scalar()
-                        
+
                         agriculture_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
                         """)).scalar()
-                        
+
                         processed_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) LIKE '%44029010%'
@@ -493,7 +493,7 @@ Pilih kategori produk:"""
                         [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
-                    
+
                     await query.message.reply_text(
                         header_text,
                         parse_mode='Markdown',
@@ -632,7 +632,7 @@ Pilih kategori produk:"""
                     # Add Cari Lagi button as a separate row
                     cari_lagi_button = [
                         [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
 
                     await query.message.reply_text(
@@ -914,9 +914,9 @@ Pilih kategori produk:"""
                     try:
                         # Delete current message
                         await query.message.delete()
-                        
+
                         header_text = """📊 *Kontak Tersedia*
-                        
+
 Pilih kategori produk:"""
 
                         # Count contacts for each category
@@ -925,12 +925,12 @@ Pilih kategori produk:"""
                                 SELECT COUNT(*) FROM importers 
                                 WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
                             """)).scalar()
-                            
+
                             agriculture_count = conn.execute(text("""
                                 SELECT COUNT(*) FROM importers 
                                 WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
                             """)).scalar()
-                            
+
                             processed_count = conn.execute(text("""
                                 SELECT COUNT(*) FROM importers 
                                 WHERE LOWER(product) LIKE '%44029010%'
@@ -942,7 +942,7 @@ Pilih kategori produk:"""
                             [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                         ]
-                        
+
                         await query.message.reply_text(
                             header_text,
                             parse_mode='Markdown',
@@ -956,7 +956,7 @@ Pilih kategori produk:"""
                     try:
                         # Delete previous message
                         await query.message.delete()
-                        
+
                         folder_text = """🌊 *Produk Laut*
 
 Pilih produk:"""
@@ -968,7 +968,7 @@ Pilih produk:"""
                                 '0304': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0304%'")).scalar(),
                                 'anchovy': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%anchovy%'")).scalar()
                             }
-                            
+
                         keyboard = [
                             [InlineKeyboardButton(f"🐟 Ikan Hidup ({counts['0301']} kontak)", callback_data="search_0301")],
                             [InlineKeyboardButton(f"🐠 Ikan Segar ({counts['0302']} kontak)", callback_data="search_0302")],
@@ -985,11 +985,11 @@ Pilih produk:"""
                     except Exception as e:
                         logging.error(f"Error in folder_seafood handler: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
-                    
+
                 elif query.data == "folder_agriculture":
                     # Delete previous message
                     await query.message.delete()
-                    
+
                     folder_text = """🌿 *Produk Agrikultur*
 
 Pilih produk:"""
@@ -998,7 +998,7 @@ Pilih produk:"""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) LIKE '%0901%'
                         """)).scalar()
-                        
+
                         manggis_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
@@ -1018,7 +1018,7 @@ Pilih produk:"""
                 elif query.data == "folder_processed":
                     # Delete previous message
                     await query.message.delete()
-                    
+
                     folder_text = """🌳 *Produk Olahan*
 
 Pilih produk:"""
@@ -1027,7 +1027,7 @@ Pilih produk:"""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) LIKE '%44029010%'
                         """)).scalar()
-                        
+
                         coconut_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) SIMILAR TO '%(1513|coconut oil|minyak kelapa)%'
@@ -1061,9 +1061,9 @@ Pilih produk:"""
                             GROUP BY hs_code
                             ORDER BY hs_code;
                         """)).fetchall()
-                        
+
                         counts_dict = {row[0]: row[1] for row in hs_counts}
-                        
+
                         keyboard = [
                             [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
                                                 callback_data="search_0301")],
@@ -1077,7 +1077,7 @@ Pilih produk:"""
                                                 callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
-                        
+
                         await query.message.reply_text(
                             "🌊 *Produk Laut*",
                             parse_mode='Markdown',
@@ -1098,9 +1098,9 @@ Pilih produk:"""
                             GROUP BY hs_code
                             ORDER BY hs_code;
                         """)).fetchall()
-                        
+
                         counts_dict = {row[0]: row[1] for row in hs_counts}
-                        
+
                         keyboard = [
                             [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
                                                 callback_data="search_0901")],
@@ -1108,7 +1108,7 @@ Pilih produk:"""
                                                 callback_data="search_coconut_oil")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
-                        
+
                         await query.message.reply_text(
                             "🌿 *Produk Agrikultur*",
                             parse_mode='Markdown',
@@ -1123,15 +1123,15 @@ Pilih produk:"""
                                 FROM importers
                                 WHERE LOWER(product) LIKE '%44029010%';
                             """)).fetchall()
-                            
+
                             count = hs_counts[0][0] if hs_counts else 0
-                            
+
                             keyboard = [
                                 [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {count} kontak",
                                                     callback_data="search_briket")],
                                 [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                             ]
-                            
+
                             await query.message.reply_text(
                                 "🌳 *Produk Olahan*",
                                 parse_mode='Markdown',
@@ -1152,15 +1152,15 @@ Pilih produk:"""
                         'coconut_oil': 'coconut oil',
                         'briket': '44029010'
                     }
-                    
+
                     if search_term in search_terms:
                         # Set up context.args manually
                         search_query = search_terms[search_term]
                         context.args = [search_query]
-                        
+
                         # Get results directly 
                         results = self.data_store.search_importers(search_query)
-                        
+
                         if not results:
                             await query.message.reply_text(
                                 f"Tidak ada hasil untuk pencarian '{search_query}'"
@@ -1203,7 +1203,7 @@ Pilih produk:"""
                         # Add regenerate button
                         regenerate_button = [
                             [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
 
                         await query.message.reply_text(
@@ -1212,11 +1212,11 @@ Pilih produk:"""
                         )
                     else:
                         await query.message.reply_text("Pencarian tidak tersedia")
-                
+
                 elif query.data.startswith('section_'):
                     # Just ignore section headers
                     await query.answer()
-                
+
                 elif query.data.startswith('give_'):
                     try:
                         _, target_user_id, credit_amount = query.data.split('_')
