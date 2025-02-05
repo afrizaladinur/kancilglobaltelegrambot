@@ -273,7 +273,9 @@ class DataStore:
                     role as product_description,
                     1 as match_type
                 FROM importers
-                WHERE {' OR '.join(conditions)}
+                WHERE phone IS NOT NULL 
+                AND phone != ''
+                AND ({' OR '.join(conditions)})
             )
             SELECT 
                 name, country, contact, website, email,
@@ -284,6 +286,7 @@ class DataStore:
                 product as hs_code,
                 product_description
             FROM ranked_results
+            WHERE contact IS NOT NULL AND contact != ''
             ORDER BY RANDOM()
             LIMIT 10;
             """
