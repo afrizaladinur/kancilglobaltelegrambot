@@ -336,15 +336,29 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            # First check if contact is already saved
-            with self.engine.connect() as conn:
-                existing = conn.execute(text("""
-                    SELECT id FROM saved_contacts 
-                    WHERE user_id = :user_id AND importer_name = :name
+            with self.engine.begin() as conn:
+                # Check if contact exists and get current credits in one transaction
+                result = conn.execute(text("""
+                    SELECT sc.id, uc.credits 
+                    FROM user_credits uc 
+                    LEFT JOIN saved_contacts sc ON sc.user_id = uc.user_id 
+                        AND sc.importer_name = :name
+                    WHERE uc.user_id = :user_id
+                    FOR UPDATE;
                 """), {"user_id": user_id, "name": importer['name']}).first()
-                
-                if existing:
-                    logging.info(f"Contact {importer['name']} already saved for user {user_id}")
+
+                if not result:
+                    logging.error("User credits not found")
+                    return False
+
+                _, current_credits = result
+
+                if current_credits < credit_cost:
+                    logging.error("Insufficient credits")
+                    return False
+
+                if result[0]:  # Contact already exists
+                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
                     return False
 
             # Use a single transaction for both operations
@@ -364,17 +378,22 @@ class DataStore:
                     logging.error("Insufficient credits")
                     return False
 
-                # Save contact first
+                # Insert contact and update credits in the same transaction
                 save_contact_sql = """
-                INSERT INTO saved_contacts (
-                    user_id, importer_name, country, phone, email, 
-                    website, wa_availability, hs_code, product_description
-                ) VALUES (
-                    :user_id, :name, :country, :phone, :email,
-                    :website, :wa_available, :hs_code, :product_description
+                WITH new_contact AS (
+                    INSERT INTO saved_contacts (
+                        user_id, importer_name, country, phone, email,
+                        website, wa_availability, hs_code, product_description
+                    ) VALUES (
+                        :user_id, :name, :country, :phone, :email,
+                        :website, :wa_available, :hs_code, :product_description
+                    )
+                    RETURNING id
                 )
-                ON CONFLICT (user_id, importer_name) DO NOTHING
-                RETURNING id;
+                UPDATE user_credits 
+                SET credits = credits - :credit_cost
+                WHERE user_id = :user_id
+                AND EXISTS (SELECT 1 FROM new_contact);
                 """
                 result = conn.execute(
                     text(save_contact_sql),
