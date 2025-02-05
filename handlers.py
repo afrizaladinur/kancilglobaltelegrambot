@@ -533,14 +533,22 @@ class CommandHandler:
                     await query.message.delete()
                     with app.app_context():
                         credits = self.data_store.get_user_credits(query.from_user.id)
+                    user_id = query.from_user.id
+                    is_admin = user_id in [6422072438]
+                    
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
-                         InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                        [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
+                    ]
+                    
+                    if is_admin:
+                        keyboard.append([InlineKeyboardButton("📊 Daftar Pesanan", callback_data="orders")])
+                    
+                    keyboard.extend([
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-                    ]
+                    ])
                     await query.message.reply_text(
                         Messages.START,
                         parse_mode='Markdown',
@@ -775,13 +783,6 @@ class CommandHandler:
                             )
 
                         logging.info(f"Manual payment order created: {order_id}")
-
-                    except Exception as e:
-                        logging.error(f"Error processing payment: {str(e)}", exc_info=True)
-                        await query.message.reply_text(
-                            "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
-                            "Admin akan segera menghubungi Anda untuk proses manual."
-                        )
 
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
