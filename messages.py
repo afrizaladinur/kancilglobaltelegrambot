@@ -221,7 +221,7 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
             country_emoji = Messages.get_country_emoji(country)
             message_parts.append(f"🌏 Negara: {country_emoji} {country}")
             if hs_code:
-                message_parts.append(f"📦 Kode HS: {hs_code}")
+                message_parts.append(f"📦 Kode HS/Product: {hs_code}")
 
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
