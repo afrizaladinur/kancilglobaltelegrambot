@@ -419,6 +419,24 @@ class DataStore:
             logging.error(f"[SAVE] Failed details - User: {user_id}, Contact: {importer.get('name')}")  
             logging.error(f"[SAVE] Contact data: {importer}")
             logging.error(f"[SAVE] Error message: {str(e)}")
+            logging.error("[SAVE] Transaction state: Failed")
+            logging.error("[SAVE] Available credits before save attempt: %s", self.get_user_credits(user_id))
+            
+            # Log database state
+            with self.engine.connect() as conn:
+                try:
+                    existing = conn.execute(text("""
+                        SELECT * FROM saved_contacts 
+                        WHERE user_id = :user_id AND importer_name = :name
+                    """), {
+                        "user_id": user_id,
+                        "name": importer['name']
+                    }).first()
+                    if existing:
+                        logging.error("[SAVE] Contact already exists in database")
+                        logging.error(f"[SAVE] Existing record: {dict(existing)}")
+                except Exception as db_error:
+                    logging.error(f"[SAVE] Error checking existing contact: {str(db_error)}")
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
