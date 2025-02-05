@@ -732,8 +732,6 @@ Pilih kategori produk:"""
                             "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
                             "Admin akan segera menghubungi Anda untuk proses manual."
                         )
-
-
                     except Exception as e:
                         logging.error(f"Error processing payment:{str(e)}", exc_info=True)
                         await query.message.reply_text(
