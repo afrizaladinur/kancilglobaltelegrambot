@@ -1330,14 +1330,21 @@ class CommandHandler:
 
                         output = io.StringIO()
                         writer = csv.DictWriter(output, fieldnames=[
-                            'order_id', 'user_id', 'credits', 'amount', 'status', 'created_at'
+                            'order_id', 'user_id', 'username', 'credits', 'amount', 'status', 'created_at'
                         ])
 
                         writer.writeheader()
                         for order in orders:
+                            try:
+                                user = await context.bot.get_chat(order.user_id)
+                                username = f"@{user.username}" if user.username else "No username"
+                            except:
+                                username = "Unknown"
+                                
                             writer.writerow({
                                 'order_id': order.order_id,
                                 'user_id': order.user_id,
+                                'username': username,
                                 'credits': order.credits,
                                 'amount': order.amount,
                                 'status': order.status,
