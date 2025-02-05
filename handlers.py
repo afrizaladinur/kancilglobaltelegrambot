@@ -431,8 +431,28 @@ class CommandHandler:
                         await query.message.reply_text(f"❌ Order {order_id} is already {order.status}")
                         return
 
-                        if not order:
-                            await query.message.reply_text("❌ Order not found or already fulfilled")
+                    # Add credits to user
+                    if self.data_store.add_credits(order.user_id, order.credits):
+                        # Update order status
+                        conn.execute(text("""
+                            UPDATE credit_orders 
+                            SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP 
+                            WHERE order_id = :order_id
+                        """), {"order_id": order_id})
+
+                        # Notify user
+                        await context.bot.send_message(
+                            chat_id=order.user_id,
+                            text=f"✅ {order.credits} kredit telah ditambahkan ke akun Anda!"
+                        )
+
+                        # Notify admin
+                        await query.message.reply_text(
+                            f"✅ Order {order_id} fulfilled successfully\n"
+                            f"Added {order.credits} credits to user {order.user_id}"
+                        )
+                    else:
+                        await query.message.reply_text("❌ Failed to add credits")
                             return
 
                         # Add credits to user
