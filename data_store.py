@@ -337,63 +337,55 @@ class DataStore:
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
             with self.engine.begin() as conn:
-                # First check if user exists and has enough credits
+                # Check credits with row lock
                 result = conn.execute(text("""
-                    SELECT credits 
-                    FROM user_credits 
-                    WHERE user_id = :user_id
+                    SELECT credits FROM user_credits 
+                    WHERE user_id = :user_id 
                     FOR UPDATE;
                 """), {"user_id": user_id}).first()
 
-                if not result:
-                    logging.error("User credits not found")
+                if not result or result[0] < credit_cost:
+                    logging.error(f"Insufficient credits. Required: {credit_cost}, Available: {result[0] if result else 0}")
                     return False
 
-                current_credits = result[0]
-                if current_credits < credit_cost:
-                    logging.error(f"Insufficient credits. Required: {credit_cost}, Available: {current_credits}")
-                    return False
-
-                # Then check if contact already exists
+                # Check if contact exists
                 exists = conn.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 
-                        FROM saved_contacts 
-                        WHERE user_id = :user_id 
-                        AND importer_name = :name
-                    );
-                """), {"user_id": user_id, "name": importer['name']}).scalar()
+                    SELECT 1 FROM saved_contacts 
+                    WHERE user_id = :user_id AND importer_name = :name
+                """), {"user_id": user_id, "name": importer['name']}).first()
 
                 if exists:
-                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
+                    logging.error(f"Contact {importer['name']} already exists for user {user_id}")
                     return False
 
-                # Finally, save contact and update credits atomically
+                # Insert contact
                 conn.execute(text("""
-                    WITH save_contact AS (
-                        INSERT INTO saved_contacts (
-                            user_id, importer_name, country, phone, email,
-                            website, wa_availability, hs_code, product_description
-                        ) VALUES (
-                            :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
-                        )
-                        RETURNING id
-                    )
-                    UPDATE user_credits 
-                    SET credits = credits - :credit_cost
-                    WHERE user_id = :user_id
-                    AND EXISTS (SELECT 1 FROM save_contact);
+                    INSERT INTO saved_contacts (
+                        user_id, importer_name, country, phone, email,
+                        website, wa_availability, hs_code, product_description
+                    ) VALUES (
+                        :user_id, :name, :country, :phone, :email,
+                        :website, :wa_available, :hs_code, :product_description
+                    );
                 """), {
                     "user_id": user_id,
                     "name": importer['name'],
-                    "country": importer['country'],
-                    "phone": importer['contact'],
-                    "email": importer['email'],
-                    "website": importer['website'],
-                    "wa_available": importer['wa_available'],
+                    "country": importer.get('country', ''),
+                    "phone": importer.get('contact', ''),
+                    "email": importer.get('email', ''),
+                    "website": importer.get('website', ''),
+                    "wa_available": importer.get('wa_available', False),
                     "hs_code": importer.get('hs_code', ''),
-                    "product_description": importer.get('product_description', ''),
+                    "product_description": importer.get('product_description', '')
+                })
+
+                # Deduct credits
+                conn.execute(text("""
+                    UPDATE user_credits 
+                    SET credits = credits - :credit_cost 
+                    WHERE user_id = :user_id;
+                """), {
+                    "user_id": user_id,
                     "credit_cost": credit_cost
                 })
 
