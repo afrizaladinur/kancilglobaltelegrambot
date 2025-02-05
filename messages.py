@@ -216,12 +216,12 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
                 hs_code = product[3:].strip()
 
             message_parts = []
-            message_parts.append(f"🏢 {name}")
+            message_parts.append(f"🏢 {Messages._escape_markdown(name)}")
             country = importer.get('country', '')
             country_emoji = Messages.get_country_emoji(country)
-            message_parts.append(f"🌏 Negara: {country_emoji} {country}")
+            message_parts.append(f"🌏 Negara: {country_emoji} {Messages._escape_markdown(country)}")
             if hs_code:
-                message_parts.append(f"📦 Kode HS/Product: {hs_code}")
+                message_parts.append(f"📦 Kode HS/Product: {Messages._escape_markdown(hs_code)}")
 
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
