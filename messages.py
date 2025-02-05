@@ -86,37 +86,40 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 Kredit awal: 10 kredit (gratis untuk pengguna baru)
 """
     HELP = """
-Daftar perintah yang tersedia:
+*Panduan Penggunaan Bot Eksportir Indonesia* 🇮🇩
 
-📍 /start - Mulai bot
-🔍 /search <kata kunci> - Cari importir berdasarkan nama, negara, atau kode HS
-📁 /saved - Lihat kontak yang tersimpan
-💳 /credits - Lihat sisa kredit Anda
-📊 /stats - Lihat statistik penggunaan Anda
-❓ /help - Tampilkan pesan ini
+*Cara Mencari Kontak Importir:*
+1. Pilih menu "📦 Kontak Tersedia"
+2. Pilih kategori produk yang sesuai
+3. Pilih jenis produk spesifik
+4. Simpan kontak yang diinginkan
 
-Contoh pencarian:
-/search malaysia
-/search 0303
-/search 0303 malaysia
+*Sistem Kredit:*
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap
 
-Catatan: 
-- Kontak yang belum disimpan akan disensor
-- Menyimpan kontak membutuhkan kredit
-- Kredit gratis: 10 kredit untuk pengguna baru
+*Fitur Utama:*
+• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
+• 📁 *Kontak Tersimpan* - Akses kontak yang telah disimpan
+• 💳 *Kredit Saya* - Cek saldo kredit
+• 💰 *Beli Kredit* - Tambah saldo kredit
+
+*Catatan Penting:*
+• Kontak yang belum disimpan akan disensor
+• Kredit gratis: 10 kredit untuk pengguna baru
+• Kontak bisa diekspor ke CSV untuk pencatatan
 """
-    SEARCH_NO_QUERY = """🔍 Ketik /search diikuti dengan:
-- Nama negara (contoh: /search vietnam)
-- Kode HS (contoh: /search 0303)
-- Nama produk (contoh: /search coconut oil)
-- Kombinasi (contoh: /search china 0303)
+    SEARCH_NO_QUERY = """*Panduan Pencarian Kontak* 📦
 
-Beberapa contoh pencarian produk:
-- /search ikan beku
-- /search anchovy
-- /search coconut oil
+Silakan pilih kategori produk melalui menu "Kontak Tersedia" untuk melihat daftar kontak importir yang tersedia.
 
-Lihat kode HS yang tersedia dengan klik tombol di bawah:"""
+Kategori yang tersedia:
+• 🌊 Produk Laut (ikan segar, beku, dll)
+• 🌿 Produk Agrikultur (kopi, manggis, dll)
+• 🌳 Produk Olahan (briket, minyak kelapa)
+
+Pilih kategori untuk melihat daftar kontak:"""
     SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."

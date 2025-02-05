@@ -21,8 +21,7 @@ class TelegramBot:
         commands = [
             ('start', 'Mulai bot dan lihat menu utama'),
             ('saved', 'Lihat daftar kontak yang tersimpan'),
-            ('credits', 'Cek sisa kredit dan beli kredit'),
-            ('help', 'Tampilkan panduan lengkap')
+            ('credits', 'Cek sisa kredit dan beli kredit')
         ]
         self.application.bot.set_my_commands(commands)
 
