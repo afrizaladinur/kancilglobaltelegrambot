@@ -1,5 +1,5 @@
 import logging
-import threading
+import asyncio
 from bot import TelegramBot
 from app import app
 
@@ -11,33 +11,39 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def run_flask():
-    """Run Flask server"""
+async def run_bot():
+    """Setup and run the Telegram bot"""
     try:
-        app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+        bot = TelegramBot()
+        await bot.setup()
+        application = bot.get_application()
+
+        logger.info("Starting bot...")
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+
+        try:
+            # Keep the bot running
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Bot stopped")
+        finally:
+            await application.stop()
+
     except Exception as e:
-        logger.error(f"Error running Flask server: {e}")
+        logger.error(f"Error running bot: {str(e)}", exc_info=True)
         raise
 
-def main():
-    """Start the bot and Flask server."""
+if __name__ == '__main__':
     try:
-        # Start Flask in a separate thread
-        flask_thread = threading.Thread(target=run_flask)
-        flask_thread.daemon = True
-        flask_thread.start()
-        logger.info("Flask server started")
-
-        # Start Telegram bot
-        bot = TelegramBot()
-        app = bot.get_application()
-        logger.info("Starting bot...")
-        app.run_polling(drop_pending_updates=True)
+        # Run the bot
+        asyncio.run(run_bot())
+    except KeyboardInterrupt:
+        logger.info("Received shutdown signal")
     except Exception as e:
-        logger.error(f"Error running application: {e}")
+        logger.error(f"Error running application: {str(e)}", exc_info=True)
         raise
     finally:
         logger.info("Application shutdown complete")
-
-if __name__ == '__main__':
-    main()
