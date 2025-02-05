@@ -273,20 +273,20 @@ class DataStore:
             # Default ranking based on first term
             search_sql = f"""
             WITH ranked_results AS (
-                SELECT 
-                    name, 
-                    country, 
-                    phone as contact, 
-                    website, 
-                    email_1 as email, 
-                    wa_availability,
-                    product,
-                    role as product_description,
+                SELECT DISTINCT
+                    i.name, 
+                    i.country, 
+                    i.phone as contact, 
+                    i.website, 
+                    i.email_1 as email, 
+                    i.wa_availability,
+                    i.product,
+                    i.role as product_description,
                     1 as match_type
-                FROM importers
+                FROM importers i
                 WHERE {' AND '.join(conditions)}
             )
-            SELECT 
+            SELECT DISTINCT
                 r.name, r.country, r.contact, r.website, r.email,
                 CASE 
                     WHEN r.wa_availability = 'Available' THEN true
@@ -369,6 +369,20 @@ class DataStore:
                     return False
 
                 # Save contact first
+                # First check if contact already exists
+                check_existing_sql = """
+                SELECT id FROM saved_contacts 
+                WHERE user_id = :user_id AND importer_name = :name;
+                """
+                existing = conn.execute(
+                    text(check_existing_sql),
+                    {"user_id": user_id, "name": importer['name']}
+                ).scalar()
+                
+                if existing:
+                    return False
+
+                # If not exists, insert new contact
                 save_contact_sql = """
                 INSERT INTO saved_contacts (
                     user_id, importer_name, country, phone, email, 
@@ -377,16 +391,6 @@ class DataStore:
                     :user_id, :name, :country, :phone, :email,
                     :website, :wa_available, :hs_code, :product_description
                 )
-                ON CONFLICT (user_id, importer_name) DO UPDATE 
-                SET 
-                    country = EXCLUDED.country,
-                    phone = EXCLUDED.phone,
-                    email = EXCLUDED.email,
-                    website = EXCLUDED.website,
-                    wa_availability = EXCLUDED.wa_availability,
-                    hs_code = EXCLUDED.hs_code,
-                    product_description = EXCLUDED.product_description,
-                    saved_at = CURRENT_TIMESTAMP
                 RETURNING id;
                 """
                 result = conn.execute(
