@@ -937,9 +937,20 @@ Pilih produk:"""
                     folder_text = """🌿 *Produk Agrikultur*
 
 Pilih produk:"""
+                    with self.engine.connect() as conn:
+                        coffee_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) LIKE '%0901%'
+                        """)).scalar()
+                        
+                        manggis_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) LIKE '%0810%'
+                        """)).scalar()
+
                     keyboard = [
-                        [InlineKeyboardButton("☕ Kopi (0901)", callback_data="search_0901")],
-                        [InlineKeyboardButton("🫐 Manggis (0810)", callback_data="search_manggis")],
+                        [InlineKeyboardButton(f"☕ Kopi ({coffee_count} kontak)", callback_data="search_0901")],
+                        [InlineKeyboardButton(f"🫐 Manggis ({manggis_count} kontak)", callback_data="search_manggis")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
                     await query.message.reply_text(
@@ -952,9 +963,20 @@ Pilih produk:"""
                     folder_text = """🌳 *Produk Olahan*
 
 Pilih produk:"""
+                    with self.engine.connect() as conn:
+                        briket_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) LIKE '%44029010%'
+                        """)).scalar()
+                        
+                        coconut_count = conn.execute(text("""
+                            SELECT COUNT(*) FROM importers 
+                            WHERE LOWER(product) LIKE '%1513%'
+                        """)).scalar()
+
                     keyboard = [
-                        [InlineKeyboardButton("🪵 Briket Batok (44029010)", callback_data="search_briket")],
-                        [InlineKeyboardButton("🥥 Minyak Kelapa (1513)", callback_data="search_coconut_oil")],
+                        [InlineKeyboardButton(f"🪵 Briket Batok ({briket_count} kontak)", callback_data="search_briket")],
+                        [InlineKeyboardButton(f"🥥 Minyak Kelapa ({coconut_count} kontak)", callback_data="search_coconut_oil")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
                     await query.message.reply_text(
