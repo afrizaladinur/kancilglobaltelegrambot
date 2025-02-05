@@ -1367,7 +1367,7 @@ class CommandHandler:
                         await query.answer("Not authorized", show_alert=True)
                         return
 
-                    order_id = query.data.split('_')[1]
+                    order_id = '_'.join(query.data.split('_')[1:])  # Handle order IDs with underscores
                     try:
                         with self.engine.begin() as conn:
                             # Get order details
@@ -1516,9 +1516,17 @@ class CommandHandler:
                 # Format order messages
                 for order in orders:
                     status_emoji = "✅" if order.status == "fulfilled" else "⏳"
+                    # Get user info from Telegram
+                    try:
+                        user = await context.bot.get_chat(order.user_id)
+                        username = f"@{user.username}" if user.username else "No username"
+                    except:
+                        username = "Unknown"
+
                     message = f"""
 *Order ID:* `{order.order_id}`
 *User ID:* `{order.user_id}`
+*Username:* {username}
 *Credits:* {order.credits}
 *Amount:* Rp {order.amount:,}
 *Status:* {status_emoji} {order.status}
