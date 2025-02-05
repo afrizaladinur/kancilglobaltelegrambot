@@ -945,9 +945,62 @@ class CommandHandler:
                     }
                     
                     if search_term in search_terms:
-                        # Simulate /search command
-                        context.args = [search_terms[search_term]]
-                        await self.search(update.callback_query, context)
+                        # Set up context.args manually
+                        search_query = search_terms[search_term]
+                        context.args = [search_query]
+                        
+                        # Get results directly 
+                        results = self.data_store.search_importers(search_query)
+                        
+                        if not results:
+                            await query.message.reply_text(
+                                f"Tidak ada hasil untuk pencarian '{search_query}'"
+                            )
+                            return
+
+                        # Store results and reset page
+                        context.user_data['last_search_results'] = results
+                        context.user_data['search_page'] = 0
+                        context.user_data['last_search_query'] = search_query
+
+                        # Show first page
+                        page = 0
+                        items_per_page = 2
+                        total_pages = (len(results) + items_per_page - 1) // items_per_page
+                        start_idx = page * items_per_page
+                        end_idx = start_idx + items_per_page
+                        current_results = results[start_idx:end_idx]
+
+                        for importer in current_results:
+                            message_text, _, _ = Messages.format_importer(importer)
+                            keyboard = [[InlineKeyboardButton(
+                                "💾 Simpan Kontak",
+                                callback_data=f"save_{importer['name'][:50]}"
+                            )]]
+                            await query.message.reply_text(
+                                message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard)
+                            )
+
+                        # Add pagination buttons
+                        pagination_buttons = []
+                        if page > 0:
+                            pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
+                        pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
+                        if page < total_pages - 1:
+                            pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+                        # Add regenerate button
+                        regenerate_button = [
+                            [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                        ]
+
+                        await query.message.reply_text(
+                            f"Halaman {page + 1} dari {total_pages}",
+                            reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
+                        )
                     else:
                         await query.message.reply_text("Pencarian tidak tersedia")
                 
