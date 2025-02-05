@@ -468,8 +468,8 @@ class CommandHandler:
                     await query.message.delete()
                     # Show categories menu again
                     header_text = """📊 *Kontak Tersedia*
-                    
-                    Pilih kategori produk:"""
+
+Pilih kategori produk:"""
                     with self.engine.connect() as conn:
                         seafood_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
@@ -729,7 +729,8 @@ class CommandHandler:
                         )
 
                         # Notify admin
-                        admin_message = (f"🔔 *Pesanan Kredit Baru!*\n\n"
+                        admin_message = (
+                            f"🔔 *Pesanan Kredit Baru!*\n\n"
                             f"Order ID: `{order_id}`\n"
                             f"User ID: `{user_id}`\n"
                             f"Username: @{username}\n"
@@ -974,8 +975,8 @@ class CommandHandler:
                         await query.message.delete()
 
                         header_text = """📊 *Kontak Tersedia*
-                        
-                        Pilih kategori produk:"""
+
+Pilih kategori produk:"""
 
                         # Count contacts for each category
                         with self.engine.connect() as conn:
@@ -1016,8 +1017,8 @@ class CommandHandler:
                         await query.message.delete()
 
                         folder_text = """🌊 *Produk Laut*
-                        
-                        Pilih produk:"""
+
+Pilih produk:"""
                         with self.engine.connect() as conn:
                             counts = {
                                 '0301': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0301%'")).scalar(),
@@ -1062,15 +1063,6 @@ Pilih produk:"""
                             WHERE LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
                         """)).scalar()
 
-                    if coffee_count == 0 and manggis_count == 0:
-                        await query.message.reply_text(
-                            "Tidak ada kontak importir tersedia untuk kategori ini.",
-                            reply_markup=InlineKeyboardMarkup([[
-                                InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")
-                            ]])
-                        )
-                        return
-
                     keyboard = [
                         [InlineKeyboardButton(f"☕ Kopi ({coffee_count} kontak)", callback_data="search_0901")],
                         [InlineKeyboardButton(f"🫐 Manggis ({manggis_count} kontak)", callback_data="search_manggis")],
@@ -1087,8 +1079,8 @@ Pilih produk:"""
                     await query.message.delete()
 
                     folder_text = """🌳 *Produk Olahan*
-                    
-                    Pilih produk:"""
+
+Pilih produk:"""
                     with self.engine.connect() as conn:
                         briket_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
@@ -1241,67 +1233,62 @@ Pilih produk:"""
                     }
 
                     if search_term in search_terms:
-                        try:
-                            # Use search term mapping
-                            search_query = search_terms[search_term]
+                        # Set up context.args manually
+                        search_query = search_terms[search_term]
+                        context.args = [search_query]
 
-                            # Get results from data store
-                            with app.app_context():
-                                results = self.data_store.search_importers(search_query)
-                                logging.info(f"Search for {search_query} returned {len(results)} results")
+                        # Get results directly 
+                        results = self.data_store.search_importers(search_query)
 
-                            if not results:
-                                await query.message.reply_text(
-                                    f"Tidak ada hasil untuk pencarian '{search_query}'"
-                                )
-                                return
-
-                            # Store results and reset page
-                            context.user_data['last_search_results'] = results
-                            context.user_data['search_page'] = 0
-                            context.user_data['last_search_query'] = search_query
-
-                            # Show first page
-                            page = 0
-                            items_per_page = 2
-                            total_pages = (len(results) + items_per_page - 1) // items_per_page
-                            start_idx = page * items_per_page
-                            end_idx = start_idx + items_per_page
-                            current_results = results[start_idx:end_idx]
-
-                            for importer in current_results:
-                                message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
-                                keyboard = [[InlineKeyboardButton(
-                                    "💾 Simpan Kontak",
-                                    callback_data=f"save_{importer['name'][:50]}"
-                                )]]
-                                await query.message.reply_text(
-                                    message_text,
-                                    parse_mode='Markdown',
-                                    reply_markup=InlineKeyboardMarkup(keyboard)
-                                )
-
-                            # Add pagination buttons
-                            pagination_buttons = []
-                            if page > 0:
-                                pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
-                            pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
-                            if page < total_pages - 1:
-                                pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
-
-                            # Add regenerate button
-                            regenerate_button = [
-                                [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-                            ]
-
+                        if not results:
                             await query.message.reply_text(
-                                f"Halaman {page + 1} dari {total_pages}",
-                                reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
+                                f"Tidak ada hasil untuk pencarian '{search_query}'"
                             )
-                        except Exception as e:
-                            logging.error(f"Error in search handling: {str(e)}", exc_info=True)
-                            await query.message.reply_text("Terjadi kesalahan saat mencari. Silakan coba lagi.")
+                            return
+
+                        # Store results and reset page
+                        context.user_data['last_search_results'] = results
+                        context.user_data['search_page'] = 0
+                        context.user_data['last_search_query'] = search_query
+
+                        # Show first page
+                        page = 0
+                        items_per_page = 2
+                        total_pages = (len(results) + items_per_page - 1) // items_per_page
+                        start_idx = page * items_per_page
+                        end_idx = start_idx + items_per_page
+                        current_results = results[start_idx:end_idx]
+
+                        for importer in current_results:
+                            message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
+                            keyboard = [[InlineKeyboardButton(
+                                "💾 Simpan Kontak",
+                                callback_data=f"save_{importer['name'][:50]}"
+                            )]]
+                            await query.message.reply_text(
+                                message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard)
+                            )
+
+                        # Add pagination buttons
+                        pagination_buttons = []
+                        if page > 0:
+                            pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
+                        pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
+                        if page < total_pages - 1:
+                            pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+                        # Add regenerate button
+                        regenerate_button = [
+                            [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
+                        ]
+
+                        await query.message.reply_text(
+                            f"Halaman {page + 1} dari {total_pages}",
+                            reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
+                        )
                     else:
                         await query.message.reply_text("Pencarian tidak tersedia")
 
@@ -1351,12 +1338,9 @@ Pilih produk:"""
             with app.app_context():
                 self.data_store.track_user_command(user_id, 'stats')
                 stats = self.data_store.get_user_stats(user_id)
-
-            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
             await update.message.reply_text(
                 Messages.format_stats(stats),
-                parse_mode='Markdown',
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                parse_mode='Markdown'
             )
             logging.info(f"Stats command processed for user {user_id}")
         except Exception as e:
@@ -1364,34 +1348,47 @@ Pilih produk:"""
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def give_credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Admin command to give credits to users"""
+        """Handle /givecredits command for admins"""
         try:
-            admin_ids = [123456789]  # Replace with actual admin IDs
-            user_id = update.effective_user.id
-
-            if user_id not in admin_ids:
-                await update.message.reply_text("⚠️ Unauthorized access")
+            if not await self.check_rate_limit(update):
                 return
 
-            if len(context.args) != 2:
+            user_id = update.effective_user.id
+            admin_ids = [6422072438]  # Your Telegram ID
+
+            if user_id not in admin_ids:
+                await update.message.reply_text("⛔️ You are not authorized to use this command.")
+                return
+
+            # Check command format
+            if not context.args or len(context.args) != 2:
                 await update.message.reply_text("Usage: /givecredits <user_id> <amount>")
                 return
 
-            target_user_id = int(context.args[0])
-            amount = float(context.args[1])
+            try:
+                target_user_id = int(context.args[0])
+                credit_amount = int(context.args[1])
+            except ValueError:
+                await update.message.reply_text("Invalid user ID or credit amount. Both must be numbers.")
+                return
+
+            if credit_amount <= 0:
+                await update.message.reply_text("Credit amount must be positive.")
+                return
 
             with app.app_context():
-                current_credits = self.data_store.get_user_credits(target_user_id)
-                if current_credits is None:
-                    self.data_store.initialize_user_credits(target_user_id, amount)
+                if self.data_store.add_credits(target_user_id, credit_amount):
+                    new_balance = self.data_store.get_user_credits(target_user_id)
+                    await update.message.reply_text(
+                        f"✅ Successfully added {credit_amount} credits to user {target_user_id}\n"
+                        f"New balance: {new_balance} credits"
+                    )
                 else:
-                    self.data_store.update_user_credits(target_user_id, current_credits + amount)
+                    await update.message.reply_text("❌ Failed to add credits. User may not exist.")
 
-            await update.message.reply_text(f"✅ Successfully added {amount} credits to user {target_user_id}")
-            logging.info(f"Admin {user_id} gave {amount} credits to user {target_user_id}")
         except Exception as e:
             logging.error(f"Error in give_credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text("❌ Error giving credits. Please check logs.")
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /credits command"""
@@ -1404,14 +1401,10 @@ Pilih produk:"""
                 self.data_store.track_user_command(user_id, 'credits')
                 credits = self.data_store.get_user_credits(user_id)
 
-            keyboard = [
-                [InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-            ]
+            keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
 
             await update.message.reply_text(
-                Messages.CREDITS_REMAINING.format(credits),
-                parse_mode='Markdown',
+                f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             logging.info(f"Credits command processed for user {user_id}")
