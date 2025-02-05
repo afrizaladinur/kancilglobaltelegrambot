@@ -412,28 +412,18 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # Check if contact already exists to avoid duplicate credit deduction
-                        check_existing_sql = """
-                        SELECT id FROM saved_contacts 
-                        WHERE user_id = :user_id AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
-                        """
-                        existing = conn.execute(
-                            text(check_existing_sql),
-                            {"user_id": user_id, "name": importer['name']}
-                        ).scalar()
-
-                        if not existing:
-                            # Only deduct if contact wasn't already saved
+                        # Deduct credits immediately after saving
                             update_credits_sql = """
                             UPDATE user_credits 
-                            SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
+                            SET credits = ROUND(credits - :credit_cost, 1),
                                 last_updated = CURRENT_TIMESTAMP
                             WHERE user_id = :user_id
+                            AND credits >= :credit_cost
                             RETURNING credits
                             """
                             new_credits = conn.execute(
                                 text(update_credits_sql),
-                                {"user_id": user_id, "credit_cost": credit_cost}
+                                {"user_id": user_id, "credit_cost": float(credit_cost)}
                             ).scalar()
 
                             logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
