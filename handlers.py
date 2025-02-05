@@ -877,9 +877,14 @@ Pilih kategori produk:"""
                             save_result = await self.data_store.save_contact(user_id, importer)
                             if save_result:
                                 remaining_credits = self.data_store.get_user_credits(user_id)
+                                keyboard = [
+                                    [InlineKeyboardButton("📁 Lihat Kontak Tersimpan", callback_data="show_saved")],
+                                    [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                                ]
                                 await query.message.reply_text(
                                     f"✅ Kontak berhasil disimpan!\n"
-                                    f"Sisa kredit Anda: {remaining_credits} kredit"
+                                    f"Sisa kredit Anda: {remaining_credits} kredit",
+                                    reply_markup=InlineKeyboardMarkup(keyboard)
                                 )
                             else:
                                 await query.message.reply_text(
