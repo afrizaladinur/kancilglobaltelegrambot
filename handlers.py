@@ -735,7 +735,7 @@ Pilih kategori produk:"""
 
 
                     except Exception as e:
-                        logging.error(f"Error processing payment: {str(e)}", exc_info=True)
+                        logging.error(f"Error processing payment:{str(e)}", exc_info=True)
                         await query.message.reply_text(
                             "Pesanan tetap diproses! Admin akan segera menghubungi Anda."
                         )
@@ -783,7 +783,6 @@ Pilih kategori produk:"""
                 elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
-
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
 
@@ -862,7 +861,7 @@ Pilih kategori produk:"""
                                 else:
                                     await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                                     return
-                                    
+
                             if save_result:
                                 remaining_credits = self.data_store.get_user_credits(user_id)
                                 await query.message.reply_text(
@@ -1076,15 +1075,15 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                                callback_data="search_0301")],
+                                                 callback_data="search_0301")],
                             [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                                callback_data="search_0302")],
+                                                 callback_data="search_0302")],
                             [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                                callback_data="search_0303")],
+                                                 callback_data="search_0303")],
                             [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                                callback_data="search_0304")],
+                                                 callback_data="search_0304")],
                             [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                                callback_data="search_anchovy")],
+                                                 callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
@@ -1113,9 +1112,9 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                                callback_data="search_0901")],
+                                                 callback_data="search_0901")],
                             [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                                callback_data="search_coconut_oil")],
+                                                 callback_data="search_coconut_oil")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
