@@ -8,7 +8,6 @@ from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
-from app import app
 import xendit
 
 class CommandHandler:
@@ -733,10 +732,9 @@ Pilih kategori produk:"""
                             "Admin akan segera menghubungi Anda untuk proses manual."
                         )
 
-
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
-                        await query.message.message.reply_text(
+                        await query.message.reply_text(
                             "Pesanan tetap diproses! Admin akan segera menghubungi Anda."
                         )
                 elif query.data.startswith('order_'):
@@ -837,44 +835,63 @@ Pilih kategori produk:"""
                 elif query.data == "show_saved_page_info":
                     await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data.startswith('save_'):
-                    importer_name = query.data[5:]  # Remove 'save_' prefix
-                    user_id = query.from_user.id
+                    try:
+                        user_id = query.from_user.id
+                        importer_name = query.data[5:]  # Remove 'save_' prefix
 
-                    # Search for the importer details
-                    results = self.data_store.search_importers(importer_name)
-                    if results:
-                        importer = next((imp for imp in results if imp['name'] == importer_name), None)
-                        if importer:
-                            # Calculate credit cost before saving
-                            credit_cost = self.data_store.calculate_credit_cost(importer)
-                            credits = self.data_store.get_user_credits(user_id)
+                        with app.app_context():
+                            # Track the save action
+                            self.data_store.track_user_command(user_id, 'save_contact')
 
-                            if credits < credit_cost:
-                                await query.message.reply_text(Messages.NO_CREDITS)
+                            # Get current credits first
+                            current_credits = self.data_store.get_user_credits(user_id)
+                            if current_credits is None or current_credits <= 0:
+                                await query.message.reply_text(
+                                    "⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini."
+                                )
                                 return
 
-                            try:
-                                if self.data_store.save_contact(user_id, importer):
-                                    remaining_credits = self.data_store.get_user_credits(user_id)
-                                    await query.message.reply_text(
-                                        Messages.CONTACT_SAVED.format(remaining_credits)
-                                    )
-                                    logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
-                                else:
-                                    await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
-                                    logging.error(f"[HANDLER] Failed to save contact {importer_name} for user {user_id}")
-                            except Exception as e:
-                                logging.error(f"[HANDLER] Save error - {str(e)}")
-                                await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
-                            except Exception as e:
-                                logging.error(f"Error saving contact: {str(e)}")
-                                await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
-                        else:
-                            await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
-                            logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
-                    else:
-                        logging.error(f"Could not find importer {importer_name} to save")
-                        await query.message.reply_text(Messages.ERROR_MESSAGE)
+                            # Get the full importer data from last search results
+                            results = context.user_data.get('last_search_results', [])
+                            importer = next(
+                                (r for r in results if r['name'].startswith(importer_name)),
+                                None
+                            )
+
+                            if not importer:
+                                logging.error(f"Importer {importer_name} not found in search results")
+                                await query.message.reply_text(
+                                    "⚠️ Kontak tidak ditemukan. Silakan coba cari kembali."
+                                )
+                                return
+
+                            # Calculate credit cost
+                            credit_cost = self.data_store.calculate_credit_cost(importer)
+                            if current_credits < credit_cost:
+                                await query.message.reply_text(
+                                    f"⚠️ Kredit tidak mencukupi. Dibutuhkan: {credit_cost} kredit."
+                                )
+                                return
+
+                            # Try to save the contact
+                            save_result = await self.data_store.save_contact(user_id, importer)
+                            if save_result:
+                                remaining_credits = self.data_store.get_user_credits(user_id)
+                                await query.message.reply_text(
+                                    f"✅ Kontak berhasil disimpan!\n"
+                                    f"Sisa kredit Anda: {remaining_credits} kredit"
+                                )
+                            else:
+                                await query.message.reply_text(
+                                    "⚠️ Terjadi kesalahan saat menyimpan kontak. Silakan coba lagi."
+                                )
+
+                    except Exception as e:
+                        logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+                        await query.message.reply_text(
+                            "⚠️ Terjadi kesalahan. Silakan coba lagi."
+                        )
+
                 elif query.data == "redeem_free_credits":
                     user_id = query.from_user.id
                     try:
@@ -1074,15 +1091,15 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                                callback_data="search_0301")],
+                                                 callback_data="search_0301")],
                             [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                                callback_data="search_0302")],
+                                                 callback_data="search_0302")],
                             [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                                callback_data="search_0303")],
+                                                 callback_data="search_0303")],
                             [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                                callback_data="search_0304")],
+                                                 callback_data="search_0304")],
                             [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                                callback_data="search_anchovy")],
+                                                 callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
@@ -1111,9 +1128,9 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                                callback_data="search_0901")],
+                                                 callback_data="search_0901")],
                             [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                                callback_data="search_coconut_oil")],
+                                                 callback_data="search_coconut_oil")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
