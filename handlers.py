@@ -39,11 +39,14 @@ class CommandHandler:
         """Handle /start command"""
         try:
             user_id = update.effective_user.id
+            admin_ids = [6422072438]
+            is_admin = user_id in admin_ids
+
             with app.app_context():
                 credits = self.data_store.get_user_credits(user_id)
                 if credits is None:
-                    self.data_store.initialize_user_credits(user_id, 10.0)
-                    credits = 10.0
+                    self.data_store.initialize_user_credits(user_id, 10.0 if not is_admin else 999999.0)
+                    credits = 10.0 if not is_admin else 999999.0
                 self.data_store.track_user_command(user_id, 'start')
 
             # Check if user is already in community
