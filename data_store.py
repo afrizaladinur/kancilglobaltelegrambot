@@ -204,6 +204,33 @@ class DataStore:
             conditions = []
             params = {"user_id": user_id}  # Remove fallback to 0
 
+            # Product name mappings - Easy to modify per product
+            product_mappings = {
+                # Fish Products (HS 0301-0305)
+                'ikan': ['fish', 'ikan', 'seafood'],
+                'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
+                'segar': ['fresh', 'segar', 'fresh fish'],
+                'beku': ['frozen', 'beku', 'frozen fish'],
+
+                # Coconut Products (HS 1513)
+                'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
+                'minyak': ['oil', 'minyak', 'virgin oil'],
+                'vco': ['virgin coconut oil', 'vco', 'virgin'],
+
+                # Charcoal/Briquette (HS 44029010)
+                'briket': ['briquette', 'briket', 'charcoal briquette'],
+                'arang': ['charcoal', 'arang', 'carbon'],
+                'batok': ['shell', 'batok', 'tempurung'],
+
+                # Fruits (HS 0810)
+                'manggis': ['mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
+                'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
+
+                # Coffee (HS 0901)
+                'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
+                'bubuk': ['powder', 'bubuk', 'ground']
+            }
+
             # Add saved contacts check when user_id is provided
             if user_id is not None:
                 saved_check = """
@@ -214,12 +241,6 @@ class DataStore:
                 )
                 """
                 conditions.append(saved_check)
-
-            # Add saved contacts check
-            base_check = """
-
-            # Product name mappings - Easy to modify per product
-            product_mappings = {
                 # Fish Products (HS 0301-0305)
                 'ikan': ['fish', 'ikan', 'seafood'],
                 'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
