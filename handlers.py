@@ -1141,6 +1141,7 @@ Pilih produk:"""
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
                 elif query.data.startswith('search_'):
+                    user_id = query.from_user.id
                     search_term = query.data.replace('search_', '')
                     search_terms = {
                         '0301': '0301',
