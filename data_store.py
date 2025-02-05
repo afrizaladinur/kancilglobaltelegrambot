@@ -286,21 +286,24 @@ class DataStore:
                 FROM importers i
                 WHERE {' AND '.join(conditions)}
             )
-            SELECT DISTINCT
-                r.name, r.country, r.contact, r.website, r.email,
-                CASE 
-                    WHEN r.wa_availability = 'Available' THEN true
-                    ELSE false
-                END as wa_available,
-                r.product as hs_code,
-                r.product_description
-            FROM ranked_results r
-            WHERE NOT EXISTS (
-                SELECT 1 FROM saved_contacts s
-                WHERE s.user_id = :user_id 
-                AND s.importer_name = r.name
-            )
-            ORDER BY RANDOM()
+            SELECT * FROM (
+                SELECT DISTINCT
+                    r.name, r.country, r.contact, r.website, r.email,
+                    CASE 
+                        WHEN r.wa_availability = 'Available' THEN true
+                        ELSE false
+                    END as wa_available,
+                    r.product as hs_code,
+                    r.product_description,
+                    random() as sort_key
+                FROM ranked_results r
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM saved_contacts s
+                    WHERE s.user_id = :user_id 
+                    AND s.importer_name = r.name
+                )
+            ) subq
+            ORDER BY sort_key
             LIMIT 10;
             """
 
