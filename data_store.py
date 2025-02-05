@@ -211,21 +211,21 @@ class DataStore:
                 'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
                 'segar': ['fresh', 'segar', 'fresh fish'],
                 'beku': ['frozen', 'beku', 'frozen fish'],
-                
+
                 # Coconut Products (HS 1513)
                 'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
                 'minyak': ['oil', 'minyak', 'virgin oil'],
                 'vco': ['virgin coconut oil', 'vco', 'virgin'],
-                
+
                 # Charcoal/Briquette (HS 44029010)
                 'briket': ['briquette', 'briket', 'charcoal briquette'],
                 'arang': ['charcoal', 'arang', 'carbon'],
                 'batok': ['shell', 'batok', 'tempurung'],
-                
+
                 # Fruits (HS 0810)
                 'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
                 'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-                
+
                 # Coffee (HS 0901)
                 'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
                 'bubuk': ['powder', 'bubuk', 'ground']
