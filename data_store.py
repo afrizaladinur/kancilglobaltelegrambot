@@ -235,32 +235,32 @@ class DataStore:
                 term_conditions = []
                 term_lower = term.lower()
 
-                # Add original term
-                search_terms_for_word = [term_lower]
+                # Handle HS code search
+                if term_lower.isdigit():
+                    term_conditions.append(f"LOWER(product) LIKE :term_{i}")
+                    params[f'term_{i}'] = f'%{term_lower}%'
+                else:
+                    # Add original term
+                    search_terms_for_word = [term_lower]
 
-                # Add mapped terms if they exist
-                if term_lower in product_mappings:
-                    search_terms_for_word.extend(product_mappings[term_lower])
+                    # Add mapped terms if they exist
+                    if term_lower in product_mappings:
+                        search_terms_for_word.extend(product_mappings[term_lower])
 
-                # Build OR conditions for all terms
-                for mapped_term in search_terms_for_word:
-                    term_conditions.append(f"LOWER(name) LIKE :term_{i}_{mapped_term}")
-                    term_conditions.append(f"LOWER(country) LIKE :term_{i}_{mapped_term}")
-                    term_conditions.append(f"LOWER(role) LIKE :term_{i}_{mapped_term}")
-                    term_conditions.append(f"LOWER(product) LIKE :term_{i}_{mapped_term}")
-                    params[f'term_{i}_{mapped_term}'] = f'%{mapped_term}%'
+                    # Build conditions for all terms
+                    for mapped_term in search_terms_for_word:
+                        param_key = f'term_{i}_{len(params)}'
+                        term_conditions.append(
+                            f"(LOWER(name) LIKE :{param_key} OR "
+                            f"LOWER(country) LIKE :{param_key} OR "
+                            f"LOWER(role) LIKE :{param_key} OR "
+                            f"LOWER(product) LIKE :{param_key})"
+                        )
+                        params[param_key] = f'%{mapped_term}%'
 
                 conditions.append("(" + " OR ".join(term_conditions) + ")")
 
             # Default ranking based on first term
-            rank_case = f"""
-                CASE 
-                    WHEN LOWER(country) LIKE :term_0_coconut THEN 0
-                    WHEN LOWER(name) LIKE :term_0_coconut THEN 1
-                    ELSE 2 
-                END
-            """
-
             search_sql = f"""
             WITH ranked_results AS (
                 SELECT 
@@ -272,9 +272,9 @@ class DataStore:
                     wa_availability,
                     product,
                     role as product_description,
-                    {rank_case} as match_type
+                    1 as match_type
                 FROM importers
-                WHERE {' AND '.join(conditions)}
+                WHERE {' OR '.join(conditions)}
             )
             SELECT 
                 name, country, contact, website, email,
