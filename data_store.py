@@ -202,7 +202,7 @@ class DataStore:
 
             # Build the search conditions
             conditions = []
-            params = {"user_id": user_id}  
+            params = {"user_id": user_id if user_id is not None else 0}
             
             # Add saved contacts check
             saved_check = """
@@ -297,11 +297,6 @@ class DataStore:
                     r.product_description,
                     random() as sort_key
                 FROM ranked_results r
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM saved_contacts s
-                    WHERE s.user_id = :user_id 
-                    AND s.importer_name = r.name
-                )
             ) subq
             ORDER BY sort_key
             LIMIT 10;
