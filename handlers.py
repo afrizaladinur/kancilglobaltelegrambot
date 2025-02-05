@@ -44,7 +44,7 @@ class CommandHandler:
 
             # Check if user is already in community
             try:
-                chat_member = await context.bot.get_chat_member(chat_id="-1001936898825", user_id=user_id)
+                chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
                 is_member = chat_member.status in ['member', 'administrator', 'creator']
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
