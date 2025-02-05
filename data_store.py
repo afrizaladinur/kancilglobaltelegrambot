@@ -223,7 +223,7 @@ class DataStore:
                 'batok': ['shell', 'batok', 'tempurung'],
                 
                 # Fruits (HS 0810)
-                'manggis': ['mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen', '0810'],
+                'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
                 'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
                 
                 # Coffee (HS 0901)
