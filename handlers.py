@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import asyncio
 from sqlalchemy import text
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
@@ -51,7 +52,7 @@ class CommandHandler:
                 is_member = False
 
             community_button = [InlineKeyboardButton(
-                "🔓 Buka Kancil Global Network",
+                "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
             )]
 
