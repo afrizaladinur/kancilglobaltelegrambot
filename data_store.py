@@ -204,11 +204,31 @@ class DataStore:
             conditions = []
             params = {}
 
-            # Product name mappings
+            # Product name mappings - Easy to modify per product
             product_mappings = {
-                'minyak': ['oil', 'minyak'],
-                'kelapa': ['coconut', 'kelapa', 'vco'],
-                'teri': ['anchovy', 'teri'],
+                # Fish Products (HS 0301-0305)
+                'ikan': ['fish', 'ikan', 'seafood'],
+                'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
+                'segar': ['fresh', 'segar', 'fresh fish'],
+                'beku': ['frozen', 'beku', 'frozen fish'],
+                
+                # Coconut Products (HS 1513)
+                'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
+                'minyak': ['oil', 'minyak', 'virgin oil'],
+                'vco': ['virgin coconut oil', 'vco', 'virgin'],
+                
+                # Charcoal/Briquette (HS 44029010)
+                'briket': ['briquette', 'briket', 'charcoal briquette'],
+                'arang': ['charcoal', 'arang', 'carbon'],
+                'batok': ['shell', 'batok', 'tempurung'],
+                
+                # Fruits (HS 0810)
+                'manggis': ['mangosteen', 'manggis', 'garcinia'],
+                'kulit': ['peel', 'kulit', 'shell', 'skin'],
+                
+                # Coffee (HS 0901)
+                'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
+                'bubuk': ['powder', 'bubuk', 'ground']
             }
 
             for i, term in enumerate(search_terms):
