@@ -202,7 +202,17 @@ class DataStore:
 
             # Build the search conditions
             conditions = []
-            params = {"user_id": user_id if user_id is not None else 0} # Add user_id to params
+            params = {"user_id": user_id if user_id is not None else 0}  
+            
+            # Add saved contacts check
+            saved_check = """
+            NOT EXISTS (
+                SELECT 1 FROM saved_contacts s
+                WHERE s.user_id = :user_id 
+                AND s.importer_name = importers.name
+            )
+            """
+            conditions.append(saved_check)
 
             # Product name mappings - Easy to modify per product
             product_mappings = {
@@ -274,7 +284,7 @@ class DataStore:
                     role as product_description,
                     1 as match_type
                 FROM importers
-                WHERE {' OR '.join(conditions)}
+                WHERE {' AND '.join(conditions)}
             )
             SELECT 
                 r.name, r.country, r.contact, r.website, r.email,
