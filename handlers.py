@@ -130,7 +130,7 @@ class CommandHandler:
 
             with app.app_context():
                 try:
-                    results = self.data_store.search_importers(query, user_id)
+                    results = self.data_store.search_importers(query)
                     # Store results in context for pagination
                     context.user_data['last_search_results'] = results
                     context.user_data['search_page'] = 0  # Reset to first page
@@ -732,8 +732,10 @@ Pilih kategori produk:"""
                             "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
                             "Admin akan segera menghubungi Anda untuk proses manual."
                         )
+
+
                     except Exception as e:
-                        logging.error(f"Error processing payment:{str(e)}", exc_info=True)
+                        logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                         await query.message.reply_text(
                             "Pesanan tetap diproses! Admin akan segera menghubungi Anda."
                         )
@@ -781,6 +783,7 @@ Pilih kategori produk:"""
                 elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2
+
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
 
@@ -850,24 +853,14 @@ Pilih kategori produk:"""
                                 await query.message.reply_text(Messages.NO_CREDITS)
                                 return
 
-                            save_result = self.data_store.save_contact(user_id, importer)
-                            if isinstance(save_result, tuple):
-                                success, reason = save_result
-                                if not success and reason == "already_saved":
-                                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
-                                    return
-                                else:
-                                    await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
-                                    return
-
-                            if save_result:
+                            if self.data_store.save_contact(user_id, importer):
                                 remaining_credits = self.data_store.get_user_credits(user_id)
                                 await query.message.reply_text(
                                     Messages.CONTACT_SAVED.format(remaining_credits)
                                 )
                                 logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
                             else:
-                                await query.message.reply_text("❌ Gagal menyimpan kontak. Silakan coba lagi.")
+                                await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                         else:
                             await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                             logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
@@ -1073,15 +1066,15 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                                 callback_data="search_0301")],
+                                                callback_data="search_0301")],
                             [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                                 callback_data="search_0302")],
+                                                callback_data="search_0302")],
                             [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                                 callback_data="search_0303")],
+                                                callback_data="search_0303")],
                             [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                                 callback_data="search_0304")],
+                                                callback_data="search_0304")],
                             [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                                 callback_data="search_anchovy")],
+                                                callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
@@ -1110,9 +1103,9 @@ Pilih produk:"""
 
                         keyboard = [
                             [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                                 callback_data="search_0901")],
+                                                callback_data="search_0901")],
                             [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                                 callback_data="search_coconut_oil")],
+                                                callback_data="search_coconut_oil")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 

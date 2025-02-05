@@ -189,7 +189,7 @@ class DataStore:
             logging.error(f"Error adding credits: {str(e)}", exc_info=True)
             return False
 
-    def search_importers(self, query: str, user_id: int = None) -> List[Dict]:
+    def search_importers(self, query: str) -> List[Dict]:
         """Search importers by name, country, product/HS code"""
         try:
             # Clean and prepare search terms
@@ -202,7 +202,7 @@ class DataStore:
 
             # Build the search conditions
             conditions = []
-            params = {"user_id": user_id}  # Remove fallback to 0
+            params = {}
 
             # Product name mappings - Easy to modify per product
             product_mappings = {
@@ -211,37 +211,25 @@ class DataStore:
                 'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
                 'segar': ['fresh', 'segar', 'fresh fish'],
                 'beku': ['frozen', 'beku', 'frozen fish'],
-
+                
                 # Coconut Products (HS 1513)
                 'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
                 'minyak': ['oil', 'minyak', 'virgin oil'],
                 'vco': ['virgin coconut oil', 'vco', 'virgin'],
-
+                
                 # Charcoal/Briquette (HS 44029010)
                 'briket': ['briquette', 'briket', 'charcoal briquette'],
                 'arang': ['charcoal', 'arang', 'carbon'],
                 'batok': ['shell', 'batok', 'tempurung'],
-
+                
                 # Fruits (HS 0810)
-                'manggis': ['mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
+                'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
                 'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-
+                
                 # Coffee (HS 0901)
                 'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
                 'bubuk': ['powder', 'bubuk', 'ground']
             }
-
-            # Always exclude saved contacts when user_id is provided
-            if user_id is not None:
-                saved_check = """
-                NOT EXISTS (
-                    SELECT 1 FROM saved_contacts s
-                    WHERE s.user_id = :user_id 
-                    AND LOWER(s.importer_name) = LOWER(i.name)
-                )
-                """
-                conditions.append(saved_check)
-
 
             for i, term in enumerate(search_terms):
                 term_conditions = []
@@ -275,32 +263,29 @@ class DataStore:
             # Default ranking based on first term
             search_sql = f"""
             WITH ranked_results AS (
-                SELECT DISTINCT
-                    i.name, 
-                    i.country, 
-                    i.phone as contact, 
-                    i.website, 
-                    i.email_1 as email, 
-                    i.wa_availability,
-                    i.product,
-                    i.role as product_description,
+                SELECT 
+                    name, 
+                    country, 
+                    phone as contact, 
+                    website, 
+                    email_1 as email, 
+                    wa_availability,
+                    product,
+                    role as product_description,
                     1 as match_type
-                FROM importers i
-                WHERE {' AND '.join(conditions)}
+                FROM importers
+                WHERE {' OR '.join(conditions)}
             )
-            SELECT * FROM (
-                SELECT DISTINCT
-                    r.name, r.country, r.contact, r.website, r.email,
-                    CASE 
-                        WHEN r.wa_availability = 'Available' THEN true
-                        ELSE false
-                    END as wa_available,
-                    r.product as hs_code,
-                    r.product_description,
-                    random() as sort_key
-                FROM ranked_results r
-            ) subq
-            ORDER BY sort_key
+            SELECT 
+                name, country, contact, website, email,
+                CASE 
+                    WHEN wa_availability = 'Available' THEN true
+                    ELSE false
+                END as wa_available,
+                product as hs_code,
+                product_description
+            FROM ranked_results
+            ORDER BY RANDOM()
             LIMIT 10;
             """
 
@@ -344,94 +329,75 @@ class DataStore:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
             return []
 
-    async def save_contact(self, user_id: int, importer: Dict) -> bool:
+    def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
-            logging.info(f"Starting save contact process for user {user_id}")
+            logging.info(f"Attempting to save contact for user {user_id}")
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            try:
-                with self.engine.begin() as conn:
-                    # First check user credits and lock the row
-                    current_credits = conn.execute(
-                        text("""
-                        SELECT credits FROM user_credits 
-                        WHERE user_id = :user_id
-                        FOR UPDATE;
-                        """),
-                        {"user_id": user_id}
-                    ).scalar()
+            # Use a single transaction for both operations
+            with self.engine.begin() as conn:
+                # First check if we have enough credits
+                check_credits_sql = """
+                SELECT credits FROM user_credits 
+                WHERE user_id = :user_id AND credits >= :credit_cost
+                FOR UPDATE;
+                """
+                credits = conn.execute(
+                    text(check_credits_sql),
+                    {"user_id": user_id, "credit_cost": credit_cost}
+                ).scalar()
 
-                    if current_credits is None or current_credits < credit_cost:
-                        logging.error(f"Insufficient credits for user {user_id}. Has: {current_credits}, Needs: {credit_cost}")
-                        return False
+                if credits is None:
+                    logging.error("Insufficient credits")
+                    return False
 
-                    # Then check if contact already exists
-                    existing = conn.execute(
-                        text("""
-                        SELECT id FROM saved_contacts 
-                        WHERE user_id = :user_id 
-                        AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
-                        FOR UPDATE;
-                        """),
-                        {"user_id": user_id, "name": importer['name']}
-                    ).scalar()
+                # Save contact first
+                save_contact_sql = """
+                INSERT INTO saved_contacts (
+                    user_id, importer_name, country, phone, email, 
+                    website, wa_availability, hs_code, product_description
+                ) VALUES (
+                    :user_id, :name, :country, :phone, :email,
+                    :website, :wa_available, :hs_code, :product_description
+                )
+                ON CONFLICT (user_id, importer_name) DO NOTHING
+                RETURNING id;
+                """
+                result = conn.execute(
+                    text(save_contact_sql),
+                    {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', '')
+                    }
+                )
 
-                    if existing:
-                        logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                        return True
-
-                    # Insert contact first
-                    contact_result = conn.execute(
-                        text("""
-                        INSERT INTO saved_contacts (
-                            user_id, importer_name, country, phone, email, 
-                            website, wa_availability, hs_code, product_description
-                        ) VALUES (
-                            :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
-                        )
-                        RETURNING id;
-                        """),
-                        {
-                            "user_id": user_id,
-                            "name": importer['name'],
-                            "country": importer['country'],
-                            "phone": importer['contact'],
-                            "email": importer['email'],
-                            "website": importer['website'],
-                            "wa_available": importer['wa_available'],
-                            "hs_code": importer.get('hs_code', ''),
-                            "product_description": importer.get('product_description', '')
-                        }
+                if result.rowcount > 0:
+                    # Deduct credits in the same transaction
+                    update_credits_sql = """
+                    UPDATE user_credits 
+                    SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE user_id = :user_id
+                    """
+                    conn.execute(
+                        text(update_credits_sql),
+                        {"user_id": user_id, "credit_cost": credit_cost}
                     )
-
-                    if contact_result.rowcount == 0:
-                        logging.error("Failed to insert contact")
-                        raise Exception("Failed to insert contact")
-
-                    # Finally deduct credits
-                    new_balance = conn.execute(
-                        text("""
-                        UPDATE user_credits 
-                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id
-                        RETURNING credits;
-                        """),
-                        {"user_id": user_id, "credit_cost": float(credit_cost)}
-                    ).scalar()
-
-                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_balance}")
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
                     return True
 
-            except Exception as e:
-                logging.error(f"Transaction error in save_contact: {str(e)}", exc_info=True)
                 return False
-
         except Exception as e:
-            logging.error(f"Error in save_contact: {str(e)}", exc_info=True)
+            logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
