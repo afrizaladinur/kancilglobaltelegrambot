@@ -202,7 +202,7 @@ class DataStore:
 
             # Build the search conditions
             conditions = []
-            params = {"user_id": user_id if user_id is not None else 0}  
+            params = {"user_id": user_id}  
             
             # Add saved contacts check
             saved_check = """
