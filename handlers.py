@@ -907,7 +907,7 @@ class CommandHandler:
                             if counts_dict.get('0901', 0) > 0:
                                 contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
                             if counts_dict.get('44029010', 0) > 0:
-                                contacts_list.append(f"🪵 44029010 - Coconut Shell Briquette ({counts_dict.get('44029010')} kontak)")
+                                contacts_list.append(f"🪵 44029010 - Briket Batok Kelapa ({counts_dict.get('44029010')} kontak)")
 
                             hs_guide = """📊 *Kontak Tersedia*
 
