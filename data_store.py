@@ -381,7 +381,8 @@ class DataStore:
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    return False
+                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
+                    return True
 
                 # If not exists, insert new contact
                 save_contact_sql = """
@@ -411,13 +412,7 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # First check if already exists to avoid duplicate credit deduction
-                        check_existing = conn.execute(text("""
-                            SELECT id FROM saved_contacts 
-                            WHERE user_id = :user_id AND importer_name = :name
-                        """), {"user_id": user_id, "name": importer['name']}).scalar()
-
-                        if not check_existing:
+                        if True:
                             # Only deduct if contact wasn't already saved
                             update_credits_sql = """
                             UPDATE user_credits 
