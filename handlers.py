@@ -1403,10 +1403,8 @@ class CommandHandler:
                                     WHERE order_id = :order_id
                                 """), {"order_id": order_id})
 
-                                await query.message.edit_text(
-                                    f"{query.message.text}\n\n✅ Order fulfilled!",
-                                    parse_mode='Markdown'
-                                )
+                                # Delete the order message
+                                await query.message.delete()
 
                                 # Notify user
                                 await context.bot.send_message(
