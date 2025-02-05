@@ -273,7 +273,13 @@ class DataStore:
                     role as product_description,
                     1 as match_type
                 FROM importers
-                WHERE {' AND '.join(conditions)}
+                WHERE {' OR '.join(conditions)}
+                AND CASE 
+                    WHEN :search_term = 'coconut_oil' THEN LOWER(product) SIMILAR TO '%(1513|coconut oil)%'
+                    WHEN :search_term = 'briket' THEN LOWER(product) LIKE '%44029010%'
+                    WHEN :search_term = 'manggis' THEN LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
+                    ELSE true
+                END
             )
             SELECT 
                 name, country, contact, website, email,
