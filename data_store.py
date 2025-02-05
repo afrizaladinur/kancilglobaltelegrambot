@@ -409,9 +409,6 @@ class DataStore:
             if 'conn' in locals():
                 conn.rollback()
             return False
-
-        except Exception as e:
-            logging.error(f"[SAVE] Error saving contact: {str(e)}", exc_info=True)
             logging.error(f"[SAVE] Failed contact details - Name: {importer.get('name')}, User: {user_id}")
             logging.error(f"[SAVE] Contact data: {importer}")
             if 'conn' in locals():
