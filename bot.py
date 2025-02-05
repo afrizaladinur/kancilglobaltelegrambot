@@ -30,7 +30,7 @@ class TelegramBot:
         commands = [
             BotCommand('start', '🏠 Menu Utama'),
             BotCommand('saved', '📁 Kontak Tersimpan'),
-            BotCommand('credits', '💳 Kredit Saya')
+            BotCommand('contacts', '📦 Kontak Tersedia')
         ]
         await self.application.bot.set_my_commands(commands)
 

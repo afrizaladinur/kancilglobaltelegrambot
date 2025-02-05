@@ -535,16 +535,16 @@ class CommandHandler:
                         credits = self.data_store.get_user_credits(query.from_user.id)
                     user_id = query.from_user.id
                     is_admin = user_id in [6422072438]
-                    
+
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
                         [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
                     ]
-                    
+
                     if is_admin:
                         keyboard.append([InlineKeyboardButton("📊 Daftar Pesanan", callback_data="orders")])
-                    
+
                     keyboard.extend([
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
@@ -740,7 +740,7 @@ class CommandHandler:
                             f"Kode Bank: 014\n\n"
                             f"2️⃣ *Transfer Jenius/SMBC*\n"
                             f"Nama: Nanda Amalia\n"
-                            f"No. Rek: `90020380969`\n"
+                            f"No. Rek: `90020380969`\n\n"
                             f"$cashtag: `$kancilglobalbot`\n\n"
                             f"Setelah melakukan pembayaran, silakan kirim bukti transfer ke admin."
                         )
@@ -1477,7 +1477,7 @@ class CommandHandler:
                             "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
                             "Dibutuhkan: 5 kredit\n"
                             "Sisa kredit Anda: " + str(credits)
-                        )
+                                                )
                         return
 
                     if self.data_store.use_credit(user_id, 5):
