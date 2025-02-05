@@ -412,20 +412,19 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # Deduct credits in a single atomic transaction
+                        # Update credits in the same transaction
                         update_credits_sql = """
-                        WITH updated AS (
-                            UPDATE user_credits 
-                            SET credits = credits - CAST(:credit_cost AS NUMERIC(10,1))
-                            WHERE user_id = :user_id 
-                            AND credits >= :credit_cost
-                            RETURNING credits
-                        )
-                        SELECT credits FROM updated;
+                        UPDATE user_credits 
+                        SET credits = credits - :credit_cost,
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id
+                        AND credits >= :credit_cost
+                        RETURNING credits
                         """
+                        
                         new_credits = conn.execute(
                             text(update_credits_sql),
-                            {"user_id": user_id, "credit_cost": credit_cost}
+                            {"user_id": user_id, "credit_cost": float(credit_cost)}
                         ).scalar()
 
                         if new_credits is not None:
