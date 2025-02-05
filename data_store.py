@@ -362,7 +362,16 @@ class DataStore:
                     :user_id, :name, :country, :phone, :email,
                     :website, :wa_available, :hs_code, :product_description
                 )
-                ON CONFLICT (user_id, importer_name) DO NOTHING
+                ON CONFLICT (user_id, importer_name) DO UPDATE 
+                SET 
+                    country = EXCLUDED.country,
+                    phone = EXCLUDED.phone,
+                    email = EXCLUDED.email,
+                    website = EXCLUDED.website,
+                    wa_availability = EXCLUDED.wa_availability,
+                    hs_code = EXCLUDED.hs_code,
+                    product_description = EXCLUDED.product_description,
+                    saved_at = CURRENT_TIMESTAMP
                 RETURNING id;
                 """
                 result = conn.execute(
