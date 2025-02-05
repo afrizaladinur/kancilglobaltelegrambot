@@ -211,8 +211,8 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
 
             product = importer.get('hs_code', '')
-            hs_code = ''
-            if product and len(product) > 3:
+            hs_code = product.strip() if 'mangosteen' in product.lower() else ''
+            if not hs_code and product and len(product) > 3:
                 hs_code = product[3:].strip()
 
             message_parts = []
