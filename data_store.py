@@ -231,13 +231,13 @@ class DataStore:
                 'bubuk': ['powder', 'bubuk', 'ground']
             }
 
-            # Add saved contacts check when user_id is provided
+            # Always exclude saved contacts when user_id is provided
             if user_id is not None:
                 saved_check = """
                 NOT EXISTS (
                     SELECT 1 FROM saved_contacts s
                     WHERE s.user_id = :user_id 
-                    AND s.importer_name = i.name
+                    AND LOWER(s.importer_name) = LOWER(i.name)
                 )
                 """
                 conditions.append(saved_check)
