@@ -1,0 +1,79 @@
+3x)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/data_store.py", line 303, in search_importers
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           ^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1638, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1818, in _execute_context
+    self._handle_dbapi_exception(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2352, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1812, in _execute_context
+    context = constructor(
+              ^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 1397, in _init_compiled
+    self.compiled_parameters = [
+                               ^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 1398, in <listcomp>
+    compiled.construct_params(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/compiler.py", line 1894, in construct_params
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter 'user_id'
+[SQL: 
+            WITH ranked_results AS (
+                SELECT 
+                    name, 
+                    country, 
+                    phone as contact, 
+                    website, 
+                    email_1 as email, 
+                    wa_availability,
+                    product,
+                    role as product_description,
+                    1 as match_type
+                FROM importers
+                WHERE (LOWER(product) LIKE %(term_0)s)
+            )
+            SELECT 
+                r.name, r.country, r.contact, r.website, r.email,
+                CASE 
+                    WHEN r.wa_availability = 'Available' THEN true
+                    ELSE false
+                END as wa_available,
+                r.product as hs_code,
+                r.product_description
+            FROM ranked_results r
+            WHERE NOT EXISTS (
+                SELECT 1 FROM saved_contacts s
+                WHERE s.user_id = %(user_id)s 
+                AND s.importer_name = r.name
+            )
+            ORDER BY RANDOM()
+            LIMIT 10;
+            ]
+[parameters: [{'term_0': '%0303%'}]]
+(Background on this error at: https://sqlalche.me/e/20/cd3x)
+2025-02-05 09:33:03,897 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `sendMessage` with parameters `{'chat_id': 6422072438, 'text': "Tidak ada hasil untuk pencarian '0303'"}`
+2025-02-05 09:33:03,897 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-02-05 09:33:03,898 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-02-05 09:33:03,898 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-02-05 09:33:03,898 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-02-05 09:33:03,898 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-02-05 09:33:04,207 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Wed, 05 Feb 2025 09:33:04 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'331'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-02-05 09:33:04,207 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7639309068:AAHQItcXwh-i9MTWP58VYS9_syC7osIsFmo/sendMessage "HTTP/1.1 200 OK"
+2025-02-05 09:33:04,208 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-02-05 09:33:04,208 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-02-05 09:33:04,208 - httpcore.http11 - DEBUG - response_closed.started
+2025-02-05 09:33:04,208 - httpcore.http11 - DEBUG - response_closed.complete
+2025-02-05 09:33:04,208 - telegram.ext.ExtBot - DEBUG - Call to Bot API endpoint `sendMessage` finished with return value `{'message_id': 4323, 'from': {'id': 7639309068, 'is_bot': True, 'first_name': 'Direktori Ekspor-Impor', 'username': 'kancilglobalbot'}, 'chat': {'id': 6422072438, 'first_name': 'Afrizal Labib', 'last_name': 'Adinur', 'username': 'afrizaladinur', 'type': 'private'}, 'date': 1738747984, 'text': "Tidak ada hasil untuk pencarian '0303'"}`
