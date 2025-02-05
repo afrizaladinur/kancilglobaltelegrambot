@@ -209,7 +209,7 @@ class DataStore:
             NOT EXISTS (
                 SELECT 1 FROM saved_contacts s
                 WHERE s.user_id = :user_id 
-                AND s.importer_name = importers.name
+                AND s.importer_name = i.name
             )
             """
             conditions.append(saved_check)
