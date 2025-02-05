@@ -1545,6 +1545,8 @@ class CommandHandler:
                             "✅ Fulfill Order",
                             callback_data=f"fulfill_{order.order_id}"
                         )])
+                    elif order.status == "fulfilled":
+                        message += "\n✅ *Order fulfilled*"
                     
                     await update.message.reply_text(
                         message,
