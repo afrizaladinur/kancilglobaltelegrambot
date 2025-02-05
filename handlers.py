@@ -1261,17 +1261,19 @@ Pilih produk:"""
                         end_idx = start_idx + items_per_page
                         current_results = results[start_idx:end_idx]
 
+                        new_messages = []
                         for importer in current_results:
                             message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
                             keyboard = [[InlineKeyboardButton(
                                 "💾 Simpan Kontak",
                                 callback_data=f"save_{importer['name'][:50]}"
                             )]]
-                            await query.message.reply_text(
+                            sent_msg = await query.message.reply_text(
                                 message_text,
                                 parse_mode='Markdown',
                                 reply_markup=InlineKeyboardMarkup(keyboard)
                             )
+                            new_messages.append(sent_msg.message_id)
 
                         # Add pagination buttons
                         pagination_buttons = []
@@ -1287,10 +1289,12 @@ Pilih produk:"""
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
 
-                        await query.message.reply_text(
+                        sent_msg = await query.message.reply_text(
                             f"Halaman {page + 1} dari {total_pages}",
                             reply_markup=InlineKeyboardMarkup([pagination_buttons] + regenerate_button)
                         )
+                        new_messages.append(sent_msg.message_id)
+                        context.user_data['current_search_messages'] = new_messages
                     else:
                         await query.message.reply_text("Pencarian tidak tersedia")
 
