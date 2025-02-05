@@ -211,21 +211,21 @@ class DataStore:
                 'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
                 'segar': ['fresh', 'segar', 'fresh fish'],
                 'beku': ['frozen', 'beku', 'frozen fish'],
-
+                
                 # Coconut Products (HS 1513)
                 'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
                 'minyak': ['oil', 'minyak', 'virgin oil'],
                 'vco': ['virgin coconut oil', 'vco', 'virgin'],
-
+                
                 # Charcoal/Briquette (HS 44029010)
                 'briket': ['briquette', 'briket', 'charcoal briquette'],
                 'arang': ['charcoal', 'arang', 'carbon'],
                 'batok': ['shell', 'batok', 'tempurung'],
-
+                
                 # Fruits (HS 0810)
                 'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
                 'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-
+                
                 # Coffee (HS 0901)
                 'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
                 'bubuk': ['powder', 'bubuk', 'ground']
@@ -332,87 +332,77 @@ class DataStore:
     def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
-            logging.info(f"[SAVE] Starting save contact for user {user_id}")
-            logging.info(f"[SAVE] Importer data: {importer}")
-
-            if not importer.get('name'):
-                logging.error("[SAVE] Missing importer name")
-                return False
-
+            logging.info(f"Attempting to save contact for user {user_id}, importer: {importer['name']}")
             credit_cost = self.calculate_credit_cost(importer)
-            logging.info(f"[SAVE] Calculated credit cost: {credit_cost}")
+            logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
             with self.engine.begin() as conn:
-                # Check credits with row lock
+                # First check if user exists and has enough credits
                 result = conn.execute(text("""
-                    SELECT credits FROM user_credits 
-                    WHERE user_id = :user_id 
+                    SELECT credits 
+                    FROM user_credits 
+                    WHERE user_id = :user_id
                     FOR UPDATE;
                 """), {"user_id": user_id}).first()
 
-                logging.info(f"[SAVE] Current credits: {result[0] if result else 0}")
-
-                if not result or result[0] < credit_cost:
-                    logging.error(f"Insufficient credits. Required: {credit_cost}, Available: {result[0] if result else 0}")
+                if not result:
+                    logging.error("User credits not found")
                     return False
 
-                # Check if contact exists
+                current_credits = result[0]
+                if current_credits < credit_cost:
+                    logging.error(f"Insufficient credits. Required: {credit_cost}, Available: {current_credits}")
+                    return False
+
+                # Then check if contact already exists
                 exists = conn.execute(text("""
-                    SELECT 1 FROM saved_contacts 
-                    WHERE user_id = :user_id AND importer_name = :name
-                """), {"user_id": user_id, "name": importer['name']}).first()
+                    SELECT EXISTS (
+                        SELECT 1 
+                        FROM saved_contacts 
+                        WHERE user_id = :user_id 
+                        AND importer_name = :name
+                    );
+                """), {"user_id": user_id, "name": importer['name']}).scalar()
 
                 if exists:
-                    logging.error(f"[SAVE] Contact {importer['name']} already exists for user {user_id}")
+                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
                     return False
 
-                logging.info(f"[SAVE] Inserting new contact for {importer['name']}")
-                # Insert contact
-                try:
-                    conn.execute(text("""
-                    INSERT INTO saved_contacts (
-                        user_id, importer_name, country, phone, email,
-                        website, wa_availability, hs_code, product_description
-                    ) VALUES (
-                        :user_id, :name, :country, :phone, :email,
-                        :website, :wa_available, :hs_code, :product_description
-                    );
+                # Finally, save contact and update credits atomically
+                conn.execute(text("""
+                    WITH save_contact AS (
+                        INSERT INTO saved_contacts (
+                            user_id, importer_name, country, phone, email,
+                            website, wa_availability, hs_code, product_description
+                        ) VALUES (
+                            :user_id, :name, :country, :phone, :email,
+                            :website, :wa_available, :hs_code, :product_description
+                        )
+                        RETURNING id
+                    )
+                    UPDATE user_credits 
+                    SET credits = credits - :credit_cost
+                    WHERE user_id = :user_id
+                    AND EXISTS (SELECT 1 FROM save_contact);
                 """), {
                     "user_id": user_id,
                     "name": importer['name'],
-                    "country": importer.get('country', ''),
-                    "phone": importer.get('contact', ''),
-                    "email": importer.get('email', ''),
-                    "website": importer.get('website', ''),
-                    "wa_available": importer.get('wa_available', False),
+                    "country": importer['country'],
+                    "phone": importer['contact'],
+                    "email": importer['email'],
+                    "website": importer['website'],
+                    "wa_available": importer['wa_available'],
                     "hs_code": importer.get('hs_code', ''),
-                    "product_description": importer.get('product_description', '')
-                })
-
-                # Deduct credits
-                conn.execute(text("""
-                    UPDATE user_credits 
-                    SET credits = credits - :credit_cost 
-                    WHERE user_id = :user_id;
-                """), {
-                    "user_id": user_id,
+                    "product_description": importer.get('product_description', ''),
                     "credit_cost": credit_cost
                 })
 
-                logging.info(f"[SAVE] Successfully saved contact and deducted {credit_cost} credits")
+                logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
                 return True
-
         except Exception as e:
-            logging.error(f"[SAVE] Error saving contact: {str(e)}", exc_info=True)
-            logging.error(f"[SAVE] Failed contact details - Name: {importer.get('name')}, User: {user_id}")
-            logging.error(f"[SAVE] Contact data: {importer}")
-            if 'conn' in locals():
-                conn.rollback()
-            return False
-            logging.error(f"[SAVE] Failed contact details - Name: {importer.get('name')}, User: {user_id}")
-            logging.error(f"[SAVE] Contact data: {importer}")
-            if 'conn' in locals():
-                conn.rollback()
+            logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+            logging.error(f"Failed contact details - Name: {importer.get('name')}, User: {user_id}")
+            logging.error(f"Contact data: {importer}")
             return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
