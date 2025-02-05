@@ -412,25 +412,26 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # Deduct credits immediately after saving
-                            update_credits_sql = """
-                            UPDATE user_credits 
-                            SET credits = ROUND(credits - :credit_cost, 1),
-                                last_updated = CURRENT_TIMESTAMP
-                            WHERE user_id = :user_id
-                            AND credits >= :credit_cost
-                            RETURNING credits
-                            """
-                            new_credits = conn.execute(
-                                text(update_credits_sql),
-                                {"user_id": user_id, "credit_cost": float(credit_cost)}
-                            ).scalar()
+                        # Deduct credits atomically
+                        update_credits_sql = """
+                        UPDATE user_credits 
+                        SET credits = ROUND(credits - :credit_cost, 1),
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id
+                        AND credits >= :credit_cost
+                        RETURNING credits
+                        """
+                        new_credits = conn.execute(
+                            text(update_credits_sql),
+                            {"user_id": user_id, "credit_cost": float(credit_cost)}
+                        ).scalar()
 
+                        if new_credits is not None:
                             logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
                             return True
-                    except Exception as e:
-                        logging.error(f"Error updating credits: {str(e)}")
-                        raise
+                        else:
+                            logging.error("Failed to update credits")
+                            raise Exception("Failed to update credits")
                     except Exception as e:
                         logging.error(f"Error updating credits: {str(e)}")
                         raise
