@@ -353,15 +353,28 @@ class DataStore:
 
             try:
                 with self.engine.begin() as conn:
-                    # Check if contact already exists with row lock
-                    check_existing_sql = """
-                    SELECT id FROM saved_contacts 
-                    WHERE user_id = :user_id 
-                    AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
-                    FOR UPDATE;
-                    """
+                    # First check user credits and lock the row
+                    current_credits = conn.execute(
+                        text("""
+                        SELECT credits FROM user_credits 
+                        WHERE user_id = :user_id
+                        FOR UPDATE;
+                        """),
+                        {"user_id": user_id}
+                    ).scalar()
+
+                    if current_credits is None or current_credits < credit_cost:
+                        logging.error(f"Insufficient credits for user {user_id}. Has: {current_credits}, Needs: {credit_cost}")
+                        return False
+
+                    # Then check if contact already exists
                     existing = conn.execute(
-                        text(check_existing_sql),
+                        text("""
+                        SELECT id FROM saved_contacts 
+                        WHERE user_id = :user_id 
+                        AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
+                        FOR UPDATE;
+                        """),
                         {"user_id": user_id, "name": importer['name']}
                     ).scalar()
 
@@ -369,25 +382,7 @@ class DataStore:
                         logging.info(f"Contact {importer['name']} already exists for user {user_id}")
                         return True
 
-                    # Check and deduct credits with row lock
-                    credit_result = conn.execute(
-                        text("""
-                        UPDATE user_credits 
-                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id 
-                        AND credits >= :credit_cost
-                        RETURNING credits
-                        FOR UPDATE;
-                        """),
-                        {"user_id": user_id, "credit_cost": float(credit_cost)}
-                    ).scalar()
-
-                    if credit_result is None:
-                        logging.error(f"Insufficient credits for user {user_id}")
-                        return False
-
-                    # Insert contact
+                    # Insert contact first
                     contact_result = conn.execute(
                         text("""
                         INSERT INTO saved_contacts (
@@ -416,7 +411,19 @@ class DataStore:
                         logging.error("Failed to insert contact")
                         raise Exception("Failed to insert contact")
 
-                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {credit_result}")
+                    # Finally deduct credits
+                    new_balance = conn.execute(
+                        text("""
+                        UPDATE user_credits 
+                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id
+                        RETURNING credits;
+                        """),
+                        {"user_id": user_id, "credit_cost": float(credit_cost)}
+                    ).scalar()
+
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_balance}")
                     return True
 
             except Exception as e:
