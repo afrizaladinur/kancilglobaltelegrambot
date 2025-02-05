@@ -351,68 +351,77 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            with self.engine.begin() as conn:
-                # Check if contact already exists
-                check_existing_sql = """
-                SELECT id FROM saved_contacts 
-                WHERE user_id = :user_id 
-                AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name));
-                """
-                existing = conn.execute(
-                    text(check_existing_sql),
-                    {"user_id": user_id, "name": importer['name']}
-                ).scalar()
+            try:
+                with self.engine.begin() as conn:
+                    # Check if contact already exists with row lock
+                    check_existing_sql = """
+                    SELECT id FROM saved_contacts 
+                    WHERE user_id = :user_id 
+                    AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
+                    FOR UPDATE;
+                    """
+                    existing = conn.execute(
+                        text(check_existing_sql),
+                        {"user_id": user_id, "name": importer['name']}
+                    ).scalar()
 
-                if existing:
-                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
+                    if existing:
+                        logging.info(f"Contact {importer['name']} already exists for user {user_id}")
+                        return True
+
+                    # Check and deduct credits with row lock
+                    credit_result = conn.execute(
+                        text("""
+                        UPDATE user_credits 
+                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id 
+                        AND credits >= :credit_cost
+                        RETURNING credits
+                        FOR UPDATE;
+                        """),
+                        {"user_id": user_id, "credit_cost": float(credit_cost)}
+                    ).scalar()
+
+                    if credit_result is None:
+                        logging.error(f"Insufficient credits for user {user_id}")
+                        return False
+
+                    # Insert contact
+                    contact_result = conn.execute(
+                        text("""
+                        INSERT INTO saved_contacts (
+                            user_id, importer_name, country, phone, email, 
+                            website, wa_availability, hs_code, product_description
+                        ) VALUES (
+                            :user_id, :name, :country, :phone, :email,
+                            :website, :wa_available, :hs_code, :product_description
+                        )
+                        RETURNING id;
+                        """),
+                        {
+                            "user_id": user_id,
+                            "name": importer['name'],
+                            "country": importer['country'],
+                            "phone": importer['contact'],
+                            "email": importer['email'],
+                            "website": importer['website'],
+                            "wa_available": importer['wa_available'],
+                            "hs_code": importer.get('hs_code', ''),
+                            "product_description": importer.get('product_description', '')
+                        }
+                    )
+
+                    if contact_result.rowcount == 0:
+                        logging.error("Failed to insert contact")
+                        raise Exception("Failed to insert contact")
+
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {credit_result}")
                     return True
 
-                # Check and deduct credits atomically
-                credit_result = conn.execute(
-                    text("""
-                    UPDATE user_credits 
-                    SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1)
-                    WHERE user_id = :user_id AND credits >= :credit_cost
-                    RETURNING credits;
-                    """),
-                    {"user_id": user_id, "credit_cost": float(credit_cost)}
-                ).scalar()
-
-                if credit_result is None:
-                    logging.error(f"Insufficient credits for user {user_id}")
-                    return False
-
-                # Insert contact
-                contact_result = conn.execute(
-                    text("""
-                    INSERT INTO saved_contacts (
-                        user_id, importer_name, country, phone, email, 
-                        website, wa_availability, hs_code, product_description
-                    ) VALUES (
-                        :user_id, :name, :country, :phone, :email,
-                        :website, :wa_available, :hs_code, :product_description
-                    )
-                    RETURNING id;
-                    """),
-                    {
-                        "user_id": user_id,
-                        "name": importer['name'],
-                        "country": importer['country'],
-                        "phone": importer['contact'],
-                        "email": importer['email'],
-                        "website": importer['website'],
-                        "wa_available": importer['wa_available'],
-                        "hs_code": importer.get('hs_code', ''),
-                        "product_description": importer.get('product_description', '')
-                    }
-                )
-
-                if contact_result.rowcount == 0:
-                    logging.error("Failed to insert contact")
-                    raise Exception("Failed to insert contact")
-
-                logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {credit_result}")
-                return True
+            except Exception as e:
+                logging.error(f"Transaction error in save_contact: {str(e)}", exc_info=True)
+                return False
 
         except Exception as e:
             logging.error(f"Error in save_contact: {str(e)}", exc_info=True)
