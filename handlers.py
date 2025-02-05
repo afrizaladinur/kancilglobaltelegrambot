@@ -895,19 +895,21 @@ class CommandHandler:
                             counts_dict = {row[0]: row[1] for row in hs_counts}
 
                             # Build list of available contacts
-                            contacts_list = []
-                            if counts_dict.get('0301', 0) > 0:
-                                contacts_list.append(f"🐟 0301 - Ikan hidup ({counts_dict.get('0301')} kontak)")
-                            if counts_dict.get('0302', 0) > 0:
-                                contacts_list.append(f"🐠 0302 - Ikan segar ({counts_dict.get('0302')} kontak)")
-                            if counts_dict.get('0303', 0) > 0:
-                                contacts_list.append(f"❄️ 0303 - Ikan beku ({counts_dict.get('0303')} kontak)")
-                            if counts_dict.get('0304', 0) > 0:
-                                contacts_list.append(f"🍣 0304 - Fillet ikan ({counts_dict.get('0304')} kontak)")
-                            if counts_dict.get('0901', 0) > 0:
-                                contacts_list.append(f"☕ 0901 - Kopi ({counts_dict.get('0901')} kontak)")
-                            if counts_dict.get('44029010', 0) > 0:
-                                contacts_list.append(f"🪵 44029010 - Briket Batok Kelapa ({counts_dict.get('44029010')} kontak)")
+                            contacts_list = [
+                                "🌊 *Produk Laut*",
+                                f"🐟 0301 - Ikan hidup ({counts_dict.get('0301', 0)} kontak)",
+                                f"🐠 0302 - Ikan segar ({counts_dict.get('0302', 0)} kontak)",
+                                f"❄️ 0303 - Ikan beku ({counts_dict.get('0303', 0)} kontak)",
+                                f"🍣 0304 - Fillet ikan ({counts_dict.get('0304', 0)} kontak)",
+                                f"🐟 Anchovy ({counts_dict.get('0305', 0)} kontak)",
+                                "",
+                                "🌿 *Produk Agrikultur*",
+                                f"☕ 0901 - Kopi ({counts_dict.get('0901', 0)} kontak)",
+                                f"🥥 Minyak Kelapa ({counts_dict.get('1513', 0)} kontak)",
+                                "",
+                                "🌳 *Produk Olahan*",
+                                f"🪵 44029010 - Briket Batok Kelapa ({counts_dict.get('44029010', 0)} kontak)"
+                            ]
 
                             hs_guide = """📊 *Kontak Tersedia*
 
