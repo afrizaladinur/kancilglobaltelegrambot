@@ -684,6 +684,18 @@ class CommandHandler:
                         user_id = query.from_user.id
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
+                        
+                        # Insert order into database
+                        with self.engine.begin() as conn:
+                            conn.execute(text("""
+                                INSERT INTO credit_orders (order_id, user_id, credits, amount, status)
+                                VALUES (:order_id, :user_id, :credits, :amount, 'pending')
+                            """), {
+                                "order_id": order_id,
+                                "user_id": user_id,
+                                "credits": int(credits),
+                                "amount": int(amount)
+                            })
 
                         payment_message = (
                             f"💳 *Detail Pembayaran*\n\n"
