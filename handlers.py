@@ -736,7 +736,7 @@ class CommandHandler:
                             )
                         ]]
 
-                        awaitquery.message.reply_text(
+                        await query.message.reply_text(
                             payment_message,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
