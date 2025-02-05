@@ -368,11 +368,11 @@ class DataStore:
                     logging.error("Insufficient credits")
                     return False
 
-                # Save contact first
-                # First check if contact already exists with exact match
+                # Check if contact already exists with exact match first
                 check_existing_sql = """
                 SELECT id FROM saved_contacts 
-                WHERE user_id = :user_id AND LOWER(importer_name) = LOWER(:name);
+                WHERE user_id = :user_id 
+                AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name));
                 """
                 existing = conn.execute(
                     text(check_existing_sql),
@@ -381,7 +381,7 @@ class DataStore:
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    return False
+                    return (False, "already_saved")
 
                 # If not exists, insert new contact
                 save_contact_sql = """
