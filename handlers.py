@@ -945,7 +945,7 @@ Pilih produk:"""
                         
                         manggis_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) LIKE '%0810%'
+                            WHERE LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
                         """)).scalar()
 
                     keyboard = [
@@ -971,7 +971,7 @@ Pilih produk:"""
                         
                         coconut_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) LIKE '%1513%'
+                            WHERE LOWER(product) SIMILAR TO '%(1513|coconut oil|minyak kelapa)%'
                         """)).scalar()
 
                     keyboard = [
