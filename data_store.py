@@ -399,67 +399,6 @@ class DataStore:
 
                 logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
                 return True
-                SELECT credits FROM user_credits 
-                WHERE user_id = :user_id AND credits >= :credit_cost
-                FOR UPDATE;
-                """
-                credits = conn.execute(
-                    text(check_credits_sql),
-                    {"user_id": user_id, "credit_cost": credit_cost}
-                ).scalar()
-
-                if credits is None:
-                    logging.error("Insufficient credits")
-                    return False
-
-                # Insert contact and update credits in the same transaction
-                save_contact_sql = """
-                WITH new_contact AS (
-                    INSERT INTO saved_contacts (
-                        user_id, importer_name, country, phone, email,
-                        website, wa_availability, hs_code, product_description
-                    ) VALUES (
-                        :user_id, :name, :country, :phone, :email,
-                        :website, :wa_available, :hs_code, :product_description
-                    )
-                    RETURNING id
-                )
-                UPDATE user_credits 
-                SET credits = credits - :credit_cost
-                WHERE user_id = :user_id
-                AND EXISTS (SELECT 1 FROM new_contact);
-                """
-                result = conn.execute(
-                    text(save_contact_sql),
-                    {
-                        "user_id": user_id,
-                        "name": importer['name'],
-                        "country": importer['country'],
-                        "phone": importer['contact'],
-                        "email": importer['email'],
-                        "website": importer['website'],
-                        "wa_available": importer['wa_available'],
-                        "hs_code": importer.get('hs_code', ''),
-                        "product_description": importer.get('product_description', '')
-                    }
-                )
-
-                if result.rowcount > 0:
-                    # Deduct credits in the same transaction
-                    update_credits_sql = """
-                    UPDATE user_credits 
-                    SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
-                        last_updated = CURRENT_TIMESTAMP
-                    WHERE user_id = :user_id
-                    """
-                    conn.execute(
-                        text(update_credits_sql),
-                        {"user_id": user_id, "credit_cost": credit_cost}
-                    )
-                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
-                    return True
-
-                return False
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             logging.error(f"Failed contact details - Name: {importer.get('name')}, User: {user_id}")
