@@ -18,11 +18,23 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Telegram Bot"
+args = "CSV Import"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "CSV Import"
+args = "Telegram Bot"
+
+[[workflows.workflow]]
+name = "CSV Import"
+author = "agent"
+mode = "sequential"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python csv_importer.py"
 
 [[workflows.workflow]]
 name = "Telegram Bot"
@@ -37,18 +49,6 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
-
-[[workflows.workflow]]
-name = "CSV Import"
-author = "agent"
-mode = "sequential"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python csv_importer.py"
 
 [[ports]]
 localPort = 5000
