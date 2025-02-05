@@ -1285,6 +1285,122 @@ class CommandHandler:
                     # Just ignore section headers
                     await query.answer()
 
+                elif query.data in ["orders_prev", "orders_next"]:
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await query.answer("Not authorized", show_alert=True)
+                        return
+
+                    page = context.user_data.get('orders_page', 0)
+                    if query.data == "orders_prev":
+                        page = max(0, page - 1)
+                    else:
+                        page = page + 1
+                    
+                    context.user_data['orders_page'] = page
+                    await self.orders(update, context)
+
+                elif query.data == "export_orders":
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await query.answer("Not authorized", show_alert=True)
+                        return
+
+                    try:
+                        with self.engine.connect() as conn:
+                            orders = conn.execute(text("""
+                                SELECT order_id, user_id, credits, amount, status, created_at
+                                FROM credit_orders
+                                ORDER BY created_at DESC
+                            """)).fetchall()
+
+                        import csv
+                        import io
+                        from datetime import datetime
+
+                        output = io.StringIO()
+                        writer = csv.DictWriter(output, fieldnames=[
+                            'order_id', 'user_id', 'credits', 'amount', 'status', 'created_at'
+                        ])
+
+                        writer.writeheader()
+                        for order in orders:
+                            writer.writerow({
+                                'order_id': order.order_id,
+                                'user_id': order.user_id,
+                                'credits': order.credits,
+                                'amount': order.amount,
+                                'status': order.status,
+                                'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                            })
+
+                        csv_bytes = output.getvalue().encode('utf-8')
+                        output.close()
+
+                        bio = io.BytesIO(csv_bytes)
+                        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f'Orders_{current_time}.csv'
+                        bio.name = filename
+
+                        await query.message.reply_document(
+                            document=bio,
+                            filename=filename,
+                            caption="Here are all credit orders!"
+                        )
+
+                    except Exception as e:
+                        logging.error(f"Error exporting orders: {str(e)}")
+                        await query.message.reply_text("Error exporting orders. Please try again.")
+
+                elif query.data.startswith('fulfill_'):
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await query.answer("Not authorized", show_alert=True)
+                        return
+
+                    order_id = query.data.split('_')[1]
+                    try:
+                        with self.engine.begin() as conn:
+                            # Get order details
+                            order = conn.execute(text("""
+                                SELECT user_id, credits, status
+                                FROM credit_orders 
+                                WHERE order_id = :order_id
+                                FOR UPDATE
+                            """), {"order_id": order_id}).first()
+
+                            if not order:
+                                await query.answer("Order not found", show_alert=True)
+                                return
+
+                            if order.status == "fulfilled":
+                                await query.answer("Order already fulfilled", show_alert=True)
+                                return
+
+                            # Add credits to user
+                            if self.data_store.add_credits(order.user_id, order.credits):
+                                # Update order status
+                                conn.execute(text("""
+                                    UPDATE credit_orders 
+                                    SET status = 'fulfilled', 
+                                        fulfilled_at = CURRENT_TIMESTAMP
+                                    WHERE order_id = :order_id
+                                """), {"order_id": order_id})
+
+                                await query.message.edit_text(
+                                    f"{query.message.text}\n\n✅ Order fulfilled!",
+                                    parse_mode='Markdown'
+                                )
+
+                                # Notify user
+                                await context.bot.send_message(
+                                    chat_id=order.user_id,
+                                    text=f"✅ Your order (ID: {order_id}) has been fulfilled!\n{order.credits} credits have been added to your account."
+                                )
+                            else:
+                                await query.answer("Failed to add credits", show_alert=True)
+
+                    except Exception as e:
+                        logging.error(f"Error fulfilling order: {str(e)}")
+                        await query.answer("Error processing order", show_alert=True)
+
                 elif query.data.startswith('give_'):
                     try:
                         _, target_user_id, credit_amount = query.data.split('_')
@@ -1348,6 +1464,88 @@ class CommandHandler:
             logging.info(f"Stats command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in stats command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /orders command for admins"""
+        try:
+            user_id = update.effective_user.id
+            admin_ids = [6422072438]  # Admin check
+
+            if user_id not in admin_ids:
+                await update.message.reply_text("⛔️ You are not authorized to use this command.")
+                return
+
+            # Fetch orders from database with pagination
+            with self.engine.connect() as conn:
+                # Get total count
+                total_count = conn.execute(text("""
+                    SELECT COUNT(*) FROM credit_orders
+                """)).scalar()
+
+                # Get current page from context
+                page = context.user_data.get('orders_page', 0)
+                items_per_page = 5
+
+                # Calculate offset
+                offset = page * items_per_page
+                orders = conn.execute(text("""
+                    SELECT order_id, user_id, credits, amount, status, created_at
+                    FROM credit_orders
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """), {
+                    "limit": items_per_page,
+                    "offset": offset
+                }).fetchall()
+
+                total_pages = (total_count + items_per_page - 1) // items_per_page
+
+                # Format order messages
+                for order in orders:
+                    status_emoji = "✅" if order.status == "fulfilled" else "⏳"
+                    message = f"""
+*Order ID:* `{order.order_id}`
+*User ID:* `{order.user_id}`
+*Credits:* {order.credits}
+*Amount:* Rp {order.amount:,}
+*Status:* {status_emoji} {order.status}
+*Date:* {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}
+"""
+                    keyboard = []
+                    if order.status != "fulfilled":
+                        keyboard.append([InlineKeyboardButton(
+                            "✅ Fulfill Order",
+                            callback_data=f"fulfill_{order.order_id}"
+                        )])
+                    
+                    await update.message.reply_text(
+                        message,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    )
+
+                # Add pagination buttons
+                pagination_buttons = []
+                if page > 0:
+                    pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="orders_prev"))
+                pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="orders_page"))
+                if page < total_pages - 1:
+                    pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="orders_next"))
+
+                # Add export button
+                export_buttons = [
+                    [InlineKeyboardButton("📥 Export Orders", callback_data="export_orders")],
+                    [InlineKeyboardButton("🔙 Back", callback_data="back_to_main")]
+                ]
+
+                await update.message.reply_text(
+                    f"Page {page + 1} of {total_pages}",
+                    reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
+                )
+
+        except Exception as e:
+            logging.error(f"Error in orders command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def give_credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

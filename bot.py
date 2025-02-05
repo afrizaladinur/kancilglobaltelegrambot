@@ -36,10 +36,11 @@ class TelegramBot:
 
     def _register_handlers(self):
         """Register command handlers"""
-        # Only register the three essential command handlers
+        # Only register the essential command handlers
         self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
         self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
         self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
+        self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
         # Add the text handler for /start as fallback
         self.application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
