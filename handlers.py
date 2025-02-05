@@ -537,6 +537,15 @@ Pilih kategori produk:"""
                     user_id = query.from_user.id
                     items_per_page = 2  # Define pagination size
 
+                    # Delete previous messages in user context
+                    if 'pagination_messages' in context.user_data:
+                        for message_id in context.user_data['pagination_messages']:
+                            try:
+                                await context.bot.delete_message(chat_id=user_id, message_id=message_id)
+                            except Exception as e:
+                                logging.error(f"Error deleting message: {str(e)}")
+                        context.user_data['pagination_messages'] = []
+
                     with app.app_context():
                         saved_contacts = self.data_store.get_saved_contacts(user_id)
 
@@ -557,6 +566,9 @@ Pilih kategori produk:"""
                     end_idx = min(start_idx + items_per_page, len(saved_contacts))
                     current_contacts = saved_contacts[start_idx:end_idx]
 
+                    # Store new message IDs
+                    new_messages = []
+
                     for contact in current_contacts:
                         message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
                         keyboard = []
@@ -565,11 +577,12 @@ Pilih kategori produk:"""
                                 "💬 Chat di WhatsApp",
                                 url=f"https://wa.me/{whatsapp_number}"
                             )])
-                        await query.message.reply_text(
+                        message = await query.message.reply_text(
                             message_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                         )
+                        new_messages.append(message.message_id)
 
                     # Add pagination buttons
                     pagination_buttons = []
@@ -579,10 +592,14 @@ Pilih kategori produk:"""
                     if current_page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
 
-                    await query.message.reply_text(
+                    message = await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons])
                     )
+                    new_messages.append(message.message_id)
+
+                    # Store new message IDs in context
+                    context.user_data['pagination_messages'] = new_messages
                 elif query.data in ["page_info", "search_page_info"]:
                     await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data in ["search_prev", "search_next"]:
