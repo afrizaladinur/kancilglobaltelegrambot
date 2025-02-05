@@ -1233,14 +1233,16 @@ Pilih produk:"""
                     }
 
                     if search_term in search_terms:
-                        # Set up context.args manually
-                        search_query = search_terms[search_term]
-                        context.args = [search_query]
+                        try:
+                            # Use search term mapping
+                            search_query = search_terms[search_term]
+                            
+                            # Get results from data store
+                            with app.app_context():
+                                results = self.data_store.search_importers(search_query)
+                                logging.info(f"Search for {search_query} returned {len(results)} results")
 
-                        # Get results directly 
-                        results = self.data_store.search_importers(search_query)
-
-                        if not results:
+                            if not results:
                             await query.message.reply_text(
                                 f"Tidak ada hasil untuk pencarian '{search_query}'"
                             )
