@@ -344,7 +344,7 @@ class DataStore:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)
             return []
 
-    def save_contact(self, user_id: int, importer: Dict) -> bool:
+    async def save_contact(self, user_id: int, importer: Dict) -> bool:
         """Save an importer contact for a user"""
         try:
             logging.info(f"Attempting to save contact for user {user_id}")
@@ -381,7 +381,6 @@ class DataStore:
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
                     return False
 
                 # If not exists, insert new contact
