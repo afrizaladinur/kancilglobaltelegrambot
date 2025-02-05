@@ -21,17 +21,10 @@ async def run_bot():
         logger.info("Starting bot...")
         await application.initialize()
         await application.start()
-        await application.updater.start_polling(
-            poll_interval=1.0,
-            timeout=30,
-            bootstrap_retries=5,
-            read_timeout=30,
-            write_timeout=30,
-            drop_pending_updates=True,
-            allowed_updates=['message', 'callback_query', 'my_chat_member']
-        )
+        await application.updater.start_polling()
 
         try:
+            # Keep the bot running
             while True:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
@@ -45,6 +38,7 @@ async def run_bot():
 
 if __name__ == '__main__':
     try:
+        # Run the bot
         asyncio.run(run_bot())
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
