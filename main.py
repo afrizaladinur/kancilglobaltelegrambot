@@ -28,8 +28,7 @@ async def run_bot():
             read_timeout=30,
             write_timeout=30,
             drop_pending_updates=True,
-            allowed_updates=['message', 'callback_query', 'my_chat_member'],
-            max_retries=3
+            allowed_updates=['message', 'callback_query', 'my_chat_member']
         )
 
         try:
