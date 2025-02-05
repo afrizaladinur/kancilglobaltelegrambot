@@ -181,7 +181,7 @@ class CommandHandler:
             # Add regenerate button as a separate row
             regenerate_button = [
                 [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
             ]
 
             await update.message.reply_text(
@@ -490,7 +490,7 @@ class CommandHandler:
                         logging.error(f"Error deleting messages: {str(e)}")
                     # Show categories menu again
                     header_text = """📊 *Kontak Tersedia*
-                    
+
                     Pilih kategori produk:"""
                     with self.engine.connect() as conn:
                         seafood_count = conn.execute(text("""
@@ -697,7 +697,7 @@ class CommandHandler:
                         user_id = query.from_user.id
                         username = query.from_user.username or str(user_id)
                         order_id = f"BOT_{user_id}_{int(time.time())}"
-                        
+
                         # Insert order into database
                         with self.engine.begin() as conn:
                             conn.execute(text("""
@@ -734,7 +734,7 @@ class CommandHandler:
                             )
                         ]]
 
-                        await query.message.reply_text(
+                        awaitquery.message.reply_text(
                             payment_message,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -1003,7 +1003,7 @@ class CommandHandler:
                         await query.message.delete()
 
                         header_text = """📊 *Kontak Tersedia*
-                        
+
                         Pilih kategori produk:"""
 
                         # Count contacts for each category
@@ -1045,7 +1045,7 @@ class CommandHandler:
                         await query.message.delete()
 
                         folder_text = """🌊 *Produk Laut*
-                        
+
                         Pilih produk:"""
                         with self.engine.connect() as conn:
                             counts = {
@@ -1078,7 +1078,7 @@ class CommandHandler:
                     await query.message.delete()
 
                     folder_text = """🌿 *Produk Agrikultur*
-                    
+
                     Pilih produk:"""
                     with self.engine.connect() as conn:
                         coffee_count = conn.execute(text("""
@@ -1107,7 +1107,7 @@ class CommandHandler:
                     await query.message.delete()
 
                     folder_text = """🌳 *Produk Olahan*
-                    
+
                     Pilih produk:"""
                     with self.engine.connect() as conn:
                         briket_count = conn.execute(text("""
@@ -1320,7 +1320,7 @@ class CommandHandler:
                         page = max(0, page - 1)
                     else:
                         page = page + 1
-                    
+
                     context.user_data['orders_page'] = page
                     await self.orders(update, context)
 
@@ -1353,7 +1353,7 @@ class CommandHandler:
                                 username = f"@{user.username}" if user.username else "No username"
                             except:
                                 username = "Unknown"
-                                
+
                             writer.writerow({
                                 'order_id': order.order_id,
                                 'user_id': order.user_id,
@@ -1460,7 +1460,7 @@ class CommandHandler:
                     user_id = query.from_user.id
                     with app.app_context():
                         credits = self.data_store.get_user_credits(user_id)
-                        
+
                     if credits < 5:
                         await query.message.reply_text(
                             "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
@@ -1586,7 +1586,7 @@ class CommandHandler:
                         )])
                     elif order.status == "fulfilled":
                         message += "\n✅ *Order fulfilled*"
-                    
+
                     await update.message.reply_text(
                         message,
                         parse_mode='Markdown',

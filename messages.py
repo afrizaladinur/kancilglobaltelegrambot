@@ -20,6 +20,23 @@ Biaya: 5 kredit
 Join sekarang dan mulai ekspansi bisnis Anda! 🚀
 """
 
+    COMMUNITY_INFO = """
+*Kancil Global Network* 🌟
+
+Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda. 
+
+*Apa yang Anda dapatkan:*
+• 📊 Berbagi informasi dan peluang bisnis
+• 🤝 Networking dengan pelaku ekspor impor
+• 📱 Updates teknologi terbaru
+• 👥 Kolaborasi antar anggota
+• 💡 Sharing knowledge dan pengalaman
+
+Biaya: 5 kredit
+
+Join sekarang dan mulai ekspansi bisnis Anda! 🚀
+"""
+
 
     @staticmethod
     def get_country_emoji(country: str) -> str:
