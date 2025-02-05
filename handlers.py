@@ -1326,6 +1326,20 @@ Pilih produk:"""
                     except Exception as e:
                         logging.error(f"Error giving credits: {str(e)}")
                         await query.answer("Error processing request", show_alert=True)
+                elif query.data == "show_help":
+                    try:
+                        user_id = query.from_user.id
+                        with app.app_context():
+                            self.data_store.track_user_command(user_id, 'help')
+                        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                        await query.message.edit_text(
+                            Messages.HELP,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logging.error(f"Error showing help: {str(e)}")
+                        await query.message.reply_text(Messages.ERROR_MESSAGE)
                 else:
                     logging.warning(f"Unknown callback query data: {query.data}")
 

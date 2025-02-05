@@ -51,27 +51,21 @@ class Messages:
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
 *Menu Utama:*
-• 🔍 *Cari Importir* - Pencarian kontak importir:
-  ├ *Berdasarkan Negara:*
-  │ Format: /search [nama negara]
-  │ Contoh: `/search malaysia`, `/search japan`
-  │
-  ├ *Berdasarkan Kode HS:*
-  │ Format: /search [kode 4 digit]
-  │ Contoh: `/search 0302` untuk produk ikan segar
-  │        `/search 0303` untuk produk ikan beku
-  │
-  └ *Pencarian Kombinasi:*
-    Format: /search [kode hs] [negara]
-    Contoh: `/search 0302 malaysia`
-           `/search 0303 japan`
-
-• 📁 *Kontak Tersimpan* - Melihat kontak yang sudah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit Anda
-• 💰 *Beli Kredit* - Tambah kredit untuk menyimpan kontak
-• 📊 *Statistik* - Lihat riwayat penggunaan
+• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
+• 📁 *Kontak Tersimpan* - Akses kontak yang sudah disimpan
+• 💳 *Kredit Saya* - Cek saldo kredit
+• 💰 *Beli Kredit* - Tambah saldo kredit
 • ❓ *Bantuan* - Panduan lengkap
-• 📦 *Kontak Tersedia* - Lihat daftar kode HS yang tersedia
+
+*Sistem Kredit:*
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap
+
+*Catatan:*
+• Kredit gratis: 10 kredit untuk pengguna baru
+• Kontak yang belum disimpan akan disensor
+• Kontak bisa diekspor ke CSV untuk pencatatan
 
 *Sistem Kredit:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
