@@ -381,7 +381,8 @@ class DataStore:
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    return (False, "already_saved")
+                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
+                    return False
 
                 # If not exists, insert new contact
                 save_contact_sql = """
