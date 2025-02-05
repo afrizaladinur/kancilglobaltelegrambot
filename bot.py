@@ -12,42 +12,71 @@ BOT_INFO = {
 
 class TelegramBot:
     def __init__(self):
+        # Configure application with optimized connection settings
+        self.application = (
+            ApplicationBuilder()
+            .token(TELEGRAM_TOKEN)
+            .concurrent_updates(True)
+            .pool_timeout(60)
+            .connection_pool_size(128)
+            .connect_timeout(30.0)
+            .read_timeout(30.0)
+            .write_timeout(30.0)
+            .get_updates_read_timeout(30.0)
+            .connect_retry_delay(1.0)  # Added retry delay
+            .connect_attempts(3)      # Added retry attempts
+            .build()
+        )
         self.command_handler = CommandHandler()
-        self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         self._register_handlers()
         logging.info("Bot initialized")
 
     async def setup(self):
         """Async setup operations"""
-        await self._set_commands()
+        try:
+            await self._set_commands()
+            logging.info("Bot commands set successfully")
+        except Exception as e:
+            logging.error(f"Error in bot setup: {str(e)}", exc_info=True)
+            raise
 
     async def _set_commands(self):
         """Set bot commands with descriptions"""
-        # First, delete all existing commands
-        await self.application.bot.delete_my_commands()
+        try:
+            await self.application.bot.delete_my_commands()
 
-        # Then set new commands
-        commands = [
-            BotCommand('start', '🏠 Menu Utama'),
-            BotCommand('saved', '📁 Kontak Tersimpan'),
-            BotCommand('contacts', '📦 Kontak Tersedia')
-        ]
-        await self.application.bot.set_my_commands(commands)
+            commands = [
+                BotCommand('start', '🏠 Menu Utama'),
+                BotCommand('contacts', '📦 Kontak Tersedia'),
+                BotCommand('saved', '📁 Kontak Tersimpan'),
+                BotCommand('credits', '💳 Kredit & Pembelian')
+            ]
+            await self.application.bot.set_my_commands(commands)
+            logging.info("Commands set successfully")
+        except Exception as e:
+            logging.error(f"Error setting commands: {str(e)}", exc_info=True)
+            raise
 
     def _register_handlers(self):
         """Register command handlers"""
-        # Only register the essential command handlers
-        self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
-        self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
-        self.application.add_handler(TelegramCommandHandler("contacts", self.command_handler.contacts))
-        self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
-        self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
+        try:
+            handlers = [
+                TelegramCommandHandler("start", self.command_handler.start),
+                TelegramCommandHandler("saved", self.command_handler.saved),
+                TelegramCommandHandler("contacts", self.command_handler.contacts),
+                TelegramCommandHandler("credits", self.command_handler.credits),
+                TelegramCommandHandler("orders", self.command_handler.orders),   # Admin only
+                MessageHandler(filters.Text(['/start']), self.command_handler.start),
+                CallbackQueryHandler(self.command_handler.button_callback)
+            ]
 
-        # Add the text handler for /start as fallback
-        self.application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
+            for handler in handlers:
+                self.application.add_handler(handler)
 
-        # Add callback query handler for button interactions
-        self.application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
+            logging.info("Handlers registered successfully")
+        except Exception as e:
+            logging.error(f"Error registering handlers: {str(e)}", exc_info=True)
+            raise
 
     def get_application(self):
         """Get the configured application instance"""
