@@ -370,6 +370,25 @@ class DataStore:
 
                 # Finally, save contact and update credits atomically
                 try:
+                    # Log the transaction start
+                    logging.info(f"[SAVE] Starting transaction for user {user_id}")
+                    
+                    # Get current credits
+                    current_credits = conn.execute(
+                        text("SELECT credits FROM user_credits WHERE user_id = :user_id FOR UPDATE"),
+                        {"user_id": user_id}
+                    ).scalar()
+                    logging.info(f"[SAVE] Current credits: {current_credits}, Required: {credit_cost}")
+                    
+                    # Check if contact exists
+                    existing = conn.execute(
+                        text("SELECT id FROM saved_contacts WHERE user_id = :user_id AND importer_name = :name"),
+                        {"user_id": user_id, "name": importer['name']}
+                    ).scalar()
+                    if existing:
+                        logging.error(f"[SAVE] Contact already exists with ID: {existing}")
+                        return False
+                        
                     params = {
                         "user_id": user_id,
                         "name": importer['name'],
@@ -408,8 +427,11 @@ class DataStore:
                         RETURNING id;
                     """), params)
                     
-                    if not result.scalar():
+                    result_id = result.scalar()
+                    if not result_id:
                         logging.error("[SAVE] Failed to save contact - no rows affected")
+                        logging.error(f"[SAVE] Parameters used: {params}")
+                        logging.error(f"[SAVE] Credits before save: {current_credits}")
                         conn.rollback()
                         return False
 
