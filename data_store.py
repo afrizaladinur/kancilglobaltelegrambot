@@ -372,7 +372,7 @@ class DataStore:
                 # First check if contact already exists
                 check_existing_sql = """
                 SELECT id FROM saved_contacts 
-                WHERE user_id = :user_id AND importer_name = :name;
+                WHERE user_id = :user_id AND LOWER(importer_name) = LOWER(:name);
                 """
                 existing = conn.execute(
                     text(check_existing_sql),
@@ -380,6 +380,7 @@ class DataStore:
                 ).scalar()
 
                 if existing:
+                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
                     return False
 
                 # If not exists, insert new contact
@@ -409,19 +410,25 @@ class DataStore:
                 )
 
                 if result.rowcount > 0:
-                    # Deduct credits in the same transaction
-                    update_credits_sql = """
-                    UPDATE user_credits 
-                    SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
-                        last_updated = CURRENT_TIMESTAMP
-                    WHERE user_id = :user_id
-                    """
-                    conn.execute(
-                        text(update_credits_sql),
-                        {"user_id": user_id, "credit_cost": credit_cost}
-                    )
-                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
-                    return True
+                    try:
+                        # Deduct credits in the same transaction
+                        update_credits_sql = """
+                        UPDATE user_credits 
+                        SET credits = CAST(credits - :credit_cost AS NUMERIC(10,1)),
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = :user_id
+                        RETURNING credits
+                        """
+                        new_credits = conn.execute(
+                            text(update_credits_sql),
+                            {"user_id": user_id, "credit_cost": credit_cost}
+                        ).scalar()
+                        
+                        logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
+                        return True
+                    except Exception as e:
+                        logging.error(f"Error updating credits: {str(e)}")
+                        raise
 
                 return False
         except Exception as e:
