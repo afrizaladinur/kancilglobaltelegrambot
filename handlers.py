@@ -51,7 +51,7 @@ class CommandHandler:
 
             community_button = [InlineKeyboardButton(
                 "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
-                url="https://t.me/+kuNU6lDtYoNlMTc1" if is_member else callback_data="join_community"
+                **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
             )]
 
             keyboard = [
