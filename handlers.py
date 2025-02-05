@@ -609,8 +609,8 @@ Pilih kategori produk:"""
 
                     for importer in current_results:
                         message_text, _, _ = Messages.format_importer(importer)
-                        # Truncate name to fit Telegram's 64-byte callback data limit
-                        truncated_name = importer['name'][:50]  # Leave room for 'save_' prefix
+                        # Truncate name to max 20 chars to ensure callback data stays under 64 bytes
+                        truncated_name = importer['name'][:20].strip()  # Leave room for 'save_' prefix
                         keyboard = [[InlineKeyboardButton(
                             "💾 Simpan Kontak",
                             callback_data=f"save_{truncated_name}"
