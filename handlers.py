@@ -1049,8 +1049,8 @@ class CommandHandler:
                     await query.message.delete()
 
                     folder_text = """🌿 *Produk Agrikultur*
-                    
-                    Pilih produk:"""
+
+Pilih produk:"""
                     with self.engine.connect() as conn:
                         coffee_count = conn.execute(text("""
                             SELECT COUNT(*) FROM importers 
@@ -1061,6 +1061,15 @@ class CommandHandler:
                             SELECT COUNT(*) FROM importers 
                             WHERE LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
                         """)).scalar()
+
+                    if coffee_count == 0 and manggis_count == 0:
+                        await query.message.reply_text(
+                            "Tidak ada kontak importir tersedia untuk kategori ini.",
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")
+                            ]])
+                        )
+                        return
 
                     keyboard = [
                         [InlineKeyboardButton(f"☕ Kopi ({coffee_count} kontak)", callback_data="search_0901")],
