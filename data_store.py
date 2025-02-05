@@ -50,16 +50,14 @@ class DataStore:
 
             create_credit_orders_sql = """
             CREATE TABLE IF NOT EXISTS credit_orders (
-                order_id VARCHAR(50) PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
+                order_id VARCHAR(50) NOT NULL UNIQUE,
                 user_id BIGINT NOT NULL,
                 credits INTEGER NOT NULL,
                 amount INTEGER NOT NULL,
                 status VARCHAR(20) NOT NULL DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                fulfilled_at TIMESTAMP,
-                CONSTRAINT fk_user_id
-                    FOREIGN KEY(user_id)
-                    REFERENCES user_credits(user_id)
+                fulfilled_at TIMESTAMP
             );
             """
 
@@ -92,6 +90,7 @@ class DataStore:
                 conn.execute(text(create_saved_contacts_sql))
                 conn.execute(text(create_user_stats_sql))
                 conn.execute(text(create_user_credits_sql))
+                conn.execute(text(create_credit_orders_sql))
                 conn.commit()
                 logging.info("Tables initialized successfully")
         except Exception as e:
