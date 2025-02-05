@@ -202,17 +202,21 @@ class DataStore:
 
             # Build the search conditions
             conditions = []
-            params = {"user_id": user_id if user_id is not None else 0}
-            
+            params = {"user_id": user_id}  # Remove fallback to 0
+
+            # Add saved contacts check when user_id is provided
+            if user_id is not None:
+                saved_check = """
+                NOT EXISTS (
+                    SELECT 1 FROM saved_contacts s
+                    WHERE s.user_id = :user_id 
+                    AND s.importer_name = i.name
+                )
+                """
+                conditions.append(saved_check)
+
             # Add saved contacts check
-            saved_check = """
-            NOT EXISTS (
-                SELECT 1 FROM saved_contacts s
-                WHERE s.user_id = :user_id 
-                AND s.importer_name = i.name
-            )
-            """
-            conditions.append(saved_check)
+            base_check = """
 
             # Product name mappings - Easy to modify per product
             product_mappings = {
@@ -376,7 +380,7 @@ class DataStore:
                     text(check_existing_sql),
                     {"user_id": user_id, "name": importer['name']}
                 ).scalar()
-                
+
                 if existing:
                     return False
 
