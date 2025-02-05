@@ -988,26 +988,27 @@ Pilih kategori produk:"""
                         )
 
                 elif query.data == "menu_processed":
-                    with self.engine.connect() as conn:
-                        hs_counts = conn.execute(text("""
-                            SELECT COUNT(*) as count
-                            FROM importers
-                            WHERE LOWER(product) LIKE '%44029010%';
-                        """)).fetchall()
-                        
-                        count = hs_counts[0][0] if hs_counts else 0
-                        
-                        keyboard = [
-                            [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {count} kontak",
-                                                callback_data="search_briket")],
-                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
-                        ]
-                        
-                        await query.message.reply_text(
-                            "🌳 *Produk Olahan*",
-                            parse_mode='Markdown',
-                            reply_markup=InlineKeyboardMarkup(keyboard)
-                        )
+                    try:
+                        with self.engine.connect() as conn:
+                            hs_counts = conn.execute(text("""
+                                SELECT COUNT(*) as count
+                                FROM importers
+                                WHERE LOWER(product) LIKE '%44029010%';
+                            """)).fetchall()
+                            
+                            count = hs_counts[0][0] if hs_counts else 0
+                            
+                            keyboard = [
+                                [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {count} kontak",
+                                                    callback_data="search_briket")],
+                                [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                            ]
+                            
+                            await query.message.reply_text(
+                                "🌳 *Produk Olahan*",
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard)
+                            )
                     except Exception as e:
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
