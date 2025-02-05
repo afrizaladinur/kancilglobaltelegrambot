@@ -370,7 +370,7 @@ class DataStore:
 
                 # Finally, save contact and update credits atomically
                 try:
-                    conn.execute(text("""
+                    result = conn.execute(text("""
                         WITH save_contact AS (
                             INSERT INTO saved_contacts (
                                 user_id, importer_name, country, phone, email,
@@ -384,7 +384,8 @@ class DataStore:
                         UPDATE user_credits 
                         SET credits = credits - :credit_cost
                         WHERE user_id = :user_id
-                        AND EXISTS (SELECT 1 FROM save_contact);
+                        AND EXISTS (SELECT 1 FROM save_contact)
+                        RETURNING id;
                     """), {
                         "user_id": user_id,
                         "name": importer['name'],
@@ -397,6 +398,11 @@ class DataStore:
                         "product_description": importer.get('product_description', ''),
                         "credit_cost": credit_cost
                     })
+                    
+                    if not result.scalar():
+                        logging.error("[SAVE] Failed to save contact - no rows affected")
+                        conn.rollback()
+                        return False
 
                     logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
                     return True
