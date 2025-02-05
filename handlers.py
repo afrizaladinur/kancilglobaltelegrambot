@@ -686,7 +686,7 @@ class CommandHandler:
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
                     await query.message.reply_text(
-                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n💰 *Paket Kredit:*\n- 75 kredit: Rp 150.000\n- 150 kredit: Rp 300.000\n- 250 kredit: Rp 399.000",
+                        f"{Messages.CREDITS_REMAINING.format(credits)}",
                         parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
