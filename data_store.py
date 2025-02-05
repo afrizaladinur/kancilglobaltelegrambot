@@ -428,9 +428,9 @@ class DataStore:
 
                             logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
                             return True
-                        else:
-                            logging.info(f"Contact {importer['name']} already exists for user {user_id}, skipping credit deduction.")
-                            return True
+                    except Exception as e:
+                        logging.error(f"Error updating credits: {str(e)}")
+                        raise
                     except Exception as e:
                         logging.error(f"Error updating credits: {str(e)}")
                         raise
