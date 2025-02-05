@@ -878,10 +878,27 @@ class CommandHandler:
                         
 Pilih kategori produk:"""
 
+                        # Count contacts for each category
+                        with self.engine.connect() as conn:
+                            seafood_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
+                            """)).scalar()
+                            
+                            agriculture_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
+                            """)).scalar()
+                            
+                            processed_count = conn.execute(text("""
+                                SELECT COUNT(*) FROM importers 
+                                WHERE LOWER(product) LIKE '%44029010%'
+                            """)).scalar()
+
                         keyboard = [
-                            [InlineKeyboardButton("🌊 Produk Laut", callback_data="folder_seafood")],
-                            [InlineKeyboardButton("🌿 Produk Agrikultur", callback_data="folder_agriculture")],
-                            [InlineKeyboardButton("🌳 Produk Olahan", callback_data="folder_processed")],
+                            [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
+                            [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
+                            [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                         ]
                         
