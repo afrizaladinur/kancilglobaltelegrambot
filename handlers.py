@@ -913,15 +913,27 @@ Pilih kategori produk:"""
 
                 elif query.data == "folder_seafood":
                     try:
+                        # Delete previous message
+                        await query.message.delete()
+                        
                         folder_text = """🌊 *Produk Laut*
 
 Pilih produk:"""
+                        with self.engine.connect() as conn:
+                            counts = {
+                                '0301': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0301%'")).scalar(),
+                                '0302': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0302%'")).scalar(),
+                                '0303': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0303%'")).scalar(),
+                                '0304': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0304%'")).scalar(),
+                                'anchovy': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%anchovy%'")).scalar()
+                            }
+                            
                         keyboard = [
-                            [InlineKeyboardButton("🐟 Ikan Hidup (0301)", callback_data="search_0301")],
-                            [InlineKeyboardButton("🐠 Ikan Segar (0302)", callback_data="search_0302")],
-                            [InlineKeyboardButton("❄️ Ikan Beku (0303)", callback_data="search_0303")],
-                            [InlineKeyboardButton("🍣 Fillet Ikan (0304)", callback_data="search_0304")],
-                            [InlineKeyboardButton("🐟 Anchovy", callback_data="search_anchovy")],
+                            [InlineKeyboardButton(f"🐟 Ikan Hidup ({counts['0301']} kontak)", callback_data="search_0301")],
+                            [InlineKeyboardButton(f"🐠 Ikan Segar ({counts['0302']} kontak)", callback_data="search_0302")],
+                            [InlineKeyboardButton(f"❄️ Ikan Beku ({counts['0303']} kontak)", callback_data="search_0303")],
+                            [InlineKeyboardButton(f"🍣 Fillet Ikan ({counts['0304']} kontak)", callback_data="search_0304")],
+                            [InlineKeyboardButton(f"🐟 Anchovy ({counts['anchovy']} kontak)", callback_data="search_anchovy")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
                         await query.message.reply_text(
@@ -934,6 +946,9 @@ Pilih produk:"""
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
                     
                 elif query.data == "folder_agriculture":
+                    # Delete previous message
+                    await query.message.delete()
+                    
                     folder_text = """🌿 *Produk Agrikultur*
 
 Pilih produk:"""
@@ -960,6 +975,9 @@ Pilih produk:"""
                     )
 
                 elif query.data == "folder_processed":
+                    # Delete previous message
+                    await query.message.delete()
+                    
                     folder_text = """🌳 *Produk Olahan*
 
 Pilih produk:"""
