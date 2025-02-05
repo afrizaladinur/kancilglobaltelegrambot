@@ -243,7 +243,7 @@ class DataStore:
                 # Coffee (HS 0901)
                 'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
                 'bubuk': ['powder', 'bubuk', 'ground']
-            }
+            }"""
 
             for i, term in enumerate(search_terms):
                 term_conditions = []
