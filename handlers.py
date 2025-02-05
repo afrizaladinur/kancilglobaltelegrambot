@@ -467,20 +467,18 @@ class CommandHandler:
                 elif query.data == "back_to_categories":
                     # Get and delete all messages from current page
                     try:
-                        messages_to_delete = context.user_data.get('current_page_messages', [])
-                        for message_id in messages_to_delete:
+                        # Delete the 2 result messages that appear before pagination controls
+                        current_message_id = query.message.message_id
+                        for i in range(3):  # Delete 3 messages - 2 results and pagination message
                             try:
                                 await context.bot.delete_message(
                                     chat_id=query.message.chat_id,
-                                    message_id=message_id
+                                    message_id=current_message_id - i
                                 )
                             except Exception as e:
-                                logging.error(f"Error deleting message {message_id}: {str(e)}")
+                                logging.error(f"Error deleting message {current_message_id - i}: {str(e)}")
                     except Exception as e:
                         logging.error(f"Error deleting messages: {str(e)}")
-
-                    # Delete current message and show categories
-                    await query.message.delete()
                     # Show categories menu again
                     header_text = """📊 *Kontak Tersedia*
 
@@ -590,12 +588,15 @@ Pilih kategori produk:"""
                 elif query.data in ["search_prev", "search_next"]:
                     # Delete current page's messages
                     try:
-                        messages_to_delete = context.user_data.get('current_page_messages', [])
-                        for message_id in messages_to_delete:
-                            await context.bot.delete_message(
-                                chat_id=query.message.chat_id,
-                                message_id=message_id
-                            )
+                        current_message_id = query.message.message_id
+                        for i in range(3):  # Delete 3 messages - 2 results and pagination message
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=current_message_id - i
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message {current_message_id - i}: {str(e)}")
                     except Exception as e:
                         logging.error(f"Error deleting messages: {str(e)}")
 
