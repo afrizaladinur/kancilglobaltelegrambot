@@ -603,6 +603,18 @@ Pilih kategori produk:"""
                 elif query.data in ["page_info", "search_page_info"]:
                     await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data in ["search_prev", "search_next"]:
+                    # Delete previous messages if they exist
+                    if 'search_messages' in context.user_data:
+                        for msg_id in context.user_data['search_messages']:
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=msg_id
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message: {str(e)}")
+                        context.user_data['search_messages'] = []
+
                     # Get current search results from context
                     results = context.user_data.get('last_search_results', [])
                     if not results:
@@ -650,11 +662,11 @@ Pilih kategori produk:"""
                         [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
-
-                    await query.message.reply_text(
+                    msg = await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + cari_lagi_button)
                     )
+                    context.user_data['search_messages'].append(msg.message_id)
                 elif query.data == "show_credits":
                     user_id = query.from_user.id
                     with app.app_context():
@@ -1188,6 +1200,24 @@ Pilih produk:"""
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
                 elif query.data.startswith('search_'):
+                    # Delete previous messages if they exist
+                    if 'search_messages' in context.user_data:
+                        for msg_id in context.user_data['search_messages']:
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=msg_id
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message: {str(e)}")
+                        context.user_data['search_messages'] = []
+
+                    # Get current search results from context
+                    results = context.user_data.get('last_search_results', [])
+                    if not results:
+                        await query.message.reply_text("Hasil pencarian tidak tersedia. Silakan cari lagi.")
+                        return
+
                     user_id = query.from_user.id
                     search_term = query.data.replace('search_', '')
                     search_terms = {
