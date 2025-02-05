@@ -465,6 +465,20 @@ class CommandHandler:
                         await query.message.reply_text("Silakan lakukan pencarian baru terlebih dahulu.")
 
                 elif query.data == "back_to_categories":
+                    # Get and delete all messages from current page
+                    try:
+                        messages_to_delete = context.user_data.get('current_page_messages', [])
+                        for message_id in messages_to_delete:
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=message_id
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message {message_id}: {str(e)}")
+                    except Exception as e:
+                        logging.error(f"Error deleting messages: {str(e)}")
+
                     # Delete current message and show categories
                     await query.message.delete()
                     # Show categories menu again
