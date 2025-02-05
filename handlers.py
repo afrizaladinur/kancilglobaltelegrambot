@@ -877,8 +877,9 @@ Pilih kategori produk:"""
 
                             # Get the full importer data from last search results
                             results = context.user_data.get('last_search_results', [])
+                            # More flexible matching to handle truncated names
                             importer = next(
-                                (r for r in results if r['name'].startswith(importer_name)),
+                                (r for r in results if importer_name.lower() in r['name'].lower()),
                                 None
                             )
 
