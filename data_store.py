@@ -370,6 +370,26 @@ class DataStore:
 
                 # Finally, save contact and update credits atomically
                 try:
+                    params = {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', ''),
+                        "credit_cost": credit_cost
+                    }
+                    logging.info(f"[SAVE] Attempting to save contact with parameters: {params}")
+                    
+                    # Log current user credits
+                    current_credits = conn.execute(text(
+                        "SELECT credits FROM user_credits WHERE user_id = :user_id"
+                    ), {"user_id": user_id}).scalar()
+                    logging.info(f"[SAVE] Current user credits before save: {current_credits}")
+
                     result = conn.execute(text("""
                         WITH save_contact AS (
                             INSERT INTO saved_contacts (
@@ -386,18 +406,7 @@ class DataStore:
                         WHERE user_id = :user_id
                         AND EXISTS (SELECT 1 FROM save_contact)
                         RETURNING id;
-                    """), {
-                        "user_id": user_id,
-                        "name": importer['name'],
-                        "country": importer['country'],
-                        "phone": importer['contact'],
-                        "email": importer['email'],
-                        "website": importer['website'],
-                        "wa_available": importer['wa_available'],
-                        "hs_code": importer.get('hs_code', ''),
-                        "product_description": importer.get('product_description', ''),
-                        "credit_cost": credit_cost
-                    })
+                    """), params)
                     
                     if not result.scalar():
                         logging.error("[SAVE] Failed to save contact - no rows affected")
@@ -411,6 +420,28 @@ class DataStore:
                     logging.error(f"[SAVE] Failed details - User: {user_id}, Contact: {importer.get('name')}")
                     logging.error(f"[SAVE] Contact data: {importer}")
                     logging.error(f"[SAVE] Error message: {str(insert_error)}")
+                    
+                    # Check if contact already exists
+                    existing = conn.execute(text("""
+                        SELECT * FROM saved_contacts 
+                        WHERE user_id = :user_id AND importer_name = :name
+                    """), {"user_id": user_id, "name": importer['name']}).first()
+                    
+                    if existing:
+                        logging.error(f"[SAVE] Contact already exists: {dict(existing)}")
+                    
+                    # Check credits table state
+                    credits_state = conn.execute(text("""
+                        SELECT credits, last_updated 
+                        FROM user_credits 
+                        WHERE user_id = :user_id
+                    """), {"user_id": user_id}).first()
+                    
+                    if credits_state:
+                        logging.error(f"[SAVE] Credits state: {dict(credits_state)}")
+                    else:
+                        logging.error("[SAVE] No credits record found for user")
+                        
                     conn.rollback()
                     return False
 
