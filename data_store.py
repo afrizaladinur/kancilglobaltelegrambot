@@ -381,7 +381,8 @@ class DataStore:
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    return False
+                    # Return a tuple with False and reason
+                    return (False, "already_saved")
 
                 # If not exists, insert new contact
                 save_contact_sql = """

@@ -853,7 +853,13 @@ Pilih kategori produk:"""
                                 await query.message.reply_text(Messages.NO_CREDITS)
                                 return
 
-                            if self.data_store.save_contact(user_id, importer):
+                            save_result = self.data_store.save_contact(user_id, importer)
+                            if isinstance(save_result, tuple):
+                                success, reason = save_result
+                                if not success and reason == "already_saved":
+                                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
+                                    return
+                            elif save_result:
                                 remaining_credits = self.data_store.get_user_credits(user_id)
                                 await query.message.reply_text(
                                     Messages.CONTACT_SAVED.format(remaining_credits)
