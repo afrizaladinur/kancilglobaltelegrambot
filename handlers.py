@@ -586,6 +586,17 @@ Pilih kategori produk:"""
                 elif query.data in ["page_info", "search_page_info"]:
                     await query.answer("Halaman saat ini", show_alert=False)
                 elif query.data in ["search_prev", "search_next"]:
+                    # Delete current page's messages
+                    try:
+                        messages_to_delete = context.user_data.get('current_page_messages', [])
+                        for message_id in messages_to_delete:
+                            await context.bot.delete_message(
+                                chat_id=query.message.chat_id,
+                                message_id=message_id
+                            )
+                    except Exception as e:
+                        logging.error(f"Error deleting messages: {str(e)}")
+
                     # Get current search results from context
                     results = context.user_data.get('last_search_results', [])
                     if not results:
@@ -605,6 +616,9 @@ Pilih kategori produk:"""
                     start_idx = current_page * items_per_page
                     end_idx = start_idx + items_per_page
                     current_results = results[start_idx:end_idx]
+                    
+                    # Initialize list to store new message IDs
+                    new_messages = []
 
                     for importer in current_results:
                         message_text, _, _ = Messages.format_importer(importer)
@@ -614,11 +628,12 @@ Pilih kategori produk:"""
                             "💾 Simpan Kontak",
                             callback_data=f"save_{truncated_name}"
                         )]]
-                        await query.message.reply_text(
+                        sent_msg = await query.message.reply_text(
                             message_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                        new_messages.append(sent_msg.message_id)
 
                     # Update pagination buttons
                     pagination_buttons = []
@@ -634,10 +649,14 @@ Pilih kategori produk:"""
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
 
-                    await query.message.reply_text(
+                    sent_msg = await query.message.reply_text(
                         f"Halaman {current_page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + cari_lagi_button)
                     )
+                    new_messages.append(sent_msg.message_id)
+                    
+                    # Store new message IDs for next pagination
+                    context.user_data['current_page_messages'] = new_messages
                 elif query.data == "show_credits":
                     user_id = query.from_user.id
                     with app.app_context():
