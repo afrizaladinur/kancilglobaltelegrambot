@@ -60,7 +60,7 @@ class DataStore:
                     has_redeemed_free_credits BOOLEAN DEFAULT FALSE,
                     CONSTRAINT positive_credits CHECK (credits >= 0)
                 );
-                
+
                 -- Add has_redeemed_free_credits column if it doesn't exist
                 IF NOT EXISTS (
                     SELECT 1 
@@ -193,36 +193,50 @@ class DataStore:
         """Search importers by name, country, product/HS code"""
         try:
             # Clean and prepare search terms
-            terms = query.strip().lower().split()
-            if not terms:
+            search_terms = query.strip().lower().split()
+            if not search_terms:
                 logging.error("Empty search query")
                 return []
 
-            logging.info(f"Starting search with terms: {terms}")
+            logging.info(f"Starting search with terms: {search_terms}")
 
             # Build the search conditions
             conditions = []
             params = {}
 
-            for i, term in enumerate(terms):
-                param_name = f"term_{i}"
-                # Check if term looks like an HS code (contains digits)
-                if any(c.isdigit() for c in term):
-                    conditions.append(f"LOWER(product) LIKE :{param_name}")
-                else:
-                    conditions.append(f"""(
-                        LOWER(name) LIKE :{param_name} OR 
-                        LOWER(country) LIKE :{param_name} OR
-                        LOWER(role) LIKE :{param_name} OR
-                        LOWER(product) LIKE :{param_name}
-                    )""")
-                params[param_name] = f"%{term}%"
+            # Product name mappings
+            product_mappings = {
+                'minyak': ['oil', 'minyak'],
+                'kelapa': ['coconut', 'kelapa', 'vco'],
+                'teri': ['anchovy', 'teri'],
+            }
+
+            for i, term in enumerate(search_terms):
+                term_conditions = []
+                term_lower = term.lower()
+
+                # Add original term
+                search_terms_for_word = [term_lower]
+
+                # Add mapped terms if they exist
+                if term_lower in product_mappings:
+                    search_terms_for_word.extend(product_mappings[term_lower])
+
+                # Build OR conditions for all terms
+                for mapped_term in search_terms_for_word:
+                    term_conditions.append(f"LOWER(name) LIKE :term_{i}_{mapped_term}")
+                    term_conditions.append(f"LOWER(country) LIKE :term_{i}_{mapped_term}")
+                    term_conditions.append(f"LOWER(role) LIKE :term_{i}_{mapped_term}")
+                    term_conditions.append(f"LOWER(product) LIKE :term_{i}_{mapped_term}")
+                    params[f'term_{i}_{mapped_term}'] = f'%{mapped_term}%'
+
+                conditions.append("(" + " OR ".join(term_conditions) + ")")
 
             # Default ranking based on first term
             rank_case = f"""
                 CASE 
-                    WHEN LOWER(country) LIKE :term_0 THEN 0
-                    WHEN LOWER(name) LIKE :term_0 THEN 1
+                    WHEN LOWER(country) LIKE :term_0_coconut THEN 0
+                    WHEN LOWER(name) LIKE :term_0_coconut THEN 1
                     ELSE 2 
                 END
             """
