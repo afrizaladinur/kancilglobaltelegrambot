@@ -336,14 +336,16 @@ class DataStore:
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
+            # Do everything in a single transaction
             with self.engine.begin() as conn:
-                # Check if contact exists and get current credits in one transaction
+                # Check credits and if contact exists
                 result = conn.execute(text("""
-                    SELECT sc.id, uc.credits 
-                    FROM user_credits uc 
-                    LEFT JOIN saved_contacts sc ON sc.user_id = uc.user_id 
-                        AND sc.importer_name = :name
-                    WHERE uc.user_id = :user_id
+                    SELECT credits, EXISTS (
+                        SELECT 1 FROM saved_contacts 
+                        WHERE user_id = :user_id AND importer_name = :name
+                    ) as contact_exists
+                    FROM user_credits 
+                    WHERE user_id = :user_id
                     FOR UPDATE;
                 """), {"user_id": user_id, "name": importer['name']}).first()
 
@@ -351,17 +353,43 @@ class DataStore:
                     logging.error("User credits not found")
                     return False
 
-                _, current_credits = result
+                current_credits, contact_exists = result
 
                 if current_credits < credit_cost:
                     logging.error("Insufficient credits")
                     return False
 
-                if result[0]:  # Contact already exists
+                if contact_exists:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
                     return False
 
-            # Use a single transaction for both operations
+                # Insert contact and update credits in one transaction
+                conn.execute(text("""
+                    INSERT INTO saved_contacts (
+                        user_id, importer_name, country, phone, email,
+                        website, wa_availability, hs_code, product_description
+                    ) VALUES (
+                        :user_id, :name, :country, :phone, :email,
+                        :website, :wa_available, :hs_code, :product_description
+                    );
+                    UPDATE user_credits 
+                    SET credits = credits - :credit_cost
+                    WHERE user_id = :user_id;
+                """), {
+                    "user_id": user_id,
+                    "name": importer['name'],
+                    "country": importer['country'],
+                    "phone": importer['contact'],
+                    "email": importer['email'],
+                    "website": importer['website'],
+                    "wa_available": importer['wa_available'],
+                    "hs_code": importer.get('hs_code', ''),
+                    "product_description": importer.get('product_description', ''),
+                    "credit_cost": credit_cost
+                })
+
+                logging.info(f"Successfully saved contact and deducted {credit_cost} credits")
+                return True
             with self.engine.begin() as conn:
                 # First check if we have enough credits
                 check_credits_sql = """
