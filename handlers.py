@@ -467,6 +467,8 @@ class CommandHandler:
                 elif query.data == "back_to_main":
                     # Delete current message and show main menu
                     await query.message.delete()
+                    with app.app_context():
+                        credits = self.data_store.get_user_credits(query.from_user.id)
                     keyboard = [
                         [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
@@ -874,6 +876,9 @@ class CommandHandler:
 
                 elif query.data == "show_hs_codes":
                     try:
+                        # Delete current message
+                        await query.message.delete()
+                        
                         header_text = """📊 *Kontak Tersedia*
                         
 Pilih kategori produk:"""
