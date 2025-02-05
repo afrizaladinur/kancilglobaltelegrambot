@@ -57,11 +57,11 @@ class CommandHandler:
                 ), {"user_id": user_id}).scalar() or False
 
             keyboard = [
+                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
                 [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
                  InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
             ]
 
@@ -528,13 +528,11 @@ Pilih kategori produk:"""
                     with app.app_context():
                         credits = self.data_store.get_user_credits(query.from_user.id)
                     keyboard = [
-                        [InlineKeyboardButton("🔍 Cari Importir", callback_data="start_search")],
+                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
                         [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
                          InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                        [InlineKeyboardButton("📊 Statistik", callback_data="show_stats"),
-                         InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
+                        [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
                     ]
                     await query.message.reply_text(
