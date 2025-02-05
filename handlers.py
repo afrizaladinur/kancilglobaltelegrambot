@@ -874,38 +874,16 @@ class CommandHandler:
 
                 elif query.data == "show_hs_codes":
                     try:
-                        with self.engine.connect() as conn:
-                            hs_counts = conn.execute(text("""
-                                SELECT 
-                                    CASE 
-                                        WHEN LOWER(product) LIKE '%0301%' THEN '0301'
-                                        WHEN LOWER(product) LIKE '%0302%' THEN '0302'
-                                        WHEN LOWER(product) LIKE '%0303%' THEN '0303'
-                                        WHEN LOWER(product) LIKE '%0304%' THEN '0304'
-                                        WHEN LOWER(product) LIKE '%0305%' OR LOWER(product) LIKE '%anchovy%' THEN '0305'
-                                        WHEN LOWER(product) LIKE '%0901%' THEN '0901'
-                                        WHEN LOWER(product) LIKE '%1513%' OR LOWER(product) LIKE '%coconut oil%' THEN '1513'
-                                        WHEN LOWER(product) LIKE '%44029010%' THEN '44029010'
-                                    END as hs_code,
-                                    COUNT(*) as count
-                                FROM importers
-                                WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|0901|1513|44029010|anchovy|coconut oil)%'
-                                GROUP BY hs_code
-                                ORDER BY hs_code;
-                            """)).fetchall()
-
-                            counts_dict = {row[0]: row[1] for row in hs_counts}
-
-                            header_text = """📊 *Kontak Tersedia*
-
+                        header_text = """📊 *Kontak Tersedia*
+                        
 Pilih kategori produk:"""
 
-                            keyboard = [
-                                [InlineKeyboardButton("🌊 Produk Laut", callback_data="menu_seafood")],
-                                [InlineKeyboardButton("🌿 Produk Agrikultur", callback_data="menu_agriculture")],
-                                [InlineKeyboardButton("🌳 Produk Olahan", callback_data="menu_processed")],
-                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                            ]
+                        keyboard = [
+                            [InlineKeyboardButton("🌊 Produk Laut", callback_data="folder_seafood")],
+                            [InlineKeyboardButton("🌿 Produk Agrikultur", callback_data="folder_agriculture")],
+                            [InlineKeyboardButton("🌳 Produk Olahan", callback_data="folder_processed")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                        ]
                         
                         await query.message.reply_text(
                             header_text,
@@ -915,6 +893,50 @@ Pilih kategori produk:"""
                     except Exception as e:
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
+
+                elif query.data == "folder_seafood":
+                    folder_text = """🌊 *Produk Laut*
+
+Pilih sub-kategori:"""
+                    keyboard = [
+                        [InlineKeyboardButton("🐟 Ikan", callback_data="menu_seafood")],
+                        [InlineKeyboardButton("🐠 Anchovy", callback_data="search_anchovy")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                    ]
+                    await query.message.reply_text(
+                        folder_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                    
+                elif query.data == "folder_agriculture":
+                    folder_text = """🌿 *Produk Agrikultur*
+
+Pilih sub-kategori:"""
+                    keyboard = [
+                        [InlineKeyboardButton("☕ Kopi", callback_data="search_0901")],
+                        [InlineKeyboardButton("🥥 Minyak Kelapa", callback_data="search_coconut_oil")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                    ]
+                    await query.message.reply_text(
+                        folder_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
+                elif query.data == "folder_processed":
+                    folder_text = """🌳 *Produk Olahan*
+
+Pilih sub-kategori:"""
+                    keyboard = [
+                        [InlineKeyboardButton("🪵 Briket Batok", callback_data="search_briket")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                    ]
+                    await query.message.reply_text(
+                        folder_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
 
                 elif query.data == "menu_seafood":
                     with self.engine.connect() as conn:
