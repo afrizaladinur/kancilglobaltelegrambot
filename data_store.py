@@ -412,27 +412,32 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        # Deduct credits atomically
+                        # Deduct credits in a single atomic transaction
                         update_credits_sql = """
-                        UPDATE user_credits 
-                        SET credits = ROUND(credits - :credit_cost, 1),
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id
-                        AND credits >= :credit_cost
-                        RETURNING credits
+                        WITH updated AS (
+                            UPDATE user_credits 
+                            SET credits = credits - CAST(:credit_cost AS NUMERIC(10,1))
+                            WHERE user_id = :user_id 
+                            AND credits >= :credit_cost
+                            RETURNING credits
+                        )
+                        SELECT credits FROM updated;
                         """
                         new_credits = conn.execute(
                             text(update_credits_sql),
-                            {"user_id": user_id, "credit_cost": float(credit_cost)}
+                            {"user_id": user_id, "credit_cost": credit_cost}
                         ).scalar()
 
                         if new_credits is not None:
+                            conn.commit()
                             logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
                             return True
                         else:
-                            logging.error("Failed to update credits")
-                            raise Exception("Failed to update credits")
+                            conn.rollback()
+                            logging.error("Failed to update credits - insufficient balance")
+                            return False
                     except Exception as e:
+                        conn.rollback()
                         logging.error(f"Error updating credits: {str(e)}")
                         raise
 
