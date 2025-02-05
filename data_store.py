@@ -366,7 +366,7 @@ class DataStore:
 
                 if exists:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    return False
+                    raise ValueError("Contact already exists")
 
                 # Finally, save contact and update credits atomically
                 try:

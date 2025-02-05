@@ -853,14 +853,23 @@ Pilih kategori produk:"""
                                 await query.message.reply_text(Messages.NO_CREDITS)
                                 return
 
-                            if self.data_store.save_contact(user_id, importer):
-                                remaining_credits = self.data_store.get_user_credits(user_id)
-                                await query.message.reply_text(
-                                    Messages.CONTACT_SAVED.format(remaining_credits)
-                                )
-                                logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
-                            else:
-                                await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
+                            try:
+                                if self.data_store.save_contact(user_id, importer):
+                                    remaining_credits = self.data_store.get_user_credits(user_id)
+                                    await query.message.reply_text(
+                                        Messages.CONTACT_SAVED.format(remaining_credits)
+                                    )
+                                    logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
+                                else:
+                                    await query.message.reply_text("❌ Gagal menyimpan kontak. Silakan hubungi admin untuk bantuan.")
+                            except ValueError as e:
+                                if str(e) == "Contact already exists":
+                                    await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya. Gunakan /saved untuk melihat kontak Anda.")
+                                else:
+                                    await query.message.reply_text("❌ Terjadi kesalahan saat menyimpan kontak.")
+                            except Exception as e:
+                                logging.error(f"Error saving contact: {str(e)}")
+                                await query.message.reply_text("❌ Terjadi kesalahan sistem. Silakan coba lagi nanti.")
                         else:
                             await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                             logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
