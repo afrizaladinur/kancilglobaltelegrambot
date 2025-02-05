@@ -401,10 +401,14 @@ class DataStore:
 
                 logging.info(f"[SAVE] Successfully saved contact and deducted {credit_cost} credits")
                 return True
-            except Exception as insert_error:
-                logging.error(f"[SAVE] Database insert error: {str(insert_error)}", exc_info=True)
+
+        except Exception as e:
+            logging.error(f"[SAVE] Error saving contact: {str(e)}", exc_info=True)
+            logging.error(f"[SAVE] Failed contact details - Name: {importer.get('name')}, User: {user_id}")
+            logging.error(f"[SAVE] Contact data: {importer}")
+            if 'conn' in locals():
                 conn.rollback()
-                return False
+            return False
 
         except Exception as e:
             logging.error(f"[SAVE] Error saving contact: {str(e)}", exc_info=True)
