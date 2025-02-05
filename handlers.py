@@ -378,11 +378,14 @@ class CommandHandler:
                         # Send CSV file
                         from io import BytesIO
                         bio = BytesIO(csv_bytes)
-                        bio.name = f'saved_contacts_{user_id}.csv'
+                        from datetime import datetime
+                        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f'Kontak Tersimpan_{current_time}.csv'
+                        bio.name = filename
 
                         await query.message.reply_document(
                             document=bio,
-                            filename=f'saved_contacts_{user_id}.csv',
+                            filename=filename,
                             caption="Berikut adalah daftar kontak yang tersimpan!"
                         )
 
