@@ -189,7 +189,7 @@ class DataStore:
             logging.error(f"Error adding credits: {str(e)}", exc_info=True)
             return False
 
-    def search_importers(self, query: str) -> List[Dict]:
+    def search_importers(self, query: str, user_id: int = None) -> List[Dict]:
         """Search importers by name, country, product/HS code"""
         try:
             # Clean and prepare search terms
@@ -277,14 +277,19 @@ class DataStore:
                 WHERE {' OR '.join(conditions)}
             )
             SELECT 
-                name, country, contact, website, email,
+                r.name, r.country, r.contact, r.website, r.email,
                 CASE 
-                    WHEN wa_availability = 'Available' THEN true
+                    WHEN r.wa_availability = 'Available' THEN true
                     ELSE false
                 END as wa_available,
-                product as hs_code,
-                product_description
-            FROM ranked_results
+                r.product as hs_code,
+                r.product_description
+            FROM ranked_results r
+            WHERE NOT EXISTS (
+                SELECT 1 FROM saved_contacts s
+                WHERE s.user_id = :user_id 
+                AND s.importer_name = r.name
+            )
             ORDER BY RANDOM()
             LIMIT 10;
             """

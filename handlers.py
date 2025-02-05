@@ -130,7 +130,7 @@ class CommandHandler:
 
             with app.app_context():
                 try:
-                    results = self.data_store.search_importers(query)
+                    results = self.data_store.search_importers(query, user_id)
                     # Store results in context for pagination
                     context.user_data['last_search_results'] = results
                     context.user_data['search_page'] = 0  # Reset to first page
