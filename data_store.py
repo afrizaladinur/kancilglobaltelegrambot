@@ -389,11 +389,11 @@ class DataStore:
                         RETURNING credits;
                         """),
                         {"user_id": user_id, "credit_cost": float(credit_cost)}
-                    )
+                    ).scalar()
 
-                    new_credits = credit_result.scalar()
-                    if new_credits is None:
+                    if credit_result is None:
                         logging.error("Failed to deduct credits")
+                        conn.rollback()
                         return False
 
                     # Then insert contact
@@ -426,10 +426,9 @@ class DataStore:
                         conn.rollback()
                         return False
                         
+                    # If we got here, both contact save and credit deduction succeeded
                     conn.commit()
-
-                    new_credits = credit_result.scalar()
-                    if new_credits is None:
+                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {credit_result}")
                         logging.error("Failed to update credits")
                         return False
 
