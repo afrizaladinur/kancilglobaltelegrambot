@@ -896,35 +896,112 @@ class CommandHandler:
 
                             counts_dict = {row[0]: row[1] for row in hs_counts}
 
-                            # Build header text
                             header_text = """📊 *Kontak Tersedia*
 
-🌊 *Produk Laut*"""
+Pilih kategori produk:"""
 
-                            # Build keyboard with sections
                             keyboard = [
-                                [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                                    callback_data="search_0301")],
-                                [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                                    callback_data="search_0302")],
-                                [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                                    callback_data="search_0303")],
-                                [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                                    callback_data="search_0304")],
-                                [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                                    callback_data="search_anchovy")],
-                                [InlineKeyboardButton("🌿 *PRODUK AGRIKULTUR*", callback_data="section_agriculture")],
-                                [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                                    callback_data="search_0901")],
-                                [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                                    callback_data="search_coconut_oil")],
-                                [InlineKeyboardButton("🌳 *PRODUK OLAHAN*", callback_data="section_processed")],
-                                [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {counts_dict.get('44029010', 0)} kontak",
-                                                    callback_data="search_briket")],
+                                [InlineKeyboardButton("🌊 Produk Laut", callback_data="menu_seafood")],
+                                [InlineKeyboardButton("🌿 Produk Agrikultur", callback_data="menu_agriculture")],
+                                [InlineKeyboardButton("🌳 Produk Olahan", callback_data="menu_processed")],
                                 [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                             ]
+                        
                         await query.message.reply_text(
                             header_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                elif query.data == "menu_seafood":
+                    with self.engine.connect() as conn:
+                        hs_counts = conn.execute(text("""
+                            SELECT 
+                                CASE 
+                                    WHEN LOWER(product) LIKE '%0301%' THEN '0301'
+                                    WHEN LOWER(product) LIKE '%0302%' THEN '0302'
+                                    WHEN LOWER(product) LIKE '%0303%' THEN '0303'
+                                    WHEN LOWER(product) LIKE '%0304%' THEN '0304'
+                                    WHEN LOWER(product) LIKE '%0305%' OR LOWER(product) LIKE '%anchovy%' THEN '0305'
+                                END as hs_code,
+                                COUNT(*) as count
+                            FROM importers
+                            WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
+                            GROUP BY hs_code
+                            ORDER BY hs_code;
+                        """)).fetchall()
+                        
+                        counts_dict = {row[0]: row[1] for row in hs_counts}
+                        
+                        keyboard = [
+                            [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
+                                                callback_data="search_0301")],
+                            [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
+                                                callback_data="search_0302")],
+                            [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
+                                                callback_data="search_0303")],
+                            [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
+                                                callback_data="search_0304")],
+                            [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
+                                                callback_data="search_anchovy")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        ]
+                        
+                        await query.message.reply_text(
+                            "🌊 *Produk Laut*",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                elif query.data == "menu_agriculture":
+                    with self.engine.connect() as conn:
+                        hs_counts = conn.execute(text("""
+                            SELECT 
+                                CASE 
+                                    WHEN LOWER(product) LIKE '%0901%' THEN '0901'
+                                    WHEN LOWER(product) LIKE '%1513%' OR LOWER(product) LIKE '%coconut oil%' THEN '1513'
+                                END as hs_code,
+                                COUNT(*) as count
+                            FROM importers
+                            WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
+                            GROUP BY hs_code
+                            ORDER BY hs_code;
+                        """)).fetchall()
+                        
+                        counts_dict = {row[0]: row[1] for row in hs_counts}
+                        
+                        keyboard = [
+                            [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
+                                                callback_data="search_0901")],
+                            [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
+                                                callback_data="search_coconut_oil")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        ]
+                        
+                        await query.message.reply_text(
+                            "🌿 *Produk Agrikultur*",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                elif query.data == "menu_processed":
+                    with self.engine.connect() as conn:
+                        hs_counts = conn.execute(text("""
+                            SELECT COUNT(*) as count
+                            FROM importers
+                            WHERE LOWER(product) LIKE '%44029010%';
+                        """)).fetchall()
+                        
+                        count = hs_counts[0][0] if hs_counts else 0
+                        
+                        keyboard = [
+                            [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {count} kontak",
+                                                callback_data="search_briket")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        ]
+                        
+                        await query.message.reply_text(
+                            "🌳 *Produk Olahan*",
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
