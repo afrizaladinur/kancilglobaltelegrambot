@@ -912,6 +912,9 @@ Pilih kategori produk:"""
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                    except Exception as e:
+                        logging.error(f"Error getting HS code counts: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
 
                 elif query.data == "menu_seafood":
                     with self.engine.connect() as conn:
