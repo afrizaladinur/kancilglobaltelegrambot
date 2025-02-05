@@ -372,16 +372,15 @@ class DataStore:
                 # First check if contact already exists
                 check_existing_sql = """
                 SELECT id FROM saved_contacts 
-                WHERE user_id = :user_id AND LOWER(importer_name) = LOWER(:name);
+                WHERE user_id = :user_id AND LOWER(importer_name) LIKE LOWER(:name);
                 """
                 existing = conn.execute(
                     text(check_existing_sql),
-                    {"user_id": user_id, "name": importer['name']}
+                    {"user_id": user_id, "name": f"%{importer['name']}%"}
                 ).scalar()
 
                 if existing:
                     logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    # Return a tuple with False and reason
                     return (False, "already_saved")
 
                 # If not exists, insert new contact

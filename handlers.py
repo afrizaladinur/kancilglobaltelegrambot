@@ -859,14 +859,18 @@ Pilih kategori produk:"""
                                 if not success and reason == "already_saved":
                                     await query.message.reply_text("ℹ️ Kontak ini sudah tersimpan sebelumnya.")
                                     return
-                            elif save_result:
+                                else:
+                                    await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
+                                    return
+                                    
+                            if save_result:
                                 remaining_credits = self.data_store.get_user_credits(user_id)
                                 await query.message.reply_text(
                                     Messages.CONTACT_SAVED.format(remaining_credits)
                                 )
                                 logging.info(f"Successfully saved contact {importer_name} for user {user_id}")
                             else:
-                                await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
+                                await query.message.reply_text("❌ Gagal menyimpan kontak. Silakan coba lagi.")
                         else:
                             await query.message.reply_text(Messages.CONTACT_SAVE_FAILED)
                             logging.warning(f"Failed to save contact {importer_name} for user {user_id}")
