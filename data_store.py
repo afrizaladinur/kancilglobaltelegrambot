@@ -365,11 +365,23 @@ class DataStore:
                 """), {"user_id": user_id, "name": importer['name']}).scalar()
 
                 if exists:
-                    logging.info(f"Contact {importer['name']} already exists for user {user_id}")
-                    raise ValueError("Contact already exists")
+                    logging.error(f"[SAVE] Duplicate contact check - User: {user_id}, Contact: {importer['name']}")
+                    # Log existing contact details
+                    existing_contact = conn.execute(text("""
+                        SELECT * FROM saved_contacts 
+                        WHERE user_id = :user_id AND importer_name = :name
+                    """), {
+                        "user_id": user_id,
+                        "name": importer['name']
+                    }).first()
+                    if existing_contact:
+                        logging.error(f"[SAVE] Existing contact details: {dict(existing_contact)}")
+                    # Return specific error
+                    raise ValueError("duplicate_contact")
 
                 # Finally, save contact and update credits atomically
                 try:
+                    logging.info(f"[SAVE] Attempting to save new contact - User: {user_id}, Contact: {importer['name']}")
                     # Log the transaction start
                     logging.info(f"[SAVE] Starting transaction for user {user_id}")
                     
