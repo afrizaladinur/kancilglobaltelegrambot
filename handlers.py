@@ -895,19 +895,23 @@ Pilih kategori produk:"""
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
 
                 elif query.data == "folder_seafood":
-                    folder_text = """🌊 *Produk Laut*
+                    try:
+                        folder_text = """🌊 *Produk Laut*
 
 Pilih sub-kategori:"""
-                    keyboard = [
-                        [InlineKeyboardButton("🐟 Ikan", callback_data="menu_seafood")],
-                        [InlineKeyboardButton("🐠 Anchovy", callback_data="search_anchovy")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
-                    ]
-                    await query.message.reply_text(
-                        folder_text,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                        keyboard = [
+                            [InlineKeyboardButton("🐟 Ikan", callback_data="menu_seafood")],
+                            [InlineKeyboardButton("🐠 Anchovy", callback_data="search_anchovy")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
+                        ]
+                        await query.message.reply_text(
+                            folder_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logging.error(f"Error in folder_seafood handler: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
                     
                 elif query.data == "folder_agriculture":
                     folder_text = """🌿 *Produk Agrikultur*
