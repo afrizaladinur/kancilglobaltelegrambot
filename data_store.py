@@ -273,7 +273,7 @@ class DataStore:
                     role as product_description,
                     1 as match_type
                 FROM importers
-                WHERE {' OR '.join(conditions)}
+                WHERE {' AND '.join(conditions)}
             )
             SELECT 
                 name, country, contact, website, email,
