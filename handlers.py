@@ -283,7 +283,7 @@ class CommandHandler:
                     )
                 elif query.data == "show_saved":
                     user_id = query.from_user.id
-                    page = context.user_data.get('show_saved_page', 0)
+                    page = 0  # Always start from first page
                     items_per_page = 2
 
                     with app.app_context():
@@ -294,10 +294,17 @@ class CommandHandler:
                         await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
                         return
 
+                    # Store contacts and page in context
+                    context.user_data['saved_contacts'] = saved_contacts
+                    context.user_data['saved_page'] = page
+
                     total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
                     start_idx = page * items_per_page
                     end_idx = start_idx + items_per_page
                     current_contacts = saved_contacts[start_idx:end_idx]
+
+                    # Initialize list to store new message IDs
+                    new_messages = []
 
                     for contact in current_contacts:
                         try:
@@ -321,6 +328,9 @@ class CommandHandler:
                             logging.error(f"Error formatting contact {contact.get('name')}: {str(e)}", exc_info=True)
                             continue
 
+                    # Store message IDs for later deletion
+                    context.user_data['current_saved_messages'] = new_messages
+
                     # Add pagination buttons
                     pagination_buttons = []
                     if page > 0:
@@ -333,10 +343,12 @@ class CommandHandler:
                         [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
-                    await query.message.reply_text(
+                    sent_msg = await query.message.reply_text(
                         f"Halaman {page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
                     )
+                    new_messages.append(sent_msg.message_id)
+                    context.user_data['current_saved_messages'] = new_messages
                 elif query.data == "export_contacts":
                     try:
                         user_id = query.from_user.id
@@ -804,27 +816,39 @@ Pilih kategori produk:"""
                     user_id = query.from_user.id
                     items_per_page = 2
 
-                    with app.app_context():
-                        saved_contacts = self.data_store.get_saved_contacts(user_id)
+                    # Delete current page messages
+                    try:
+                        current_messages = context.user_data.get('current_saved_messages', [])
+                        for msg_id in current_messages:
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=msg_id
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message {msg_id}: {str(e)}")
+                    except Exception as e:
+                        logging.error(f"Error deleting messages: {str(e)}")
 
+                    saved_contacts = context.user_data.get('saved_contacts', [])
                     if not saved_contacts:
                         await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
                         return
 
                     total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
-                    current_page = context.user_data.get('show_saved_page', 0)
+                    current_page = context.user_data.get('saved_page', 0)
 
                     if query.data == "show_saved_prev":
                         current_page = max(0, current_page - 1)
                     else:
                         current_page = min(total_pages - 1, current_page + 1)
 
-                    context.user_data['show_saved_page'] = current_page
+                    context.user_data['saved_page'] = current_page
                     start_idx = current_page * items_per_page
                     end_idx = min(start_idx + items_per_page, len(saved_contacts))
                     current_contacts = saved_contacts[start_idx:end_idx]
 
-                    new_messages = [] # added
+                    new_messages = []
                     for contact in current_contacts:
                         message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
                         keyboard = []
@@ -833,12 +857,12 @@ Pilih kategori produk:"""
                                 "💬 Chat di WhatsApp",
                                 url=f"https://wa.me/{whatsapp_number}"
                             )])
-                        sent_msg = await query.message.reply_text( # changed
+                        sent_msg = await query.message.reply_text(
                             message_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                         )
-                        new_messages.append(sent_msg.message_id) # added
+                        new_messages.append(sent_msg.message_id)
 
                     # Add pagination buttons
                     pagination_buttons = []
