@@ -113,6 +113,46 @@ class CommandHandler:
             logging.error(f"Error giving credits: {str(e)}")
             return False
 
+    async def fulfill_order(self, order_id: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """Helper method to fulfill an order"""
+        try:
+            with app.app_context():
+                with self.engine.begin() as conn:
+                    # Get order details
+                    order = conn.execute(text("""
+                        SELECT order_id, user_id, credits, status 
+                        FROM credit_orders 
+                        WHERE order_id = :order_id
+                    """), {"order_id": order_id}).first()
+
+                    if not order:
+                        return False
+
+                    if order.status != 'pending':
+                        return False
+
+                    # Update user credits
+                    conn.execute(text("""
+                        UPDATE credit_orders 
+                        SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP 
+                        WHERE order_id = :order_id
+                    """), {"order_id": order_id})
+
+                    # Add credits to user
+                    success = self.data_store.add_credits(order.user_id, order.credits)
+
+                    if success:
+                        # Notify user
+                        await context.bot.send_message(
+                            chat_id=order.user_id,
+                            text=f"✅ {order.credits} kredit telah ditambahkan ke akun Anda!"
+                        )
+                    return success
+
+        except Exception as e:
+            logging.error(f"Error fulfilling order: {str(e)}", exc_info=True)
+            return False
+
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
         query = update.callback_query
@@ -122,7 +162,146 @@ class CommandHandler:
         await query.answer()
 
         try:
-            if query.data == "back_to_main":
+            if query.data.startswith("folder_"):
+                try:
+                    category = query.data.split("_")[1]
+                    logging.info(f"Processing category: {category} for user {user_id}")
+
+                    # Delete current message
+                    await query.message.delete()
+
+                    if category == "seafood":
+                        sql = text("""
+                            SELECT id, name as company, name as contact_name, email_1 as email, phone, product, country 
+                            FROM importers 
+                            WHERE product ILIKE ANY (ARRAY['%0301%', '%0302%', '%0303%', '%0304%', '%0305%', '%anchovy%'])
+                            LIMIT 5
+                        """)
+                        logging.debug(f"Executing seafood query")
+                    elif category == "agriculture":
+                        sql = text("""
+                            SELECT id, name as company, name as contact_name, email_1 as email, phone, product, country 
+                            FROM importers 
+                            WHERE product ILIKE ANY (ARRAY['%0901%', '%1513%', '%coconut oil%'])
+                            LIMIT 5
+                        """)
+                        logging.debug(f"Executing agriculture query")
+                    elif category == "processed":
+                        sql = text("""
+                            SELECT id, name as company, name as contact_name, email_1 as email, phone, product, country 
+                            FROM importers 
+                            WHERE product ILIKE '%44029010%'
+                            LIMIT 5
+                        """)
+                        logging.debug(f"Executing processed query")
+                    else:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Kategori tidak valid"
+                        )
+                        return
+
+                    try:
+                        with app.app_context():
+                            with self.engine.connect() as conn:
+                                logging.debug(f"Executing query for category: {category}")
+                                result = conn.execute(sql)
+                                importers = result.mappings().all()
+                                logging.info(f"Found {len(importers)} importers for category {category}")
+
+                                if not importers:
+                                    await context.bot.send_message(
+                                        chat_id=chat_id,
+                                        text="Tidak ada kontak ditemukan untuk kategori ini."
+                                    )
+                                    return
+
+                                for importer in importers:
+                                    importer_dict = dict(importer)
+                                    message_text = (
+                                        f"*{importer_dict['company']}*\n"
+                                        f"📞 Contact: {importer_dict['contact_name']}\n"
+                                        f"📧 Email: {importer_dict['email']}\n"
+                                        f"📱 Phone: {importer_dict['phone']}\n"
+                                        f"🏭 Product: {importer_dict['product']}\n"
+                                        f"🌏 Country: {importer_dict['country']}\n"
+                                    )
+
+                                    keyboard = []
+                                    if importer_dict['phone']:
+                                        phone = str(importer_dict['phone']).replace('+', '').replace(' ', '')
+                                        keyboard.append([InlineKeyboardButton(
+                                            "💬 Chat di WhatsApp",
+                                            url=f"https://wa.me/{phone}"
+                                        )])
+
+                                    keyboard.append([InlineKeyboardButton(
+                                        "💾 Simpan Kontak",
+                                        callback_data=f"save_{importer_dict['id']}"
+                                    )])
+
+                                    await context.bot.send_message(
+                                        chat_id=chat_id,
+                                        text=message_text,
+                                        parse_mode='Markdown',
+                                        reply_markup=InlineKeyboardMarkup(keyboard)
+                                    )
+
+                                nav_buttons = [[
+                                    InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts")
+                                ]]
+
+                                await context.bot.send_message(
+                                    chat_id=chat_id,
+                                    text="Gunakan tombol di bawah untuk navigasi:",
+                                    reply_markup=InlineKeyboardMarkup(nav_buttons)
+                                )
+
+                    except Exception as e:
+                        logging.error(f"Database error in folder_{category}: {str(e)}", exc_info=True)
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Terjadi kesalahan teknis. Silakan coba lagi."
+                        )
+                        return
+                except Exception as e:
+                    logging.error(f"Error in folder callback: {str(e)}", exc_info=True)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Terjadi kesalahan. Silakan coba lagi."
+                    )
+
+            elif query.data.startswith("fulfill_"):
+                try:
+                    if query.from_user.id not in [6422072438]:  # Admin check
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="⛔️ You are not authorized for this action."
+                        )
+                        return
+
+                    order_id = query.data.split("_")[1]
+                    success = await self.fulfill_order(order_id, context)
+
+                    if success:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=f"✅ Order {order_id} fulfilled successfully"
+                        )
+                    else:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="❌ Failed to fulfill order. Please check order status."
+                        )
+
+                except Exception as e:
+                    logging.error(f"Error in fulfill order callback: {str(e)}", exc_info=True)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="❌ An error occurred while fulfilling the order"
+                    )
+
+            elif query.data == "back_to_main":
                 # Delete current message and show main menu
                 await query.message.delete()
                 keyboard = [
@@ -382,86 +561,20 @@ class CommandHandler:
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
 
-            elif query.data.startswith("folder_"):
+            elif query.data.startswith("save_"):
                 try:
-                    category = query.data.split("_")[1]
-
-                    # Delete current message
-                    await query.message.delete()
-
+                    importer_id = int(query.data.split("_")[1])
                     with app.app_context():
-                        if category == "seafood":
-                            where_clause = "LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'"
-                        elif category == "agriculture":
-                            where_clause = "LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'"
-                        elif category == "processed":
-                            where_clause = "LOWER(product) LIKE '%44029010%'"
-                        else:
-                            await context.bot.send_message(
-                                chat_id=chat_id,
-                                text="Kategori tidak valid"
-                            )
-                            return
-
-                        with self.engine.connect() as conn:
-                            importers = conn.execute(text(f"""
-                                SELECT * FROM importers 
-                                WHERE {where_clause}
-                                LIMIT 5
-                            """)).fetchall()
-
-                        if not importers:
-                            await context.bot.send_message(
-                                chat_id=chat_id,
-                                text="Tidak ada kontak ditemukan untuk kategori ini."
-                            )
-                            return
-
-                        for row in importers:
-                            importer = dict(row._mapping)
-                            message_text = f"*{importer['company']}*\n"
-                            message_text += f"📞 Contact: {importer['contact_name']}\n"
-                            message_text += f"📧 Email: {importer['email']}\n"
-                            message_text += f"📱 Phone: {importer['phone']}\n"
-                            message_text += f"🏭 Product: {importer['product']}\n"
-                            message_text += f"🌏 Country: {importer['country']}\n"
-
-                            keyboard = []
-                            if importer['phone']:
-                                phone = str(importer['phone']).replace('+', '').replace(' ', '')
-                                keyboard.append([InlineKeyboardButton(
-                                    "💬 Chat di WhatsApp",
-                                    url=f"https://wa.me/{phone}"
-                                )])
-
-                            keyboard.append([InlineKeyboardButton(
-                                "💾 Simpan Kontak",
-                                callback_data=f"save_{importer['id']}"
-                            )])
-
-                            await context.bot.send_message(
-                                chat_id=chat_id,
-                                text=message_text,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                            )
-
-                        # Add navigation buttons
-                        nav_buttons = [[
-                            InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts")
-                        ]]
-
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text="Gunakan tombol di bawah untuk navigasi:",
-                            reply_markup=InlineKeyboardMarkup(nav_buttons)
-                        )
-
-                except Exception as e:
-                    logging.error(f"Error in folder callback: {str(e)}", exc_info=True)
+                        self.data_store.save_contact(user_id, importer_id)
                     await context.bot.send_message(
                         chat_id=chat_id,
-                        text=Messages.ERROR_MESSAGE
+                        text="Kontak berhasil disimpan!"
+                    )
+                except Exception as e:
+                    logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Gagal menyimpan kontak. Silakan coba lagi."
                     )
 
             elif query.data == "export_contacts":
@@ -525,56 +638,6 @@ class CommandHandler:
                         chat_id=chat_id,
                         text="❌ Failed to export orders"
                     )
-
-            elif query.data.startswith("fulfill_"):
-                try:
-                    if query.from_user.id not in [6422072438]:  # Admin check
-                        await query.message.reply_text("⛔️ You are not authorized for this action.")
-                        return
-
-                    order_id = query.data.split("_")[1]
-                    with self.engine.begin() as conn:
-                        # Get order details
-                        order = conn.execute(text("""
-                            SELECT order_id, user_id, credits, status FROM credit_orders 
-                            WHERE order_id = :order_id
-                        """), {"order_id": order_id}).first()
-
-                    if not order:
-                        await query.message.reply_text("❌ Order not found")
-                        return
-
-                    if order.status != 'pending':
-                        await query.message.reply_text(f"❌ Order {order_id} is already {order.status}")
-                        return
-
-                    # Add credits to user
-                    with self.engine.begin() as conn:
-                        if self.data_store.add_credits(order.user_id, order.credits):
-                            # Update order status
-                            conn.execute(text("""
-                                UPDATE credit_orders 
-                                SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP 
-                                WHERE order_id = :order_id
-                            """), {"order_id": order_id})
-
-                            # Notify user
-                            await context.bot.send_message(
-                                chat_id=order.user_id,
-                                text=f"✅ {order.credits} kredit telah ditambahkan ke akun Anda!"
-                            )
-
-                            # Notify admin
-                            await query.message.reply_text(
-                                f"✅ Order {order_id} fulfilled successfully\n"
-                                f"Added {order.credits} credits to user {order.user_id}"
-                            )
-                        else:
-                            await query.message.reply_text("❌ Failed to add credits")
-
-                except Exception as e:
-                    logging.error(f"Error fulfilling order: {str(e)}")
-                    await query.message.reply_text("❌ An error occurred while fulfilling the order")
 
             elif query.data.startswith("give_"):
                 try:
@@ -728,7 +791,7 @@ class CommandHandler:
                 [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
             ]
 
-            await update.message.reply_text(
+            await update.message.message.reply_text(
                 header_text,
                 parse_mode='Markdown',
                 reply_markup=InlineKeyboardMarkup(keyboard)
