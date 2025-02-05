@@ -419,9 +419,17 @@ class CommandHandler:
                     with self.engine.begin() as conn:
                         # Get order details
                         order = conn.execute(text("""
-                            SELECT user_id, credits FROM credit_orders 
-                            WHERE order_id = :order_id AND status = 'pending'
+                            SELECT order_id, user_id, credits, status FROM credit_orders 
+                            WHERE order_id = :order_id
                         """), {"order_id": order_id}).first()
+
+                    if not order:
+                        await query.message.reply_text("❌ Order not found")
+                        return
+                        
+                    if order.status != 'pending':
+                        await query.message.reply_text(f"❌ Order {order_id} is already {order.status}")
+                        return
 
                         if not order:
                             await query.message.reply_text("❌ Order not found or already fulfilled")
