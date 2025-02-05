@@ -412,7 +412,17 @@ class DataStore:
 
                 if result.rowcount > 0:
                     try:
-                        if True:
+                        # Check if contact already exists to avoid duplicate credit deduction
+                        check_existing_sql = """
+                        SELECT id FROM saved_contacts 
+                        WHERE user_id = :user_id AND LOWER(TRIM(importer_name)) = LOWER(TRIM(:name))
+                        """
+                        existing = conn.execute(
+                            text(check_existing_sql),
+                            {"user_id": user_id, "name": importer['name']}
+                        ).scalar()
+
+                        if not existing:
                             # Only deduct if contact wasn't already saved
                             update_credits_sql = """
                             UPDATE user_credits 
