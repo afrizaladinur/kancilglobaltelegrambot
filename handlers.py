@@ -536,7 +536,7 @@ class CommandHandler:
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="trigger_credits"),
                          InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
@@ -674,19 +674,8 @@ class CommandHandler:
 
                     # Store new message IDs for next pagination
                     context.user_data['current_page_messages'] = new_messages
-                elif query.data == "show_credits":
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        self.data_store.track_user_command(user_id, 'credits')
-                        credits = self.data_store.get_user_credits(user_id)
-                    keyboard = [
-                        [InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                    ]
-                    await query.message.reply_text(
-                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                elif query.data == "trigger_credits":
+                    await self.credits(update, context)
                 
                 elif query.data.startswith('pay_'):
                     try:
