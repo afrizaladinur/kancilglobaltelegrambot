@@ -2,6 +2,9 @@ import os
 
 # Telegram Bot Configuration
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_DEV_TOKEN = os.getenv('TELEGRAM_TOKEN_DEV')
+IS_DEVELOPMENT = os.getenv('ENVIRONMENT', 'production') == 'development'
+BOT_TOKEN = TELEGRAM_DEV_TOKEN if IS_DEVELOPMENT else TELEGRAM_TOKEN
 
 # PostgreSQL Configuration is handled via DATABASE_URL environment variable
 

@@ -1,6 +1,6 @@
 import logging
 from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
-from config import TELEGRAM_TOKEN
+from config import BOT_TOKEN
 from handlers import CommandHandler
 from telegram.ext import filters, MessageHandler
 from telegram import BotCommand
@@ -13,7 +13,7 @@ BOT_INFO = {
 class TelegramBot:
     def __init__(self):
         self.command_handler = CommandHandler()
-        self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        self.application = ApplicationBuilder().token(BOT_TOKEN).build()
         self._register_handlers()
         logging.info("Bot initialized")
 
