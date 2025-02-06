@@ -21,16 +21,16 @@ async def run_bot():
         logger.info("Starting bot...")
         await application.initialize()
         await application.start()
-        await application.updater.start_polling(drop_pending_updates=True)
+        await application.updater.start_polling()
 
         try:
-            await application.updater.stop_on_signal()
-        except Exception as e:
-            logger.error(f"Error in bot polling: {str(e)}")
+            # Keep the bot running
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Bot stopped")
         finally:
-            logger.info("Stopping bot...")
             await application.stop()
-            await application.shutdown()
 
     except Exception as e:
         logger.error(f"Error running bot: {str(e)}", exc_info=True)

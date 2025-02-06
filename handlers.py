@@ -65,7 +65,8 @@ class CommandHandler:
             keyboard = [
                 [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                [InlineKeyboardButton("💳 Kredit & Pembelian", callback_data="show_credits")],
+                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                 InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                 community_button,
                 [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
@@ -680,14 +681,11 @@ class CommandHandler:
                         self.data_store.track_user_command(user_id, 'credits')
                         credits = self.data_store.get_user_credits(user_id)
                     keyboard = [
-                        [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
+                        [InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
                     await query.message.reply_text(
-                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n💰 *Paket Kredit:*\n- 75 kredit: Rp 150.000\n- 150 kredit: Rp 300.000\n- 250 kredit: Rp 399.000",
-                        parse_mode='Markdown',
+                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 elif query.data == "buy_credits":
@@ -714,7 +712,7 @@ class CommandHandler:
                                 INSERT INTO credit_orders (order_id, user_id, credits, amount, status)
                                 VALUES (:order_id, :user_id, :credits, :amount, 'pending')
                             """), {
-                                "orderid": order_id,
+                                "order_id": order_id,
                                 "user_id": user_id,
                                 "credits": int(credits),
                                 "amount": int(amount)
