@@ -443,14 +443,67 @@ class CommandHandler:
                             )
                             return
 
-                        for row in importers:
+                        items_per_page = 2
+                        total_pages = (len(result) + items_per_page - 1) // items_per_page
+                        current_page = 0
+                        start_idx = current_page * items_per_page
+                        end_idx = min(start_idx + items_per_page, len(result))
+                        current_contacts = result[start_idx:end_idx]
+
+                        # Delete previous messages if they exist
+                        if query.message:
+                            await query.message.delete()
+
+                        for row in current_contacts:
                             importer = dict(row._mapping)
-                            message_text = f"*{importer['company']}*\n"
-                            message_text += f"📞 Contact: {importer['contact_name']}\n"
-                            message_text += f"📧 Email: {importer['email']}\n"
-                            message_text += f"📱 Phone: {importer['phone']}\n"
-                            message_text += f"🏭 Product: {importer['product']}\n"
-                            message_text += f"🌏 Country: {importer['country']}\n"
+                            name = Messages._censor_contact(importer.get('name', ''), 'name')
+                            email = Messages._censor_contact(importer.get('email_1', ''), 'email')
+                            phone = Messages._censor_contact(importer.get('contact', ''), 'phone')
+                            website = Messages._censor_contact(importer.get('website', ''), 'website')
+                            wa_status = "✅ Tersedia" if importer.get('wa_availability') == 'Available' else "❌ Tidak Tersedia"
+
+                            message_text = (
+                                f"🏢 {name}\n"
+                                f"🌏 Negara: {importer.get('country', 'N/A')}\n"
+                                f"📦 Kode HS/Product: {importer.get('product', 'N/A')}\n"
+                                f"📱 Kontak: {phone}\n"
+                                f"📧 Email: {email}\n"
+                                f"🌐 Website: {website}\n"
+                                f"📱 WhatsApp: {wa_status}\n\n"
+                                f"💾 Belum tersimpan\n\n"
+                                f"💳 Biaya kredit yang diperlukan:\n"
+                                f"1 kredit - Kontak tidak lengkap tanpa WhatsApp\n\n"
+                                f"💡 Simpan kontak untuk melihat informasi lengkap"
+                            )
+
+                            keyboard = []
+                            save_button = [[InlineKeyboardButton(
+                                "💾 Simpan Kontak",
+                                callback_data=f"save_{importer['id']}"
+                            )]]
+
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text=message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(save_button)
+                            )
+
+                        # Add navigation buttons
+                        nav_buttons = []
+                        if total_pages > 1:
+                            if current_page > 0:
+                                nav_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"folder_prev_{category}_{current_page}"))
+                            if current_page < total_pages - 1:
+                                nav_buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"folder_next_{category}_{current_page}"))
+                        
+                        nav_buttons.append(InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts"))
+                        
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=f"Halaman {current_page + 1} dari {total_pages}",
+                            reply_markup=InlineKeyboardMarkup([nav_buttons])
+                        )
 
                             keyboard = []
                             if importer['phone']:
