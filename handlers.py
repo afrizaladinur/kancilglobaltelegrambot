@@ -1489,7 +1489,7 @@ class CommandHandler:
                         user_id = query.from_user.id
                         with app.app_context():
                             self.data_store.track_user_command(user_id, 'help')
-                        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main)]]
+                        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                         await query.message.edit_text(
                             Messages.HELP,
                             parse_mode='Markdown',
