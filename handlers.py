@@ -726,7 +726,7 @@ class CommandHandler:
                             f"*Metode Pembayaran:*\n\n"
                             f"1️⃣ *Transfer BCA*\n"
                             f"Nama: Nanda Amalia\n"
-                            f"No. Rek: `4452385892`\n"
+                            f"No. Rek:`: `4452385892`\n"
                             f"Kode Bank: 014\n\n"
                             f"2️⃣ *Transfer Jenius/SMBC*\n"
                             f"Nama: Nanda Amalia\n"
