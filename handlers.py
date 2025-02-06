@@ -389,7 +389,7 @@ class CommandHandler:
                     # Delete current message
                     await query.message.delete()
 
-                    with app.app_context():
+                    with self.engine.connect() as conn:
                         if category == "seafood":
                             where_clause = "LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'"
                         elif category == "agriculture":
@@ -403,12 +403,30 @@ class CommandHandler:
                             )
                             return
 
-                        with self.engine.connect() as conn:
-                            importers = conn.execute(text(f"""
-                                SELECT * FROM importers 
-                                WHERE {where_clause}
-                                LIMIT 5
-                            """)).fetchall()
+                        result = conn.execute(text(f"""
+                            SELECT id, name, country, phone, website, email_1, product, role 
+                            FROM importers 
+                            WHERE {where_clause}
+                            LIMIT 5
+                        """)).fetchall()
+
+                        if not result:
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text="Tidak ada kontak ditemukan untuk kategori ini."
+                            )
+                            return
+
+                        for row in result:
+                            message_text = (
+                                f"*{row.name}*\n"
+                                f"📍 {row.country}\n"
+                                f"📞 {row.phone or 'N/A'}\n"
+                                f"🌐 {row.website or 'N/A'}\n"
+                                f"📧 {row.email_1 or 'N/A'}\n"
+                                f"📦 {row.product}\n"
+                                f"💼 {row.role}"
+                            )
 
                         if not importers:
                             await context.bot.send_message(
@@ -533,20 +551,36 @@ class CommandHandler:
                         return
 
                     order_id = query.data.split("_")[1]
+                    
                     with self.engine.begin() as conn:
-                        # Get order details
+                        # Get order details and update status atomically
                         order = conn.execute(text("""
-                            SELECT order_id, user_id, credits, status FROM credit_orders 
-                            WHERE order_id = :order_id
+                            UPDATE credit_orders 
+                            SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP
+                            WHERE order_id = :order_id AND status = 'pending'
+                            RETURNING order_id, user_id, credits, status
                         """), {"order_id": order_id}).first()
 
-                    if not order:
-                        await query.message.reply_text("❌ Order not found")
-                        return
+                        if not order:
+                            await query.message.reply_text("❌ Order not found or already fulfilled")
+                            return
 
-                    if order.status != 'pending':
-                        await query.message.reply_text(f"❌ Order {order_id} is already {order.status}")
-                        return
+                        # Add credits
+                        if self.data_store.add_credits(order.user_id, order.credits):
+                            # Notify user
+                            await context.bot.send_message(
+                                chat_id=order.user_id,
+                                text=f"✅ {order.credits} kredit telah ditambahkan ke akun Anda!"
+                            )
+                            
+                            # Update message buttons
+                            await query.edit_message_reply_markup(
+                                reply_markup=InlineKeyboardMarkup([[
+                                    InlineKeyboardButton("✅ Credits Added", callback_data="noop")
+                                ]])
+                            )
+                        else:
+                            await query.message.reply_text("❌ Failed to add credits")
 
                     # Add credits to user
                     with self.engine.begin() as conn:
@@ -588,18 +622,45 @@ class CommandHandler:
                         )
                         return
 
-                    success = await self.give_credits_helper(int(user_id_to_credit), int(credits), context)
+                    # Update order status first
+                    with self.engine.begin() as conn:
+                        order = conn.execute(text("""
+                            UPDATE credit_orders 
+                            SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP
+                            WHERE user_id = :user_id AND credits = :credits AND status = 'pending'
+                            RETURNING order_id
+                        """), {
+                            "user_id": int(user_id_to_credit),
+                            "credits": int(credits)
+                        }).first()
 
-                    if success:
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text=f"✅ Successfully added {credits} credits to user {user_id_to_credit}"
-                        )
-                    else:
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text="❌ Failed to add credits"
-                        )
+                        if not order:
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text="❌ Order already fulfilled or not found"
+                            )
+                            return
+
+                        # Add credits
+                        if self.data_store.add_credits(int(user_id_to_credit), int(credits)):
+                            # Update button to show credits added
+                            await query.edit_message_reply_markup(
+                                reply_markup=InlineKeyboardMarkup([[
+                                    InlineKeyboardButton("✅ Credits Added", callback_data="noop")
+                                ]])
+                            )
+                            
+                            # Notify user
+                            current_credits = self.data_store.get_user_credits(int(user_id_to_credit))
+                            await context.bot.send_message(
+                                chat_id=int(user_id_to_credit),
+                                text=f"✅ {credits} kredit telah ditambahkan! Saldo Anda sekarang: {current_credits} kredit"
+                            )
+                        else:
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text="❌ Failed to add credits"
+                            )
 
                 except Exception as e:
                     logging.error(f"Error in give_credits callback: {str(e)}")
