@@ -65,7 +65,7 @@ class CommandHandler:
             keyboard = [
                 [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                [InlineKeyboardButton("💳 Kredit Saya", callback_data="trigger_credits")],
+                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
                 community_button,
                 [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                 [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
@@ -536,7 +536,7 @@ class CommandHandler:
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="trigger_credits")],
+                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
                     ]
@@ -745,7 +745,7 @@ class CommandHandler:
                             await context.bot.send_message(
                                 chat_id=admin_id,
                                 text=admin_message,
-                                parse_mode='Markdown',                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                                parsemode='Markdown',                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
                         logging.info(f"Manual payment order created: {order_id}")
@@ -1488,8 +1488,8 @@ class CommandHandler:
                         with app.app_context():
                             self.data_store.track_user_command(user_id, 'help')
                         keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                        await query.message.edit_text(
-Messages.HELP,
+                        await query.message.edittext(
+                            Messages.HELP,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
