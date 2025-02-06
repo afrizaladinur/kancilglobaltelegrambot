@@ -381,19 +381,19 @@ class DataStore:
 
                         # Check if contact already exists
                         existing = conn.execute(
-                        text("""
-                        SELECT id FROM saved_contacts 
-                        WHERE user_id = :user_id AND importer_name = :name
-                        """),
-                        {"user_id": user_id, "name": importer['name']}
-                    ).first()
+                            text("""
+                            SELECT id FROM saved_contacts 
+                            WHERE user_id = :user_id AND importer_name = :name
+                            """),
+                            {"user_id": user_id, "name": importer['name']}
+                        ).first()
 
                         if existing:
                             logging.warning(f"Contact {importer['name']} already saved by user {user_id}")
                             return False
 
-                    # Insert contact if not exists
-                contact_result = conn.execute(
+                        # Insert contact if not exists
+                        contact_result = conn.execute(
                     text("""
                     INSERT INTO saved_contacts (
                         user_id, importer_name, country, phone, email, 
