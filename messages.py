@@ -165,7 +165,6 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
 Kredit digunakan untuk:
 • Menyimpan kontak importir (1-3 kredit)
 • Mengakses komunitas (5 kredit)
-• Mengunduh data ke CSV (1 kredit)
 
 Biaya kredit per kontak:
 • 3 kredit - Kontak lengkap dengan WhatsApp
