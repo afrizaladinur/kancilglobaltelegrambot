@@ -57,9 +57,12 @@ if __name__ == '__main__':
         raise
     finally:
         # Ensure proper cleanup
-        try:
-            await application.stop()
-            await application.shutdown()
-        except Exception as e:
-            logger.error(f"Error during cleanup: {str(e)}")
-        logger.info("Application shutdown complete")
+        async def cleanup():
+            try:
+                await application.stop()
+                await application.shutdown()
+            except Exception as e:
+                logger.error(f"Error during cleanup: {str(e)}")
+            logger.info("Application shutdown complete")
+            
+        asyncio.run(cleanup())
