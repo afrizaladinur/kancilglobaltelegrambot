@@ -61,6 +61,15 @@ class DataStore:
             );
             """
 
+            create_user_memberships_sql = """
+            CREATE TABLE IF NOT EXISTS user_memberships (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL UNIQUE,
+                is_member BOOLEAN NOT NULL DEFAULT FALSE,
+                last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+
             create_user_credits_sql = """
             DO $$ 
             BEGIN
@@ -91,6 +100,7 @@ class DataStore:
                 conn.execute(text(create_user_stats_sql))
                 conn.execute(text(create_user_credits_sql))
                 conn.execute(text(create_credit_orders_sql))
+                conn.execute(text(create_user_memberships_sql))
                 conn.commit()
                 logging.info("Tables initialized successfully")
         except Exception as e:
