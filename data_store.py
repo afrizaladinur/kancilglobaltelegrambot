@@ -367,8 +367,8 @@ class DataStore:
                 credit_cost = self.calculate_credit_cost(importer)
                 logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
-            with self.engine.begin() as conn:
-                try:
+                with self.engine.begin() as conn:
+                    try:
                     # Check credits
                     current_credits = conn.execute(
                         text("SELECT credits FROM user_credits WHERE user_id = :user_id FOR UPDATE"),
