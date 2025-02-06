@@ -49,16 +49,12 @@ class CommandHandler:
                     credits = 10.0 if not is_admin else 999999.0
                 self.data_store.track_user_command(user_id, 'start')
 
-            # Track group members like admins
-            member_ids = []
+            # Track group members
+            is_member = False
             try:
-                chat = await context.bot.get_chat("@kancilglobalnetwork")
-                admins = await context.bot.get_chat_administrators(chat.id)
-                member_ids = [admin.user.id for admin in admins]
-                
+                # Try to get member status directly
                 chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
-                if chat_member.status in ['member', 'administrator', 'creator']:
-                    member_ids.append(user_id)
+                is_member = chat_member.status in ['member', 'administrator', 'creator']
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
 
