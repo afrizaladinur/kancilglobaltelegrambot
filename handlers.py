@@ -1683,7 +1683,7 @@ Messages.HELP,
             logging.info(f"Credits command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE))
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
             logging.info(f"Credits command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in credits command: {str(e)}", exc_info=True)
