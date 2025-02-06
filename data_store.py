@@ -364,8 +364,8 @@ class DataStore:
         while retries > 0:
             try:
                 logging.info(f"Starting save contact process for user {user_id} (attempts left: {retries})")
-            credit_cost = self.calculate_credit_cost(importer)
-            logging.info(f"Calculated credit cost for contact: {credit_cost}")
+                credit_cost = self.calculate_credit_cost(importer)
+                logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
             with self.engine.begin() as conn:
                 try:
