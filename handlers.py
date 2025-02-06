@@ -695,29 +695,38 @@ class CommandHandler:
                                 "amount": int(amount)
                             })
 
+                        # User payment instructions
                         payment_message = (
                             f"💳 *Detail Pembayaran*\n\n"
                             f"Order ID: `{order_id}`\n"
                             f"Jumlah Kredit: {credits}\n"
                             f"Total: Rp {int(amount):,}\n\n"
-                            f"*Metode Pembayaran:*\n\n"
-                            f"1️⃣ *Transfer BCA*\n"
-                            f"Nama: Nanda Amalia\n"
-                            f"No. Rek:`: `4452385892`\n"
-                            f"Kode Bank: 014\n\n"
-                            f"2️⃣ *Transfer Jenius/SMBC*\n"
-                            f"Nama: Nanda Amalia\n"
-                            f"No. Rek: `90020380969`\n"
-                            f"$cashtag: `$kancilglobalbot`\n\n"
-                            f"Setelah melakukan pembayaran, silakan kirim bukti transfer ke admin."
+                            f"*Cara Pembayaran:*\n\n"
+                            f"1. Pilih salah satu metode pembayaran:\n\n"
+                            f"   *Transfer BCA*\n"
+                            f"   • Nama: Nanda Amalia\n"
+                            f"   • No. Rek: `4452385892`\n"
+                            f"   • Kode Bank: 014\n\n"
+                            f"   *Transfer Jenius/SMBC*\n" 
+                            f"   • Nama: Nanda Amalia\n"
+                            f"   • No. Rek: `90020380969`\n"
+                            f"   • $cashtag: `$kancilglobalbot`\n\n"
+                            f"2. Transfer tepat sejumlah Rp {int(amount):,}\n"
+                            f"3. Simpan bukti transfer\n"
+                            f"4. Kirim bukti transfer ke admin dengan menyertakan Order ID\n"
+                            f"5. Kredit akan ditambahkan setelah verifikasi"
                         )
 
-                        keyboard = [[
-                            InlineKeyboardButton(
-                                "📎 Kirim Bukti Pembayaran",
+                        keyboard = [
+                            [InlineKeyboardButton(
+                                "📎 Kirim Bukti Transfer",
                                 url="https://t.me/afrizaladinur"
-                            )
-                        ]]
+                            )],
+                            [InlineKeyboardButton(
+                                "🔙 Kembali",
+                                callback_data="back_to_main"
+                            )]
+                        ]
 
                         await query.message.reply_text(
                             payment_message,
@@ -732,11 +741,12 @@ class CommandHandler:
                             f"User ID: `{user_id}`\n"
                             f"Username: @{username}\n"
                             f"Jumlah Kredit: {credits}\n"
-                            f"Total: Rp {int(amount):,}"
+                            f"Total: Rp {int(amount):,}\n\n"
+                            f"Status: ⏳ Menunggu Pembayaran"
                         )
 
                         admin_keyboard = [[InlineKeyboardButton(
-                            f"✅ Berikan {credits} Kredit",
+                            f"✅ Verifikasi & Berikan {credits} Kredit",
                             callback_data=f"give_{user_id}_{credits}"
                         )]]
 
@@ -745,16 +755,16 @@ class CommandHandler:
                             await context.bot.send_message(
                                 chat_id=admin_id,
                                 text=admin_message,
-                                parsemode='Markdown',                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
-                        logging.info(f"Manual payment order created: {order_id}")
+                        logging.info(f"Payment order created: {order_id}")
 
                     except Exception as e:
                         logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                         await query.message.reply_text(
-                            "Maaf, terjadi kesalahan dalam memproses pembayaran.\n"
-                            "Admin akan segera menghubungi Anda untuk proses manual."
+                            "Maaf, terjadi kesalahan. Silakan coba lagi atau hubungi admin."
                         )
 
                     except Exception as e:
