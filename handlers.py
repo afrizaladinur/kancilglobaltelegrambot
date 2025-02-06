@@ -155,43 +155,118 @@ class CommandHandler:
 
 
     async def search_contacts(self, query, context: ContextTypes.DEFAULT_TYPE):
-        """Search for contacts with improved context management and result formatting"""
+        """Search for contacts with improved error handling and retries"""
+        max_retries = 3
+        retry_delay = 1  # seconds
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                async with self.engine.begin() as conn:
+                    # Clear any existing search results first
+                    if 'last_search_results' in context.user_data:
+                        context.user_data.pop('last_search_results')
+
+                    # Execute query with proper transaction
+                    result = await conn.execute(query)
+                    rows = await result.fetchall()
+
+                    if not rows:
+                        logging.info(f"No results found for query (attempt {retry_count + 1})")
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        return None
+
+                    # Format results properly before storing in context
+                    formatted_results = []
+                    for row in rows:
+                        try:
+                            formatted_result = {
+                                'name': row.name.strip() if row.name else '',
+                                'email': row.email.strip() if row.email else '',
+                                'contact': row.contact.strip() if row.contact else '',
+                                'website': row.website.strip() if row.website else '',
+                                'country': row.country.strip() if row.country else '',
+                                'wa_available': bool(row.wa_available),
+                                'hs_code': row.product.strip() if row.product else '',
+                                'search_timestamp': datetime.now().isoformat()
+                            }
+                            formatted_results.append(formatted_result)
+                        except Exception as e:
+                            logging.error(f"Error formatting row {row}: {str(e)}")
+                            continue
+
+                    if not formatted_results:
+                        logging.warning("No valid results after formatting")
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        return None
+
+                    # Store formatted results in context with timestamp
+                    context.user_data['last_search_results'] = formatted_results
+                    context.user_data['last_search_timestamp'] = datetime.now().isoformat()
+                    logging.info(f"Stored {len(formatted_results)} formatted results in context")
+
+                    return formatted_results
+
+            except Exception as e:
+                logging.error(f"Error in search_contacts (attempt {retry_count + 1}): {str(e)}", exc_info=True)
+                retry_count += 1
+                if retry_count < max_retries:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                return None
+
+        logging.error(f"Search failed after {max_retries} attempts")
+        return None
+
+    def _construct_search_query(self, search_term: str) -> Optional[str]:
+        """Construct a robust search query with proper error handling"""
         try:
-            async with self.engine.begin() as conn:
-                # Clear any existing search results first
-                context.user_data.clear()
+            base_query = """
+            SELECT DISTINCT ON (name)
+                name, email, contact, website, country, wa_available, product
+            FROM importers
+            WHERE true
+        """
 
-                # Execute query with proper transaction
-                result = await conn.execute(query)
-                rows = await result.fetchall()
+            # Handle different search terms
+            if search_term == "0301":
+                where_clause = "AND LOWER(product) LIKE '%0301%'"
+            elif search_term == "0302":
+                where_clause = "AND LOWER(product) LIKE '%0302%'"
+            elif search_term == "0303":
+                where_clause = "AND LOWER(product) LIKE '%0303%'"
+            elif search_term == "0304":
+                where_clause = "AND LOWER(product) LIKE '%0304%'"
+            elif search_term.lower() == "anchovy":
+                where_clause = "AND LOWER(product) SIMILAR TO '%(anchovy|0305)%'"
+            elif search_term == "0901":
+                where_clause = "AND LOWER(product) LIKE '%0901%'"
+            elif search_term.lower() == "manggis":
+                where_clause = "AND LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'"
+            elif search_term == "44029010":
+                where_clause = "AND LOWER(product) LIKE '%44029010%'"
+            else:
+                where_clause = f"AND LOWER(name) LIKE '%{search_term.lower()}%'"
 
-                if not rows:
-                    logging.info("No results found for query")
-                    return None
 
-                # Format results properly before storing in context
-                formatted_results = []
-                for row in rows:
-                    formatted_result = {
-                        'name': row.name,
-                        'email': row.email,
-                        'contact': row.contact,
-                        'website': row.website,
-                        'country': row.country,
-                        'wa_available': row.wa_available,
-                        'hs_code': row.product,
-                        'search_timestamp': datetime.now().isoformat()
-                    }
-                    formatted_results.append(formatted_result)
+            complete_query = f"""
+            {base_query}
+            {where_clause}
+            ORDER BY name, country
+            LIMIT 50
+        """
 
-                # Store formatted results in context with timestamp
-                context.user_data['last_search_results'] = formatted_results
-                context.user_data['last_search_timestamp'] = datetime.now().isoformat()
-                logging.info(f"Stored {len(formatted_results)} formatted results in context")
+            logging.info(f"Constructed query for term '{search_term}': {complete_query}")
+            return complete_query
 
-                return formatted_results
         except Exception as e:
-            logging.error(f"Error in search_contacts: {str(e)}", exc_info=True)
+            logging.error(f"Error constructing search query: {str(e)}", exc_info=True)
             return None
 
     async def save_contact(self, query: Update, context: ContextTypes.DEFAULT_TYPE, importer_name: str) -> None:
@@ -342,84 +417,110 @@ class CommandHandler:
             )
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle button callbacks with improved error handling and retries"""
         try:
             query = update.callback_query
             await query.answer()
 
-            if query.data.startswith('save_'):
-                # Extract full importer name from callback data
-                importer_name = query.data[5:]  # Remove 'save_' prefix
-                await self.save_contact(query, context, importer_name)
-
-            elif query.data.startswith('search_'):
+            if query.data.startswith('search_'):
                 user_id = query.from_user.id
                 search_term = query.data.replace('search_', '')
-
-                # Log the search attempt
                 logging.info(f"User {user_id} searching for term: {search_term}")
 
-                try:
-                    # Clear previous search data
-                    context.user_data.clear()
+                # Clear existing search data
+                if 'last_search_results' in context.user_data:
+                    context.user_data.pop('last_search_results')
+                if 'search_page' in context.user_data:
+                    context.user_data.pop('search_page')
 
-                    # Construct search query based on term
-                    search_query = self._construct_search_query(search_term)
-                    if not search_query:
-                        await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
-                        return
+                # Construct and execute search with retries
+                max_retries = 3
+                retry_delay = 1
+                retry_count = 0
+                results = None
 
-                    # Perform search with retries
-                    retry_count = 0
-                    max_retries = 3
-                    results = None
-
-                    while retry_count < max_retries and not results:
-                        try:
-                            # Use async_sessionmaker instead of engine.begin()
-                            conn = await self.engine.connect()
-                            try:
-                                result = await conn.execute(text(search_query))
-                                rows = await result.fetchall()
-                                if rows:
-                                    results = []
-                                    for row in rows:
-                                        results.append({
-                                            'name': row.name,
-                                            'email': row.email,
-                                            'contact': row.contact,
-                                            'website': row.website,
-                                            'country': row.country,
-                                            'wa_available': row.wa_available,
-                                            'hs_code': row.product,
-                                            'search_timestamp': datetime.now().isoformat()
-                                        })
-                                    break
-                            finally:
-                                await conn.close()
-                        except Exception as e:
-                            logging.error(f"Search attempt {retry_count + 1} failed: {str(e)}")
+                while retry_count < max_retries:
+                    try:
+                        search_query = self._construct_search_query(search_term)
+                        if not search_query:
+                            logging.error("Failed to construct search query")
                             retry_count += 1
                             if retry_count < max_retries:
-                                await asyncio.sleep(1)
+                                await asyncio.sleep(retry_delay)
+                                continue
+                            await query.message.reply_text("Mohon maaf, terjadi kesalahan. Silakan coba lagi.")
+                            return
 
+                        # Execute search with proper error handling
+                        results = await self.search_contacts(text(search_query), context)
+                        if results and len(results) > 0:
+                            break
+
+                        logging.warning(f"Search attempt {retry_count + 1} returned no results")
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                    except Exception as e:
+                        logging.error(f"Search attempt {retry_count + 1} failed: {str(e)}")
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            await asyncio.sleep(retry_delay)
+                            continue
+
+                if not results:
+                    await query.message.reply_text(
+                        "❌ Maaf, kontak tidak ditemukan. Silakan coba kata kunci lain.",
+                        parse_mode='Markdown'
+                    )
+                    return
+
+                # Store search results and show first page
+                context.user_data['last_search_results'] = results
+                context.user_data['search_page'] = 0
+                await self._show_search_results(query.message, context)
+
+            elif query.data == "prev_page" or query.data == "next_page":
+                try:
+                    results = context.user_data.get('last_search_results', [])
                     if not results:
-                        logging.warning(f"Search failed after {max_retries} attempts")
-                        await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
+                        await query.message.reply_text("❌ Hasil pencarian tidak tersedia. Silakan cari ulang.")
                         return
 
-                    # Store results and reset page
-                    context.user_data['last_search_results'] = results
-                    context.user_data['search_page'] = 0
-                    context.user_data['last_search_query'] = search_query
-                    context.user_data['last_search_timestamp'] = datetime.now().isoformat()
+                    current_page = context.user_data.get('search_page', 0)
+                    if query.data == "prev_page":
+                        current_page = max(0, current_page - 1)
+                    else:
+                        max_page = (len(results) - 1) // 3
+                        current_page = min(max_page, current_page + 1)
 
-                    # Show first page of results
+                    context.user_data['search_page'] = current_page
+
+                    # Delete previous messages if any
+                    if 'current_result_messages' in context.user_data:
+                        for msg_id in context.user_data['current_result_messages']:
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=msg_id
+                                )
+                            except Exception as e:
+                                logging.error(f"Error deleting message: {str(e)}")
+
                     await self._show_search_results(query.message, context)
 
                 except Exception as e:
-                    logging.error(f"Error in search handler: {str(e)}", exc_info=True)
-                    await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
+                    logging.error(f"Error handling pagination: {str(e)}")
+                    await query.message.reply_text(
+                        "❌ Terjadi kesalahan saat menampilkan hasil. Silakan coba lagi.",
+                        parse_mode='Markdown'
+                    )
 
+            # Handle other button callbacks...
+            elif query.data.startswith('save_'):
+                # Extract full importer name from callback data
+                importer_name = query.data[5:]  # Remove 'save_' prefix
+                await self.save_contact(query, context, importer_name)
             elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                 user_id = query.from_user.id
                 items_per_page = 2
@@ -497,7 +598,6 @@ class CommandHandler:
                 )
                 new_messages.append(sent_msg.message_id)
                 context.user_data['current_search_messages'] = new_messages
-
             elif query.data == "show_saved_page_info":
                 await query.answer("Halaman saat ini", show_alert=False)
             elif query.data.startswith('give_'):
@@ -673,10 +773,9 @@ class CommandHandler:
                         )])
                     if manggis_count:
                         keyboard.append([InlineKeyboardButton(
-                            f"🫐 Manggis ({manggis_count} kontak)",
+                            f"🫐 Manggis ({manggiscount} kontak)",
                             callback_data="search_manggis"
                         )])
-                    
 
                     # Add pagination and navigation buttons
                     keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
@@ -835,6 +934,7 @@ class CommandHandler:
                 except Exception as e:
                     logging.error(f"Error getting HS code counts: {str(e)}")
                     await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
+
             elif query.data.startswith('search_'):
                 user_id = query.from_user.id
                 search_term = query.data.replace('search_', '')
@@ -894,7 +994,44 @@ class CommandHandler:
                     context.user_data['last_search_query'] = search_query
 
                     # Show first page of results
-                    await self._show_search_results(query.message, context)
+                    page = 0
+                    items_per_page = 2
+                    total_pages = (len(results) + items_per_page - 1) // items_per_page
+                    start_idx = page * items_per_page
+                    end_idx = start_idx + items_per_page
+                    current_results = results[start_idx:end_idx]
+
+                    for importer in current_results:
+                        message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
+                        # Store the full name as callback data
+                        keyboard = [[InlineKeyboardButton(
+                            "💾 Simpan Kontak",
+                            callback_data=f"save_{importer['name']}"
+                        )]]
+
+                        await update.message.reply_text(
+                            message_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                    # Add navigation buttons
+                    navigation = []
+                    if total_pages > 1:
+                        navigation.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+
+                    back_button = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+
+                    if navigation:
+                        await update.message.reply_text(
+                            f"Halaman {page + 1} dari {total_pages}",
+                            reply_markup=InlineKeyboardMarkup([navigation] + back_button)
+                        )
+                    else:
+                        await update.message.reply_text(
+                            "Gunakan tombol di bawah untuk navigasi",
+                            reply_markup=InlineKeyboardMarkup(back_button)
+                        )
 
                 except Exception as e:
                     logging.error(f"Error in search handler: {str(e)}", exc_info=True)
@@ -1078,7 +1215,10 @@ class CommandHandler:
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
-            await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
+            try:
+                await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
+            except:
+                pass
 
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
@@ -1390,7 +1530,7 @@ class CommandHandler:
 
             # Delete previous messages if they exist
             if 'current_search_messages' in context.user_data:
-                for msg_id in context.user_data['current_search_messages']:
+for msg_id in context.user_data['current_search_messages']:
                     try:
                         await message.bot.delete_message(
                             chat_id=message.chat_id,
@@ -1476,3 +1616,185 @@ Pilih kategori produk:"""
         except Exception as e:
             logging.error(f"Error showing categories: {str(e)}")
             await message.reply_text("Mohon tunggu beberapa saat lagi.")
+
+    async def _show_search_results(self, message, context: ContextTypes.DEFAULT_TYPE):
+        """Display search results with improved error handling"""
+        try:
+            results = context.user_data.get('last_search_results', [])
+            if not results:
+                await message.reply_text(
+                    "❌ Maaf, kontak tidak ditemukan atau terjadi kesalahan. Silakan coba lagi.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            page = context.user_data.get('search_page', 0)
+            items_per_page = 3
+            start_idx = page * items_per_page
+            end_idx = min(start_idx + items_per_page, len(results))
+            current_results = results[start_idx:end_idx]
+
+            if not current_results:
+                await message.reply_text(
+                    "❌ Maaf, tidak ada hasil yang ditemukan pada halaman ini.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Send results with proper formatting
+            for result in current_results:
+                try:
+                    message_text, whatsapp_number, credit_cost = Messages.format_importer(result)
+                    keyboard = []
+                    save_button = [InlineKeyboardButton(
+                        f"💾 Simpan ({credit_cost} kredit)",
+                        callback_data=f"save_{result['name']}"
+                    )]
+                    if whatsapp_number:
+                        keyboard.append([InlineKeyboardButton(
+                            "💬 Chat di WhatsApp",
+                            url=f"https://wa.me/{whatsapp_number}"
+                        )])
+                    keyboard.append(save_button)
+
+                    await message.reply_text(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                except Exception as e:
+                    logging.error(f"Error displaying result {result}: {str(e)}", exc_info=True)
+                    continue
+
+            # Add navigation buttons
+            navigation = []
+            if page > 0:
+                navigation.append(InlineKeyboardButton("⬅️ Sebelumnya", callback_data="prev_page"))
+            if end_idx < len(results):
+                navigation.append(InlineKeyboardButton("Selanjutnya ➡️", callback_data="next_page"))
+
+            footer_buttons = [navigation] if navigation else []
+            footer_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+
+            await message.reply_text(
+                f"Halaman {page + 1} dari {(len(results) + items_per_page - 1) // items_per_page}",
+                reply_markup=InlineKeyboardMarkup(footer_buttons)
+            )
+
+        except Exception as e:
+            logging.error(f"Error in _show_search_results: {str(e)}", exc_info=True)
+            await message.reply_text(
+                "❌ Maaf, terjadi kesalahan saat menampilkan hasil. Silakan coba lagi.",
+                parse_mode='Markdown'
+            )
+
+    async def show_categories(self, message):
+        """Show main categories with contact counts"""
+        try:
+            header_text = """📊 *Kontak Tersedia*
+
+Pilih kategori produk:"""
+
+            async with self.engine.connect() as conn:
+                # Get counts for each category
+                seafood_count = await conn.scalar(text("""
+                    SELECT COUNT(*) FROM importers 
+                    WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
+                """))
+
+                agriculture_count = await conn.scalar(text("""
+                    SELECT COUNT(*) FROM importers 
+                    WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
+                """))
+
+                processed_count = await conn.scalar(text("""
+                    SELECT COUNT(*) FROM importers 
+                    WHERE LOWER(product) LIKE '%44029010%'
+                """))
+
+            keyboard = [
+                [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
+                [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
+                [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+            ]
+
+            await message.reply_text(
+                header_text,
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except Exception as e:
+            logging.error(f"Error showing categories: {str(e)}")
+            await message.reply_text("Mohon tunggu beberapa saat lagi.")
+
+    async def _show_search_results(self, message, context: ContextTypes.DEFAULT_TYPE):
+        """Display search results with improved error handling"""
+        try:
+            results = context.user_data.get('last_search_results', [])
+            if not results:
+                await message.reply_text(
+                    "❌ Maaf, kontak tidak ditemukan atau terjadi kesalahan. Silakan coba lagi.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            page = context.user_data.get('search_page', 0)
+            items_per_page = 3
+            start_idx = page * items_per_page
+            end_idx = min(start_idx + items_per_page, len(results))
+            current_results = results[start_idx:end_idx]
+
+            if not current_results:
+                await message.reply_text(
+                    "❌ Maaf, tidak ada hasil yang ditemukan pada halaman ini.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Send results with proper formatting
+            for result in current_results:
+                try:
+                    message_text, whatsapp_number, credit_cost = Messages.format_importer(result)
+                    keyboard = []
+                    save_button = [InlineKeyboardButton(
+                        f"💾 Simpan ({credit_cost} kredit)",
+                        callback_data=f"save_{result['name']}"
+                    )]
+                    if whatsapp_number:
+                        keyboard.append([InlineKeyboardButton(
+                            "💬 Chat di WhatsApp",
+                            url=f"https://wa.me/{whatsapp_number}"
+                        )])
+                    keyboard.append(save_button)
+
+                    await message.reply_text(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                except Exception as e:
+                    logging.error(f"Error displaying result {result}: {str(e)}", exc_info=True)
+                    continue
+
+            # Add navigation buttons
+            navigation = []
+            if page > 0:
+                navigation.append(InlineKeyboardButton("⬅️ Sebelumnya", callback_data="prev_page"))
+            if end_idx < len(results):
+                navigation.append(InlineKeyboardButton("Selanjutnya ➡️", callback_data="next_page"))
+
+            footer_buttons = [navigation] if navigation else []
+            footer_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+
+            await message.reply_text(
+                f"Halaman {page + 1} dari {(len(results) + items_per_page - 1) // items_per_page}",
+                reply_markup=InlineKeyboardMarkup(footer_buttons)
+            )
+
+        except Exception as e:
+            logging.error(f"Error in _show_search_results: {str(e)}", exc_info=True)
+            await message.reply_text(
+                "❌ Maaf, terjadi kesalahan saat menampilkan hasil. Silakan coba lagi.",
+                parse_mode='Markdown'
+            )
