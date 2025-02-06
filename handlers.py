@@ -52,11 +52,15 @@ class CommandHandler:
             # Track group members
             is_member = False
             try:
-                # Try to get member status directly using group ID
-                chat_member = await context.bot.get_chat_member(chat_id="-1002091744987", user_id=user_id)
+                # Get member status with proper group ID
+                chat = await context.bot.get_chat("@kancilglobalnetwork")
+                chat_member = await context.bot.get_chat_member(chat_id=chat.id, user_id=user_id)
                 is_member = chat_member.status in ['member', 'administrator', 'creator']
+                logging.info(f"Member status for {user_id}: {chat_member.status}")
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
+                # Assume not a member if error occurs
+                is_member = False
             community_button = [InlineKeyboardButton(
                 "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
