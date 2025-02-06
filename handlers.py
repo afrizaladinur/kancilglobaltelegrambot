@@ -382,6 +382,72 @@ class CommandHandler:
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
 
+            elif query.data.startswith("product_"):
+                try:
+                    product = query.data.replace("product_", "")
+                    with self.engine.connect() as conn:
+                        result = conn.execute(text("""
+                            SELECT id, name, country, phone, website, email_1, product, role, wa_availability
+                            FROM importers 
+                            WHERE product = :product
+                            LIMIT 5
+                        """), {"product": product}).fetchall()
+
+                        if not result:
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text="Tidak ada kontak ditemukan untuk produk ini."
+                            )
+                            return
+
+                        for row in result:
+                            name = Messages._censor_contact(row.name, 'name')
+                            email = Messages._censor_contact(row.email_1, 'email')
+                            phone = Messages._censor_contact(row.phone, 'phone')
+                            website = Messages._censor_contact(row.website, 'website')
+                            wa_status = "✅ Tersedia" if row.wa_availability == 'Available' else "❌ Tidak Tersedia"
+
+                            message_text = (
+                                f"🏢 {name}\n"
+                                f"🌏 Negara: {row.country}\n"
+                                f"📦 Kode HS/Product: {row.product}\n"
+                                f"📱 Kontak: {phone}\n"
+                                f"📧 Email: {email}\n"
+                                f"🌐 Website: {website}\n"
+                                f"📱 WhatsApp: {wa_status}\n\n"
+                                f"💾 Belum tersimpan\n\n"
+                                f"💳 Biaya kredit yang diperlukan:\n"
+                                f"1 kredit - Kontak tidak lengkap tanpa WhatsApp\n\n"
+                                f"💡 Simpan kontak untuk melihat informasi lengkap"
+                            )
+
+                            keyboard = [[InlineKeyboardButton(
+                                "💾 Simpan Kontak",
+                                callback_data=f"save_{row.id}"
+                            )]]
+
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text=message_text,
+                                parse_mode='Markdown',
+                                reply_markup=InlineKeyboardMarkup(keyboard)
+                            )
+
+                        # Add back button
+                        back_button = [[InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts")]]
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Gunakan tombol di bawah untuk navigasi:",
+                            reply_markup=InlineKeyboardMarkup(back_button)
+                        )
+
+                except Exception as e:
+                    logging.error(f"Error in product callback: {str(e)}", exc_info=True)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Maaf, terjadi kesalahan teknis."
+                    )
+
             elif query.data.startswith("folder_"):
                 try:
                     category = query.data.split("_")[1]
