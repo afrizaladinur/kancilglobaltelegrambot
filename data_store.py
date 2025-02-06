@@ -375,9 +375,9 @@ class DataStore:
                             {"user_id": user_id}
                         ).scalar()
 
-                    if current_credits is None or current_credits < credit_cost:
-                        logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
-                        return False
+                        if current_credits is None or current_credits < credit_cost:
+                            logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
+                            return False
 
                     # Check if contact already exists
                     existing = conn.execute(
