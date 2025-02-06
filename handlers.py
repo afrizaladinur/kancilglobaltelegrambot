@@ -404,31 +404,39 @@ class CommandHandler:
                             return
 
                         result = conn.execute(text(f"""
-                            SELECT id, name, country, phone, website, email_1, product, role 
+                            SELECT DISTINCT product, role
                             FROM importers 
                             WHERE {where_clause}
-                            LIMIT 5
+                            ORDER BY product
                         """)).fetchall()
 
                         if not result:
                             await context.bot.send_message(
                                 chat_id=chat_id,
-                                text="Tidak ada kontak ditemukan untuk kategori ini."
+                                text="Tidak ada subkategori ditemukan."
                             )
                             return
 
+                        # Group products into subcategories and create buttons
+                        keyboard = []
                         for row in result:
-                            message_text = (
-                                f"*{row.name}*\n"
-                                f"📍 {row.country}\n"
-                                f"📞 {row.phone or 'N/A'}\n"
-                                f"🌐 {row.website or 'N/A'}\n"
-                                f"📧 {row.email_1 or 'N/A'}\n"
-                                f"📦 {row.product}\n"
-                                f"💼 {row.role}"
-                            )
+                            product = row.product or "Uncategorized"
+                            description = row.role or "No description"
+                            keyboard.append([InlineKeyboardButton(
+                                f"📦 {product}",
+                                callback_data=f"product_{product}"
+                            )])
 
-                        if not importers:
+                        # Add back button
+                        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts")])
+
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Pilih subkategori produk:",
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                        if not result:
                             await context.bot.send_message(
                                 chat_id=chat_id,
                                 text="Tidak ada kontak ditemukan untuk kategori ini."
