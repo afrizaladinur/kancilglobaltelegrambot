@@ -50,6 +50,14 @@ agentRequireRestartOnSave = false
 task = "shell.exec"
 args = "python csv_importer.py"
 
+[[workflows.workflow]]
+name = "Dev Bot"
+author = 39314606
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "ENVIRONMENT=development python main.py"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
