@@ -388,58 +388,58 @@ class DataStore:
                         {"user_id": user_id, "name": importer['name']}
                     ).first()
 
-                    if existing:
-                        logging.warning(f"Contact {importer['name']} already saved by user {user_id}")
-                        return False
+                        if existing:
+                            logging.warning(f"Contact {importer['name']} already saved by user {user_id}")
+                            return False
 
                     # Insert contact if not exists
-                    contact_result = conn.execute(
-                        text("""
-                        INSERT INTO saved_contacts (
-                            user_id, importer_name, country, phone, email, 
-                            website, wa_availability, hs_code, product_description
-                        ) VALUES (
-                            :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
-                        )
-                        RETURNING id;
-                        """),
-                        {
-                            "user_id": user_id,
-                            "name": importer['name'],
-                            "country": importer['country'],
-                            "phone": importer['contact'],
-                            "email": importer['email'],
-                            "website": importer['website'],
-                            "wa_available": importer['wa_available'],
-                            "hs_code": importer.get('hs_code', ''),
-                            "product_description": importer.get('product_description', '')
-                        }
+                contact_result = conn.execute(
+                    text("""
+                    INSERT INTO saved_contacts (
+                        user_id, importer_name, country, phone, email, 
+                        website, wa_availability, hs_code, product_description
+                    ) VALUES (
+                        :user_id, :name, :country, :phone, :email,
+                        :website, :wa_available, :hs_code, :product_description
                     )
+                    RETURNING id;
+                    """),
+                    {
+                        "user_id": user_id,
+                        "name": importer['name'],
+                        "country": importer['country'],
+                        "phone": importer['contact'],
+                        "email": importer['email'],
+                        "website": importer['website'],
+                        "wa_available": importer['wa_available'],
+                        "hs_code": importer.get('hs_code', ''),
+                        "product_description": importer.get('product_description', '')
+                    }
+                )
 
-                    if contact_result.rowcount == 0:
-                        logging.error("Failed to insert contact")
-                        return False
+                if contact_result.rowcount == 0:
+                    logging.error("Failed to insert contact")
+                    return False
 
-                    # Deduct credits
-                    credit_result = conn.execute(
-                        text("""
-                        UPDATE user_credits 
-                        SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
-                            last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = :user_id 
-                        RETURNING credits;
-                        """),
-                        {"user_id": user_id, "credit_cost": float(credit_cost)}
-                    )
+                # Deduct credits
+                credit_result = conn.execute(
+                    text("""
+                    UPDATE user_credits 
+                    SET credits = ROUND(CAST(credits - :credit_cost AS NUMERIC), 1),
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE user_id = :user_id 
+                    RETURNING credits;
+                    """),
+                    {"user_id": user_id, "credit_cost": float(credit_cost)}
+                )
 
-                    new_credits = credit_result.scalar()
-                    if new_credits is None:
-                        logging.error("Failed to update credits")
-                        return False
+                new_credits = credit_result.scalar()
+                if new_credits is None:
+                    logging.error("Failed to update credits")
+                    return False
 
-                    logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
-                    return True
+                logging.info(f"Successfully saved contact and deducted {credit_cost} credits. New balance: {new_credits}")
+                return True
 
                 except Exception as tx_error:
                     logging.error(f"Transaction error: {str(tx_error)}", exc_info=True)
