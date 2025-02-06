@@ -16,6 +16,7 @@ class TelegramBot:
     _initialized = False
     _lock = asyncio.Lock()
     _current_application = None
+    _polling_start_time = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -31,29 +32,45 @@ class TelegramBot:
     async def initialize_application(self):
         """Initialize the bot application with proper locking"""
         async with self._lock:
-            if self._current_application:
-                await self.cleanup()
-            self._current_application = ApplicationBuilder().token(BOT_TOKEN).build()
-            self._register_handlers()
-            return self._current_application
+            try:
+                if self._current_application:
+                    await self.cleanup()
+                    await asyncio.sleep(2)  # Wait for cleanup to complete
+
+                self._current_application = ApplicationBuilder().token(BOT_TOKEN).build()
+                self._register_handlers()
+                logging.info("Bot application initialized successfully")
+                return self._current_application
+            except Exception as e:
+                logging.error(f"Error initializing application: {str(e)}")
+                raise
 
     async def cleanup(self):
         """Cleanup bot resources with proper locking"""
         async with self._lock:
             if self._current_application:
                 try:
+                    # Stop polling first
+                    if hasattr(self._current_application, 'updater') and self._current_application.updater.running:
+                        await self._current_application.updater.stop()
+                        logging.info("Polling stopped successfully")
+
+                    # Then stop and shutdown the application
                     await self._current_application.stop()
                     await self._current_application.shutdown()
                     self._current_application = None
-                    logging.info("Bot resources cleaned up")
+                    self._polling_start_time = None
+                    logging.info("Bot resources cleaned up successfully")
                 except Exception as e:
                     logging.error(f"Error during cleanup: {str(e)}")
+                    raise
 
     async def setup(self):
         """Async setup operations with proper initialization"""
         try:
             self.application = await self.initialize_application()
             await self._set_commands()
+            self._polling_start_time = asyncio.get_event_loop().time()
             logging.info("Bot setup completed successfully")
         except Exception as e:
             logging.error(f"Error in setup: {str(e)}")
@@ -62,10 +79,10 @@ class TelegramBot:
 
     async def _set_commands(self):
         """Set bot commands with descriptions"""
-        try:
-            if not self._current_application:
-                raise RuntimeError("Bot application not initialized")
+        if not self._current_application:
+            raise RuntimeError("Bot application not initialized")
 
+        try:
             # First, delete all existing commands
             await self._current_application.bot.delete_my_commands()
 
@@ -83,10 +100,10 @@ class TelegramBot:
 
     def _register_handlers(self):
         """Register command handlers"""
-        try:
-            if not self._current_application:
-                raise RuntimeError("Bot application not initialized")
+        if not self._current_application:
+            raise RuntimeError("Bot application not initialized")
 
+        try:
             # Register handlers
             self._current_application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
             self._current_application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))

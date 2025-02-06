@@ -17,6 +17,7 @@ class CommandHandler:
         self.data_store = DataStore()
         self.engine = self.data_store.engine
         logging.info("CommandHandler initialized")
+        self._last_save_time = {} # Initialize _last_save_time here
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -154,31 +155,35 @@ class CommandHandler:
 
 
     async def save_contact(self, query: Update, context: ContextTypes.DEFAULT_TYPE, importer_name: str) -> None:
-        """Handle saving a contact"""
+        """Handle saving a contact with rate limiting and improved error handling"""
         try:
-            logging.info(f"Starting save_contact process for user {query.from_user.id}")
+            user_id = query.from_user.id
+
+            # Add rate limiting check
+            if hasattr(self, '_last_save_time') and self._last_save_time.get(user_id):
+                time_diff = time.time() - self._last_save_time[user_id]
+                if time_diff < 3:  # 3 seconds cooldown
+                    await query.message.reply_text(
+                        "⚠️ Mohon tunggu beberapa detik sebelum menyimpan kontak lagi."
+                    )
+                    return
+
+            logging.info(f"Starting save_contact process for user {user_id}")
             logging.info(f"Attempting to save contact for importer: {importer_name}")
 
             # Get the user's last search results from context
             last_results = context.user_data.get('last_search_results', [])
 
-            # Log the context data for debugging
-            logging.info(f"Context user_data keys: {context.user_data.keys()}")
-            logging.info(f"Number of results in context: {len(last_results)}")
-
             if not last_results:
                 logging.error("No search results found in context")
-                logging.debug(f"Full context user_data: {context.user_data}")
                 await query.message.reply_text(
-                    "Kontak tidak ditemukan. Silakan coba cari kembali.\n"
-                    "Lakukan pencarian ulang terlebih dahulu."
+                    "Kontak tidak ditemukan. Silakan lakukan pencarian ulang terlebih dahulu."
                 )
                 return
 
-            # Find the matching importer
+            # Find the matching importer with improved matching logic
             importer = None
             logging.info(f"Looking for importer: {importer_name}")
-            logging.info(f"Available results: {[r.get('name', '') for r in last_results]}")
 
             # Try exact match first
             for result in last_results:
@@ -203,25 +208,15 @@ class CommandHandler:
                 )
                 return
 
-            # Validate importer data before saving
-            required_fields = ['name', 'country']
-            missing_fields = [field for field in required_fields if not importer.get(field)]
-
-            if missing_fields:
-                logging.error(f"Missing required fields in importer data: {missing_fields}")
-                await query.message.reply_text(
-                    "Terjadi kesalahan. Data kontak tidak lengkap."
-                )
-                return
-
-            user_id = query.from_user.id
-            logging.info(f"Attempting to save contact for user {user_id}")
+            # Update last save time for rate limiting
+            if not hasattr(self, '_last_save_time'):
+                self._last_save_time = {}
+            self._last_save_time[user_id] = time.time()
 
             with app.app_context():
                 result = await self.data_store.save_contact(user_id, importer)
 
             if result:
-                # Get updated credits
                 with app.app_context():
                     credits = self.data_store.get_user_credits(user_id)
 
@@ -311,11 +306,14 @@ class CommandHandler:
                 except Exception as e:
                     logging.error(f"Error deleting messages: {str(e)}")
 
-                saved_contacts = context.user_data.get('saved_contacts', [])
+                # Get saved contacts
+                with app.app_context():
+                    saved_contacts = self.data_store.get_saved_contacts(user_id)
                 if not saved_contacts:
                     await query.message.reply_text(Messages.NO_SAVED_CONTACTS)
                     return
 
+                # Calculate pagination
                 total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
                 current_page = context.user_data.get('saved_page', 0)
 
@@ -329,6 +327,7 @@ class CommandHandler:
                 end_idx = min(start_idx + items_per_page, len(saved_contacts))
                 current_contacts = saved_contacts[start_idx:end_idx]
 
+                # Send paginated contacts
                 new_messages = []
                 for contact in current_contacts:
                     message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
@@ -357,10 +356,15 @@ class CommandHandler:
                     [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
                     [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                 ]
-                await query.message.reply_text(
+
+                # Send pagination controls
+                sent_msg = await query.message.reply_text(
                     f"Halaman {current_page + 1} dari {total_pages}",
                     reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
                 )
+                new_messages.append(sent_msg.message_id)
+                context.user_data['current_search_messages'] = new_messages
+
             elif query.data == "show_saved_page_info":
                 await query.answer("Halaman saat ini", show_alert=False)
             elif query.data.startswith('give_'):
@@ -725,7 +729,7 @@ class CommandHandler:
                     if page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
-                    # Add regenerate button
+                    ## Add regenerate button
                     regenerate_button = [
                         [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="backto_categories")]
@@ -737,8 +741,6 @@ class CommandHandler:
                     )
                     new_messages.append(sent_msg.message_id)
                     context.user_data['current_search_messages'] = new_messages
-                else:
-                    await query.message.reply_text("Pencarian tidak tersedia")
 
             elif query.data.startswith('section_'):
                 # Just ignore section headers
