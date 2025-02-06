@@ -57,8 +57,6 @@ class CommandHandler:
                 is_member = chat_member.status in ['member', 'administrator', 'creator']
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
-
-            is_member = user_id in member_ids
             community_button = [InlineKeyboardButton(
                 "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
