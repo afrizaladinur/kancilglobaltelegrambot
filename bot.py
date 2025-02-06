@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHa
 from config import TELEGRAM_TOKEN
 from handlers import CommandHandler
 from telegram.ext import filters, MessageHandler
-from telegram import BotCommand
+from telegram import BotCommand, InlineKeyboardButton
 
 BOT_INFO = {
     'name': 'Direktori Ekspor Impor',
@@ -11,9 +11,10 @@ BOT_INFO = {
 }
 
 class TelegramBot:
-    def __init__(self):
+    def __init__(self, engine): # Added engine parameter for database connection
         self.command_handler = CommandHandler()
         self.application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        self.engine = engine # Assign the engine
         self._register_handlers()
         logging.info("Bot initialized")
 
