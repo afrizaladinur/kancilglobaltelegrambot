@@ -154,87 +154,187 @@ class CommandHandler:
             )
 
 
+    async def search_contacts(self, query, context: ContextTypes.DEFAULT_TYPE):
+        """Search for contacts with improved context management and result formatting"""
+        try:
+            async with self.engine.begin() as conn:
+                # Execute query with proper transaction
+                result = await conn.execute(query)
+                rows = await result.fetchall()
+
+                if not rows:
+                    return None
+
+                # Format results properly before storing in context
+                formatted_results = []
+                for row in rows:
+                    formatted_result = {
+                        'name': row.name,
+                        'email': row.email,
+                        'contact': row.contact,
+                        'website': row.website,
+                        'country': row.country,
+                        'wa_available': row.wa_available,
+                        'hs_code': row.product,
+                        'search_timestamp': datetime.now().isoformat()
+                    }
+                    formatted_results.append(formatted_result)
+
+                # Store formatted results in context
+                context.user_data['last_search_results'] = formatted_results
+                logging.info(f"Stored {len(formatted_results)} formatted results in context")
+
+                return formatted_results
+        except Exception as e:
+            logging.error(f"Error in search_contacts: {str(e)}", exc_info=True)
+            return None
+
     async def save_contact(self, query: Update, context: ContextTypes.DEFAULT_TYPE, importer_name: str) -> None:
-        """Handle saving a contact with rate limiting and improved error handling"""
+        """Handle saving a contact with improved transaction management and error handling"""
         try:
             user_id = query.from_user.id
+            logging.info(f"Starting save_contact process for user {user_id} with importer: {importer_name}")
 
-            # Add rate limiting check
+            # Rate limiting check
             if hasattr(self, '_last_save_time') and self._last_save_time.get(user_id):
                 time_diff = time.time() - self._last_save_time[user_id]
                 if time_diff < 3:  # 3 seconds cooldown
                     await query.message.reply_text(
-                        "⚠️ Mohon tunggu beberapa detik sebelum menyimpan kontak lagi."
+                        "⚠️ Mohon tunggu sebentar (3 detik) sebelum menyimpan kontak lagi.",
+                        parse_mode='Markdown'
                     )
                     return
 
-            logging.info(f"Starting save_contact process for user {user_id}")
-            logging.info(f"Attempting to save contact for importer: {importer_name}")
-
-            # Get the user's last search results from context
+            # Get and validate search results from context
             last_results = context.user_data.get('last_search_results', [])
-
             if not last_results:
-                logging.error("No search results found in context")
+                logging.error(f"No search results found in context for user {user_id}")
                 await query.message.reply_text(
-                    "Kontak tidak ditemukan. Silakan lakukan pencarian ulang terlebih dahulu."
+                    "Mohon tunggu beberapa saat lagi.",
+                    parse_mode='Markdown'
                 )
                 return
 
-            # Find the matching importer with improved matching logic
+            # Find matching importer in search results
             importer = None
-            logging.info(f"Looking for importer: {importer_name}")
-
-            # Try exact match first
             for result in last_results:
-                if result.get('name') == importer_name:
+                if result['name'].strip() == importer_name.strip():
                     importer = result
-                    logging.info(f"Found exact matching importer: {importer}")
                     break
 
-            # If no exact match, try partial match
             if not importer:
+                # Try partial match if exact match fails
                 for result in last_results:
-                    if importer_name in result.get('name', ''):
+                    if importer_name.strip() in result['name'].strip():
                         importer = result
-                        logging.info(f"Found partial matching importer: {importer}")
                         break
 
             if not importer:
-                logging.error(f"Importer {importer_name} not found in last_search_results")
+                logging.error(f"Importer {importer_name} not found in search results for user {user_id}")
                 await query.message.reply_text(
-                    "Kontak tidak ditemukan. Silakan coba cari kembali.\n"
-                    "Pastikan Anda melakukan pencarian terlebih dahulu."
+                    "Mohon tunggu beberapa saat lagi.",
+                    parse_mode='Markdown'
                 )
                 return
 
-            # Update last save time for rate limiting
+            # Update rate limit timestamp
             if not hasattr(self, '_last_save_time'):
                 self._last_save_time = {}
             self._last_save_time[user_id] = time.time()
 
-            with app.app_context():
-                result = await self.data_store.save_contact(user_id, importer)
+            # Perform save operation with proper transaction management
+            async with self.engine.begin() as conn:
+                try:
+                    # Lock user credits for update
+                    credits_result = await conn.execute(
+                        text("SELECT credits FROM user_credits WHERE user_id = :user_id FOR UPDATE"),
+                        {"user_id": user_id}
+                    )
+                    credits = await credits_result.scalar()
 
-            if result:
-                with app.app_context():
-                    credits = self.data_store.get_user_credits(user_id)
+                    if credits is None:
+                        await query.message.reply_text(
+                            "⚠️ Terjadi kesalahan. Silakan coba lagi.",
+                            parse_mode='Markdown'
+                        )
+                        return
 
-                await query.message.reply_text(
-                    f"✅ Kontak berhasil disimpan!\n\nKredit tersisa: {credits}"
-                )
-                logging.info(f"Successfully saved contact for user {user_id}")
-            else:
-                await query.message.reply_text(
-                    "⚠️ Kredit tidak mencukupi atau kontak sudah tersimpan sebelumnya."
-                )
-                logging.warning(f"Failed to save contact for user {user_id} - insufficient credits or duplicate")
+                    # Calculate credit cost
+                    credit_cost = Messages._calculate_credit_cost(importer)
+
+                    if credits < credit_cost:
+                        await query.message.reply_text(
+                            Messages.NO_CREDITS,
+                            parse_mode='Markdown'
+                        )
+                        return
+
+                    # Check if contact already saved
+                    exists_result = await conn.execute(
+                        text("SELECT COUNT(*) FROM saved_contacts WHERE user_id = :user_id AND importer_name = :name"),
+                        {"user_id": user_id, "name": importer['name']}
+                    )
+                    already_saved = await exists_result.scalar()
+
+                    if already_saved:
+                        await query.message.reply_text(
+                            "⚠️ Kontak ini sudah tersimpan sebelumnya.",
+                            parse_mode='Markdown'
+                        )
+                        return
+
+                    # Save contact
+                    await conn.execute(
+                        text("""
+                            INSERT INTO saved_contacts 
+                            (user_id, importer_name, email, contact, website, country, wa_available, product)
+                            VALUES (:user_id, :name, :email, :contact, :website, :country, :wa_available, :product)
+                        """),
+                        {
+                            "user_id": user_id,
+                            "name": importer['name'],
+                            "email": importer['email'],
+                            "contact": importer['contact'],
+                            "website": importer['website'],
+                            "country": importer['country'],
+                            "wa_available": importer['wa_available'],
+                            "product": importer['hs_code']
+                        }
+                    )
+
+                    # Update credits
+                    await conn.execute(
+                        text("UPDATE user_credits SET credits = credits - :cost WHERE user_id = :user_id"),
+                        {"cost": credit_cost, "user_id": user_id}
+                    )
+
+                    # Get updated credits
+                    new_credits_result = await conn.execute(
+                        text("SELECT credits FROM user_credits WHERE user_id = :user_id"),
+                        {"user_id": user_id}
+                    )
+                    new_credits = await new_credits_result.scalar()
+
+                    await query.message.reply_text(
+                        f"✅ Kontak berhasil disimpan!\n\nSisa kredit: {new_credits} kredit",
+                        parse_mode='Markdown'
+                    )
+                    logging.info(f"Successfully saved contact for user {user_id}")
+
+                except Exception as e:
+                    logging.error(f"Database error while saving contact: {str(e)}", exc_info=True)
+                    await conn.rollback()
+                    await query.message.reply_text(
+                        "⚠️ Terjadi kesalahan saat menyimpan kontak. Silakan coba lagi.",
+                        parse_mode='Markdown'
+                    )
+                    raise
 
         except Exception as e:
-            logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+            logging.error(f"Error in save_contact: {str(e)}", exc_info=True)
             await query.message.reply_text(
-                "Terjadi kesalahan. Silakan coba lagi nanti.\n"
-                "Jika masalah berlanjut, hubungi admin."
+                "Terjadi kesalahan. Silakan coba lagi nanti.",
+                parse_mode='Markdown'
             )
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -725,7 +825,7 @@ class CommandHandler:
                     pagination_buttons = []
                     if page > 0:
                         pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="search_prev"))
-                    pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="search_page_info"))
+                    pagination_buttons.append(InlineKeyboardButton(f"{page +1}/{total_pages}", callback_data="search_page_info"))
                     if page < total_pages - 1:
                         pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
@@ -1128,66 +1228,64 @@ class CommandHandler:
             query = ' '.join(context.args)
             logging.info(f"Search query from user {user_id}: {query}")
 
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'search')
-                results = self.data_store.search_importers(query)
+            # Use the new search_contacts function
+            results = await self.search_contacts(text(f"SELECT * FROM importers WHERE LOWER(name) LIKE '%{query.lower()}%'"), context)
 
-                if not results:
-                    logging.info(f"No results found for query: {query}")
-                    await update.message.reply_text(
-                        f"Tidak ada hasil untuk pencarian '{query}'\n"
-                        "Silakan coba kata kunci lain."
-                    )
-                    return
+            if not results:
+                logging.info(f"No results found for query: {query}")
+                await update.message.reply_text(
+                    "Mohon tunggu beberapa saat lagi."
+                )
+                return
 
-                # Clear previous search results and store new ones
-                context.user_data.clear()  # Clear previous data
-                context.user_data['last_search_results'] = results
-                context.user_data['search_page'] = 0
-                context.user_data['last_search_query'] = query
+            # Clear previous search results and store new ones
+            context.user_data.clear()  # Clear previous data
+            context.user_data['last_search_results'] = results
+            context.user_data['search_page'] = 0
+            context.user_data['last_search_query'] = query
 
-                logging.info(f"Stored {len(results)} results in context for user {user_id}")
-                logging.debug(f"Context keys after storage: {context.user_data.keys()}")
+            logging.info(f"Stored {len(results)} results in context for user {user_id}")
+            logging.debug(f"Context keys after storage: {context.user_data.keys()}")
 
-                # Show first page results
-                page = 0
-                items_per_page = 2
-                total_pages = (len(results) + items_per_page - 1) // items_per_page
-                start_idx = page * items_per_page
-                end_idx = start_idx + items_per_page
-                current_results = results[start_idx:end_idx]
+            # Show first page results
+            page = 0
+            items_per_page = 2
+            total_pages = (len(results) + items_per_page - 1) // items_per_page
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            current_results = results[start_idx:end_idx]
 
-                for importer in current_results:
-                    message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
-                    # Store the full name as callback data
-                    keyboard = [[InlineKeyboardButton(
-                        "💾 Simpan Kontak",
-                        callback_data=f"save_{importer['name']}"
-                    )]]
+            for importer in current_results:
+                message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
+                # Store the full name as callback data
+                keyboard = [[InlineKeyboardButton(
+                    "💾 Simpan Kontak",
+                    callback_data=f"save_{importer['name']}"
+                )]]
 
-                    await update.message.reply_text(
-                        message_text,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                await update.message.reply_text(
+                    message_text,
+                    parse_mode='Markdown',
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
 
-                # Add navigation buttons
-                navigation = []
-                if total_pages > 1:
-                    navigation.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
+            # Add navigation buttons
+            navigation = []
+            if total_pages > 1:
+                navigation.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
 
-                back_button = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+            back_button = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
 
-                if navigation:
-                    await update.message.reply_text(
-                        f"Halaman {page + 1} dari {total_pages}",
-                        reply_markup=InlineKeyboardMarkup([navigation] + back_button)
-                    )
-                else:
-                    await update.message.reply_text(
-                        "Gunakan tombol di bawah untuk navigasi",
-                        reply_markup=InlineKeyboardMarkup(back_button)
-                    )
+            if navigation:
+                await update.message.reply_text(
+                    f"Halaman {page + 1} dari {total_pages}",
+                    reply_markup=InlineKeyboardMarkup([navigation] + back_button)
+                )
+            else:
+                await update.message.reply_text(
+                    "Gunakan tombol di bawah untuk navigasi",
+                    reply_markup=InlineKeyboardMarkup(back_button)
+                )
 
         except Exception as e:
             logging.error(f"Error in search command: {str(e)}", exc_info=True)
