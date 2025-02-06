@@ -536,8 +536,7 @@ class CommandHandler:
                     keyboard = [
                         [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
                         [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="trigger_credits"),
-                         InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="trigger_credits")],
                         [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
                         [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
                     ]
@@ -746,8 +745,7 @@ class CommandHandler:
                             await context.bot.send_message(
                                 chat_id=admin_id,
                                 text=admin_message,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                                parse_mode='Markdown',                                reply_markup=InlineKeyboardMarkup(admin_keyboard)
                             )
 
                         logging.info(f"Manual payment order created: {order_id}")
@@ -1491,7 +1489,7 @@ class CommandHandler:
                             self.data_store.track_user_command(user_id, 'help')
                         keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
                         await query.message.edit_text(
-                            Messages.HELP,
+Messages.HELP,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
@@ -1682,6 +1680,10 @@ class CommandHandler:
                 f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
+            logging.info(f"Credits command processed for user {user_id}")
+        except Exception as e:
+            logging.error(f"Error in credits command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE))
             logging.info(f"Credits command processed for user {user_id}")
         except Exception as e:
             logging.error(f"Error in credits command: {str(e)}", exc_info=True)
