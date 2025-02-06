@@ -4,25 +4,21 @@ modules = ["python-3.11", "postgresql-16"]
 [nix]
 channel = "stable-24_05"
 
+[env]
+PYTHONPATH = "."
+
 [deployment]
 run = ["python", "main.py"]
 ignorePorts = true
-
-[env]
-PYTHONPATH = "."
 
 [workflows]
 runButton = "Telegram Bot"
 
 [[workflows.workflow]]
 name = "Telegram Bot"
-author = "agent"
 
 [workflows.workflow.metadata]
 agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
