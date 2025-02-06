@@ -319,6 +319,7 @@ class DataStore:
         """Save an importer contact for a user"""
         try:
             logging.info(f"Starting save contact process for user {user_id}")
+            logging.info(f"Importer data to save: {importer}")
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
@@ -363,10 +364,10 @@ class DataStore:
                             "user_id": user_id,
                             "name": importer['name'],
                             "country": importer['country'],
-                            "phone": importer['contact'],
-                            "email": importer['email'],
-                            "website": importer['website'],
-                            "wa_available": importer['wa_available'],
+                            "phone": importer.get('contact', ''),
+                            "email": importer.get('email', ''),
+                            "website": importer.get('website', ''),
+                            "wa_available": importer.get('wa_available', False),
                             "hs_code": importer.get('hs_code', ''),
                             "product_description": importer.get('product_description', '')
                         }

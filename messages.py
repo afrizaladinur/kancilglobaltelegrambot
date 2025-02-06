@@ -335,3 +335,19 @@ Total perintah: {total}
 Rincian perintah:
 {command_stats}
 """
+
+    CREDITS_INFO = """
+💳 *Informasi Kredit Anda*
+
+Sisa kredit: {}
+
+*Biaya Kredit per Kontak:*
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap
+
+*Tips:*
+• Dapatkan kredit gratis untuk memulai
+• Kredit dapat digunakan untuk menyimpan kontak
+• Simpan kontak penting untuk akses di masa depan
+"""

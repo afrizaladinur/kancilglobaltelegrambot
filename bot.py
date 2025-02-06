@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
 from config import BOT_TOKEN
 from handlers import CommandHandler
@@ -13,6 +14,8 @@ BOT_INFO = {
 class TelegramBot:
     _instance = None
     _initialized = False
+    _lock = asyncio.Lock()
+    _current_application = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -22,23 +25,36 @@ class TelegramBot:
     def __init__(self):
         if not self._initialized:
             self.command_handler = CommandHandler()
-            self.application = ApplicationBuilder().token(BOT_TOKEN).build()
-            self._register_handlers()
             self._initialized = True
             logging.info("Bot initialized as singleton instance")
 
+    async def initialize_application(self):
+        """Initialize the bot application with proper locking"""
+        async with self._lock:
+            if self._current_application:
+                await self.cleanup()
+            self._current_application = ApplicationBuilder().token(BOT_TOKEN).build()
+            self._register_handlers()
+            return self._current_application
+
     async def cleanup(self):
-        """Cleanup bot resources"""
-        if hasattr(self, 'application') and self.application:
-            await self.application.stop()
-            await self.application.shutdown()
-            logging.info("Bot resources cleaned up")
+        """Cleanup bot resources with proper locking"""
+        async with self._lock:
+            if self._current_application:
+                try:
+                    await self._current_application.stop()
+                    await self._current_application.shutdown()
+                    self._current_application = None
+                    logging.info("Bot resources cleaned up")
+                except Exception as e:
+                    logging.error(f"Error during cleanup: {str(e)}")
 
     async def setup(self):
-        """Async setup operations"""
+        """Async setup operations with proper initialization"""
         try:
+            self.application = await self.initialize_application()
             await self._set_commands()
-            logging.info("Bot commands set up successfully")
+            logging.info("Bot setup completed successfully")
         except Exception as e:
             logging.error(f"Error in setup: {str(e)}")
             await self.cleanup()
@@ -47,8 +63,11 @@ class TelegramBot:
     async def _set_commands(self):
         """Set bot commands with descriptions"""
         try:
+            if not self._current_application:
+                raise RuntimeError("Bot application not initialized")
+
             # First, delete all existing commands
-            await self.application.bot.delete_my_commands()
+            await self._current_application.bot.delete_my_commands()
 
             # Then set new commands
             commands = [
@@ -56,7 +75,7 @@ class TelegramBot:
                 BotCommand('saved', '📁 Kontak Tersimpan'),
                 BotCommand('credits', '💳 Kredit Saya')
             ]
-            await self.application.bot.set_my_commands(commands)
+            await self._current_application.bot.set_my_commands(commands)
             logging.info("Bot commands registered successfully")
         except Exception as e:
             logging.error(f"Error setting commands: {str(e)}")
@@ -65,17 +84,20 @@ class TelegramBot:
     def _register_handlers(self):
         """Register command handlers"""
         try:
-            # Only register the essential command handlers
-            self.application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
-            self.application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
-            self.application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
-            self.application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
+            if not self._current_application:
+                raise RuntimeError("Bot application not initialized")
+
+            # Register handlers
+            self._current_application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
+            self._current_application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
+            self._current_application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
+            self._current_application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
             # Add the text handler for /start as fallback
-            self.application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
+            self._current_application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
 
             # Add callback query handler for button interactions
-            self.application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
+            self._current_application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
 
             logging.info("Handlers registered successfully")
         except Exception as e:
@@ -84,4 +106,6 @@ class TelegramBot:
 
     def get_application(self):
         """Get the configured application instance"""
-        return self.application
+        if not self._current_application:
+            raise RuntimeError("Bot application not initialized")
+        return self._current_application

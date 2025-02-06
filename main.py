@@ -19,6 +19,8 @@ async def cleanup(bot, signal_received=None):
     logger.info("Starting cleanup...")
     try:
         await bot.cleanup()
+        # Add a small delay to ensure cleanup is complete
+        await asyncio.sleep(2)
     except Exception as e:
         logger.error(f"Error during cleanup: {str(e)}")
     finally:
@@ -27,42 +29,53 @@ async def cleanup(bot, signal_received=None):
 async def run_bot():
     """Setup and run the Telegram bot"""
     try:
+        # Add initial delay to ensure any previous instances are cleaned up
+        await asyncio.sleep(5)
+        logger.info("Starting bot initialization...")
+
         # Initialize bot as singleton
         bot = TelegramBot()
         await bot.setup()
-        application = bot.get_application()
 
         # Set up signal handlers
+        loop = asyncio.get_event_loop()
         for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-            asyncio.get_event_loop().add_signal_handler(
+            loop.add_signal_handler(
                 sig,
                 lambda s=sig: asyncio.create_task(cleanup(bot, s))
             )
 
-        logger.info("Starting bot...")
+        application = bot.get_application()
+
         # Ensure clean startup
         await application.initialize()
         await application.start()
 
-        # Clear any existing updates and set up polling
+        # Clear any existing updates and ensure webhook is deleted
         await application.bot.delete_webhook(drop_pending_updates=True)
+        # Add a small delay before starting polling
+        await asyncio.sleep(2)
+
+        # Start polling with proper error handling
         await application.updater.start_polling(
             allowed_updates=['message', 'callback_query'],
-            drop_pending_updates=True
+            drop_pending_updates=True,
+            close_loop=False  # Don't close the loop on stop
         )
 
-        try:
-            # Keep the bot running
-            while True:
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            logger.info("Bot operation cancelled")
-        finally:
-            await cleanup(bot)
+        logger.info("Bot started successfully")
 
+        # Keep the bot running
+        while True:
+            await asyncio.sleep(1)
+
+    except asyncio.CancelledError:
+        logger.info("Bot operation cancelled")
     except Exception as e:
         logger.error(f"Error running bot: {str(e)}", exc_info=True)
         raise
+    finally:
+        await cleanup(bot)
 
 if __name__ == '__main__':
     try:
@@ -72,6 +85,5 @@ if __name__ == '__main__':
         logger.info("Received shutdown signal")
     except Exception as e:
         logger.error(f"Error running application: {str(e)}", exc_info=True)
-        raise
     finally:
         logger.info("Application shutdown complete")
