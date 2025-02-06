@@ -369,11 +369,11 @@ class DataStore:
 
                 with self.engine.begin() as conn:
                     try:
-                    # Check credits
-                    current_credits = conn.execute(
-                        text("SELECT credits FROM user_credits WHERE user_id = :user_id FOR UPDATE"),
-                        {"user_id": user_id}
-                    ).scalar()
+                        # Check credits
+                        current_credits = conn.execute(
+                            text("SELECT credits FROM user_credits WHERE user_id = :user_id FOR UPDATE"),
+                            {"user_id": user_id}
+                        ).scalar()
 
                     if current_credits is None or current_credits < credit_cost:
                         logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
