@@ -504,23 +504,17 @@ class CommandHandler:
                             text=f"Halaman {current_page + 1} dari {total_pages}",
                             reply_markup=InlineKeyboardMarkup([nav_buttons])
                         )
-                                phone = str(importer['phone']).replace('+', '').replace(' ', '')
-                                keyboard.append([InlineKeyboardButton(
-                                    "💬 Chat di WhatsApp",
-                                    url=f"https://wa.me/{phone}"
-                                )])
 
-                            keyboard.append([InlineKeyboardButton(
-                                "💾 Simpan Kontak",
-                                callback_data=f"save_{importer['id']}"
-                            )])
+                        # Add back button
+                        nav_buttons = [[
+                            InlineKeyboardButton("🔙 Kembali", callback_data="trigger_contacts")
+                        ]]
 
-                            await context.bot.send_message(
-                                chat_id=chat_id,
-                                text=message_text,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                            )
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Gunakan tombol di bawah untuk navigasi:",
+                            reply_markup=InlineKeyboardMarkup(nav_buttons)
+                        )
 
                         # Add navigation buttons
                         nav_buttons = [[
