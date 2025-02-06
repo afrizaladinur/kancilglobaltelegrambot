@@ -17,33 +17,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 LOCK_FILE = os.path.join(tempfile.gettempdir(), 'telegram_bot.lock')
 
+def kill_existing_bot_processes():
+    """Kill any existing Python processes running the bot"""
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if proc.pid != os.getpid():  # Don't kill ourselves
+                cmdline = ' '.join(proc.cmdline())
+                if "python" in proc.name().lower() and "main.py" in cmdline:
+                    logger.info(f"Terminating existing bot process (PID: {proc.pid})")
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=10)
+                    except psutil.TimeoutExpired:
+                        proc.kill()
+                    logger.info(f"Process {proc.pid} terminated")
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+
 @contextmanager
 def file_lock():
     """Process-level lock using file locking with improved error handling and process verification"""
     lock_fd = None
     try:
-        # First check if another bot process is running
-        if os.path.exists(LOCK_FILE):
-            try:
-                with open(LOCK_FILE, 'r') as f:
-                    old_pid = int(f.read().strip())
-                    if psutil.pid_exists(old_pid):
-                        process = psutil.Process(old_pid)
-                        cmdline = ' '.join(process.cmdline())
-                        if "python" in process.name().lower() and "main.py" in cmdline:
-                            # Kill the old process
-                            logger.info(f"Terminating existing bot process (PID: {old_pid})")
-                            process.terminate()
-                            # Wait for process to terminate
-                            try:
-                                process.wait(timeout=10)
-                            except psutil.TimeoutExpired:
-                                process.kill()  # Force kill if terminate doesn't work
-                            logger.info(f"Previous bot process terminated")
-            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                logger.info(f"Removing stale lock file: {e}")
+        # Kill any existing bot processes first
+        kill_existing_bot_processes()
 
-            # Clean up the old lock file
+        # Clean up any existing lock file
+        if os.path.exists(LOCK_FILE):
             try:
                 os.remove(LOCK_FILE)
                 logger.info("Removed old lock file")
@@ -90,8 +90,22 @@ async def cleanup(bot, signal_received=None):
     logger.info("Starting cleanup...")
 
     try:
+        # Kill any existing bot processes first
+        kill_existing_bot_processes()
+
         if bot:
+            # First, try to stop all running tasks
+            tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+            for task in tasks:
+                task.cancel()
+
+            # Wait for tasks to complete with timeout
+            if tasks:
+                await asyncio.wait(tasks, timeout=10)
+
+            # Then cleanup the bot
             await bot.cleanup()
+
             # Wait for cleanup to complete and verify
             cleanup_timeout = 15  # Increased timeout to 15 seconds
             start_time = asyncio.get_event_loop().time()
@@ -114,13 +128,32 @@ async def cleanup(bot, signal_received=None):
             except Exception as e:
                 logger.error(f"Error removing lock file during cleanup: {e}")
 
+async def run_bot_with_retries():
+    """Run the bot with retries"""
+    retry_count = 0
+    max_retries = 3
+    while retry_count < max_retries:
+        try:
+            await run_bot()
+            break
+        except Exception as e:
+            retry_count += 1
+            logger.error(f"Bot run attempt {retry_count} failed: {str(e)}")
+            if retry_count < max_retries:
+                logger.info(f"Retrying in 5 seconds...")
+                await asyncio.sleep(5)
+                continue
+            raise
+
 async def run_bot():
     """Setup and run the Telegram bot with improved instance management"""
     bot = None
     try:
         with file_lock():
-            # Wait for any previous instances to fully shut down
-            await asyncio.sleep(5)  # Increased wait time
+            # Kill any existing processes and wait for cleanup
+            kill_existing_bot_processes()
+            await asyncio.sleep(5)  # Wait for processes to fully terminate
+
             logger.info("Starting bot initialization...")
 
             # Initialize bot as singleton
@@ -157,18 +190,31 @@ async def run_bot():
             await application.bot.delete_webhook(drop_pending_updates=True)
             await asyncio.sleep(2)  # Brief pause after webhook deletion
 
-            # Start polling with proper error handling
-            logger.info("Starting polling...")
-            await application.updater.start_polling(
-                allowed_updates=['message', 'callback_query'],
-                drop_pending_updates=True,
-                read_timeout=30,
-                write_timeout=30,
-                pool_timeout=30,
-                connect_timeout=30
-            )
-
-            logger.info("Bot started successfully")
+            # Start polling with proper error handling and retry mechanism
+            retry_count = 0
+            max_retries = 3
+            while retry_count < max_retries:
+                try:
+                    logger.info(f"Starting polling attempt {retry_count + 1}...")
+                    await application.updater.start_polling(
+                        allowed_updates=['message', 'callback_query'],
+                        drop_pending_updates=True,
+                        read_timeout=30,
+                        write_timeout=30,
+                        pool_timeout=30,
+                        connect_timeout=30,
+                        bootstrap_retries=3,
+                        error_callback=lambda _, error: logger.error(f"Polling error: {error}")
+                    )
+                    logger.info("Bot started successfully")
+                    break
+                except Exception as e:
+                    retry_count += 1
+                    logger.error(f"Polling attempt {retry_count} failed: {str(e)}")
+                    if retry_count < max_retries:
+                        await asyncio.sleep(5)
+                        continue
+                    raise
 
             # Keep the bot running
             while True:
@@ -185,31 +231,19 @@ async def run_bot():
 
 if __name__ == '__main__':
     try:
-        # Force cleanup of any stale lock file and processes
+        # Kill any existing processes before starting
+        kill_existing_bot_processes()
+
+        # Clean up any stale lock file
         if os.path.exists(LOCK_FILE):
-            try:
-                with open(LOCK_FILE, 'r') as f:
-                    old_pid = int(f.read().strip())
-                    if psutil.pid_exists(old_pid):
-                        try:
-                            process = psutil.Process(old_pid)
-                            process.terminate()
-                            try:
-                                process.wait(timeout=10)
-                            except psutil.TimeoutExpired:
-                                process.kill()
-                            logger.info(f"Terminated old process {old_pid}")
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):
-                            pass
-            except:
-                pass
             try:
                 os.remove(LOCK_FILE)
             except Exception as e:
                 logger.error(f"Error removing stale lock file: {e}")
 
-        # Run the bot
-        asyncio.run(run_bot())
+        # Run the bot with asyncio
+        asyncio.run(run_bot_with_retries())
+
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
     except Exception as e:
