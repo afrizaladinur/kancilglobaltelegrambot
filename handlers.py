@@ -49,18 +49,14 @@ class CommandHandler:
                     credits = 10.0 if not is_admin else 999999.0
                 self.data_store.track_user_command(user_id, 'start')
 
-            # Track group members
-            is_member = False
+            # Check if user is already in community
             try:
-                # Get member status with proper group ID
-                chat = await context.bot.get_chat("@kancilglobalnetwork")
-                chat_member = await context.bot.get_chat_member(chat_id=chat.id, user_id=user_id)
+                chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
                 is_member = chat_member.status in ['member', 'administrator', 'creator']
-                logging.info(f"Member status for {user_id}: {chat_member.status}")
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
-                # Assume not a member if error occurs
                 is_member = False
+
             community_button = [InlineKeyboardButton(
                 "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
@@ -1470,38 +1466,22 @@ class CommandHandler:
                         await query.answer("Error processing request", show_alert=True)
                 elif query.data == "join_community":
                     user_id = query.from_user.id
-                    
-                    # Check if user is already a member
-                    is_member = False
-                    try:
-                        chat = await context.bot.get_chat("@kancilglobalnetwork")
-                        chat_member = await context.bot.get_chat_member(chat_id=chat.id, user_id=user_id)
-                        is_member = chat_member.status in ['member', 'administrator', 'creator']
-                    except Exception as e:
-                        logging.error(f"Error checking member status: {str(e)}")
+                    with app.app_context():
+                        credits = self.data_store.get_user_credits(user_id)
 
-                    if is_member:
+                    if credits < 5:
+                        await query.message.reply_text(
+                            "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
+                            "Dibutuhkan: 5 kredit\n"
+                            "Sisa kredit Anda: " + str(credits)
+                        )
+                        return
+
+                    if self.data_store.use_credit(user_id, 5):
                         keyboard = [[InlineKeyboardButton(
-                            "🔓 Buka Kancil Global Network",
+                            "🚀 Gabung Sekarang",
                             url="https://t.me/+kuNU6lDtYoNlMTc1"
                         )]]
-                    else:
-                        with app.app_context():
-                            credits = self.data_store.get_user_credits(user_id)
-
-                        if credits < 5:
-                            await query.message.reply_text(
-                                "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
-                                "Dibutuhkan: 5 kredit\n"
-                                "Sisa kredit Anda: " + str(credits)
-                            )
-                            return
-
-                        if self.data_store.use_credit(user_id, 5):
-                            keyboard = [[InlineKeyboardButton(
-                                "🚀 Gabung Sekarang",
-                                url="https://t.me/+kuNU6lDtYoNlMTc1"
-                            )]]
                         sent_message = await query.message.reply_text(
                             Messages.COMMUNITY_INFO,
                             parse_mode='Markdown',
@@ -1523,6 +1503,8 @@ class CommandHandler:
                         await query.message.edit_reply_markup(
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                    else:
+                        await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
 
                 elif query.data == "show_help":
                     try:
