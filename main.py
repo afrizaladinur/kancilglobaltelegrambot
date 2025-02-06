@@ -32,18 +32,15 @@ async def run_bot():
         # Ensure clean startup
         await application.initialize()
         await application.start()
-        await application.updater.start_polling(
-            allowed_updates=['message', 'callback_query'],
-            drop_pending_updates=True,
-            read_timeout=30,
-            write_timeout=30,
-            connect_timeout=30,
-            pool_timeout=30
-        )
-
+        await application.start()
+        
         try:
             # Keep the bot running
-            await application.updater.wait_until_stopped()
+            await application.updater.start_polling(
+                allowed_updates=['message', 'callback_query'],
+                drop_pending_updates=True
+            )
+            await application.updater.idle()
         except asyncio.CancelledError:
             logger.info("Bot stopped")
         finally:
