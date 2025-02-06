@@ -32,7 +32,6 @@ async def run_bot():
         # Ensure clean startup
         await application.initialize()
         await application.start()
-        await application.start()
         
         try:
             # Keep the bot running
