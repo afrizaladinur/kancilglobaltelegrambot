@@ -1,12 +1,15 @@
+
 modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
 
 [deployment]
-deploymentTarget = "gce"
-run = ["sh", "-c", "python main.py"]
+run = ["python", "main.py"]
 ignorePorts = true
+
+[env]
+PYTHONPATH = "."
 
 [workflows]
 runButton = "Telegram Bot"
@@ -24,7 +27,3 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
-
-[[ports]]
-localPort = 5000
-externalPort = 80
