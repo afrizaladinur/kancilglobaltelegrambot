@@ -688,17 +688,7 @@ class CommandHandler:
                         f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
-                elif query.data == "buy_credits":
-                    keyboard = [
-                        [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                    ]
-                    await query.message.reply_text(
-                        "Pilih paket kredit yang ingin Anda beli:",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                
                 elif query.data.startswith('pay_'):
                     try:
                         _, credits, amount = query.data.split('_')
@@ -1693,7 +1683,12 @@ class CommandHandler:
                 self.data_store.track_user_command(user_id, 'credits')
                 credits = self.data_store.get_user_credits(user_id)
 
-            keyboard = [[InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")]]
+            keyboard = [
+                [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
+                [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
+                [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+            ]
 
             await update.message.reply_text(
                 f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
