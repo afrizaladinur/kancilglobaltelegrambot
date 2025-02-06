@@ -39,7 +39,7 @@ async def run_bot():
                 allowed_updates=['message', 'callback_query'],
                 drop_pending_updates=True
             )
-            await application.updater.idle()
+            await application.idle()
         except asyncio.CancelledError:
             logger.info("Bot stopped")
         finally:
