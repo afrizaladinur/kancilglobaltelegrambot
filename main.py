@@ -36,7 +36,7 @@ def kill_existing_bot_processes():
 
 @contextmanager
 def file_lock():
-    """Process-level lock using file locking with improved error handling and process verification"""
+    """Process-level lock using file locking with improved process verification"""
     lock_fd = None
     try:
         # Kill any existing bot processes first
@@ -66,9 +66,6 @@ def file_lock():
             logger.error(f"Could not acquire lock: {e}")
             raise RuntimeError("Could not acquire bot lock")
 
-    except Exception as e:
-        logger.error(f"Error with lock file: {e}")
-        raise
     finally:
         if lock_fd:
             try:
@@ -128,23 +125,6 @@ async def cleanup(bot, signal_received=None):
             except Exception as e:
                 logger.error(f"Error removing lock file during cleanup: {e}")
 
-async def run_bot_with_retries():
-    """Run the bot with retries"""
-    retry_count = 0
-    max_retries = 3
-    while retry_count < max_retries:
-        try:
-            await run_bot()
-            break
-        except Exception as e:
-            retry_count += 1
-            logger.error(f"Bot run attempt {retry_count} failed: {str(e)}")
-            if retry_count < max_retries:
-                logger.info(f"Retrying in 5 seconds...")
-                await asyncio.sleep(5)
-                continue
-            raise
-
 async def run_bot():
     """Setup and run the Telegram bot with improved instance management"""
     bot = None
@@ -158,11 +138,6 @@ async def run_bot():
 
             # Initialize bot as singleton
             bot = TelegramBot()
-
-            # Ensure webhook is deleted and previous instance is cleaned up
-            if not await bot.wait_for_cleanup():
-                logger.error("Failed to cleanup existing bot instance")
-                return
 
             # Setup bot with proper error handling
             try:
@@ -182,39 +157,26 @@ async def run_bot():
 
             application = bot.get_application()
 
-            # Ensure clean startup
+            # Start the bot
             await application.initialize()
             await application.start()
 
-            # Clear any existing updates and ensure webhook is deleted
+            # Ensure clean startup
             await application.bot.delete_webhook(drop_pending_updates=True)
             await asyncio.sleep(2)  # Brief pause after webhook deletion
 
-            # Start polling with proper error handling and retry mechanism
-            retry_count = 0
-            max_retries = 3
-            while retry_count < max_retries:
-                try:
-                    logger.info(f"Starting polling attempt {retry_count + 1}...")
-                    await application.updater.start_polling(
-                        allowed_updates=['message', 'callback_query'],
-                        drop_pending_updates=True,
-                        read_timeout=30,
-                        write_timeout=30,
-                        pool_timeout=30,
-                        connect_timeout=30,
-                        bootstrap_retries=3,
-                        error_callback=lambda _, error: logger.error(f"Polling error: {error}")
-                    )
-                    logger.info("Bot started successfully")
-                    break
-                except Exception as e:
-                    retry_count += 1
-                    logger.error(f"Polling attempt {retry_count} failed: {str(e)}")
-                    if retry_count < max_retries:
-                        await asyncio.sleep(5)
-                        continue
-                    raise
+            # Start polling
+            await application.updater.start_polling(
+                allowed_updates=['message', 'callback_query'],
+                drop_pending_updates=True,
+                read_timeout=30,
+                write_timeout=30,
+                pool_timeout=30,
+                connect_timeout=30,
+                bootstrap_retries=3
+            )
+
+            logger.info("Bot started successfully")
 
             # Keep the bot running
             while True:
@@ -228,6 +190,23 @@ async def run_bot():
     finally:
         if bot:
             await cleanup(bot)
+
+async def run_bot_with_retries():
+    """Run the bot with retries"""
+    retry_count = 0
+    max_retries = 3
+    while retry_count < max_retries:
+        try:
+            await run_bot()
+            break
+        except Exception as e:
+            retry_count += 1
+            logger.error(f"Bot run attempt {retry_count} failed: {str(e)}")
+            if retry_count < max_retries:
+                logger.info(f"Retrying in 5 seconds...")
+                await asyncio.sleep(5)
+                continue
+            raise
 
 if __name__ == '__main__':
     try:

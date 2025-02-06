@@ -1,9 +1,12 @@
-
 import os
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
+
+# Rate limiting configuration
+RATE_LIMIT_WINDOW = 60  # seconds
+MAX_REQUESTS = 10
 
 class Base(DeclarativeBase):
     pass
@@ -38,13 +41,13 @@ def view_users():
             FROM user_credits
             ORDER BY last_updated DESC
         """)).fetchall()
-        
+
         stats = conn.execute(text("""
             SELECT user_id, command, usage_count, last_used
             FROM user_stats
             ORDER BY last_used DESC
         """)).fetchall()
-        
+
         return jsonify({
             'users_credits': [dict(row) for row in credits],
             'users_stats': [dict(row) for row in stats]

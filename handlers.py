@@ -18,6 +18,7 @@ class CommandHandler:
         self.engine = self.data_store.engine
         logging.info("CommandHandler initialized")
         self._last_save_time = {}
+        self._rate_limit_data = {}  # Store rate limit data separately
 
     async def search_contacts(self, query: str, context: ContextTypes.DEFAULT_TYPE):
         """Search for contacts with improved error handling and retries"""
@@ -433,6 +434,14 @@ class CommandHandler:
                 except Exception as e:
                     logging.error(f"Error showing credits: {str(e)}")
                     await query.message.reply_text(Messages.ERROR_MESSAGE)
+            elif query.data == "show_saved":
+                await self.saved(update, context)
+            elif query.data == "saved_prev":
+                context.user_data['saved_page'] = max(0, context.user_data.get('saved_page', 0) -1)
+                await self._show_saved_contacts(query.message, context)
+            elif query.data == "saved_next":
+                context.user_data['saved_page'] = context.user_data.get('saved_page', 0) + 1
+                await self._show_saved_contacts(query.message, context)
             else:
                 logging.warning(f"Unknown callback query data: {query.data}")
 
@@ -726,29 +735,29 @@ class CommandHandler:
             user_id = update.effective_user.id
             current_time = time.time()
 
-            # Initialize user's rate limit data if not exists
-            if user_id not in self._last_save_time:
-                self._last_save_time[user_id] = {
+            # Initialize rate limit data if not exists
+            if user_id not in self._rate_limit_data:
+                self._rate_limit_data[user_id] = {
                     'timestamps': [],
                     'last_warning': 0
                 }
 
             # Clean up old timestamps
-            window_start = current_time - RATE_LIMIT_WINDOW
-            self._last_save_time[user_id]['timestamps'] = [
-                t for t in self._last_save_time[user_id]['timestamps'] 
+            window_start = current_time- RATE_LIMIT_WINDOW
+            self._rate_limit_data[user_id]['timestamps'] = [
+                t for t in self._rate_limit_data[user_id]['timestamps'] 
                 if t > window_start
             ]
 
             # Add current timestamp
-            self._last_save_time[user_id]['timestamps'].append(current_time)
+            self._rate_limit_data[user_id]['timestamps'].append(current_time)
 
             # Check if rate limited
-            if len(self._last_save_time[user_id]['timestamps']) > MAX_REQUESTS:
-                # Only send warning message once per window
-                if current_time - self._last_save_time[user_id]['last_warning'] > RATE_LIMIT_WINDOW:
+            if len(self._rate_limit_data[user_id]['timestamps']) > MAX_REQUESTS:
+                # Only send warning`
+                if current_time - self._rate_limit_data[user_id]['last_warning'] > RATE_LIMIT_WINDOW:
                     await update.message.reply_text(Messages.RATE_LIMIT_EXCEEDED)
-                    self._last_save_time[user_id]['last_warning'] = current_time
+                    self._rate_limit_data[user_id]['last_warning'] = current_time
                 return False
 
             return True
@@ -1050,3 +1059,75 @@ Pilih kategori produk:"""
         except Exception as e:
             logging.error(f"Error in start command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /saved command"""
+        try:
+            if not await self._check_rate_limit(update):
+                return
+
+            user_id = update.effective_user.id
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'saved')
+                saved_contacts = self.data_store.get_saved_contacts(user_id)
+
+            if not saved_contacts:
+                await update.message.reply_text(Messages.NO_SAVED_CONTACTS)
+                return
+
+            # Show saved contacts with pagination
+            context.user_data['saved_contacts'] = saved_contacts
+            context.user_data['saved_page'] = 0
+            await self._show_saved_contacts(update.message, context)
+            logging.info(f"Saved contacts shown to user {user_id}")
+
+        except Exception as e:
+            logging.error(f"Error in saved command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def _show_saved_contacts(self, message, context):
+        """Helper method to display saved contacts with pagination"""
+        try:
+            page = context.user_data.get('saved_page', 0)
+            contacts = context.user_data.get('saved_contacts', [])
+            items_per_page = 5
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            page_contacts = contacts[start_idx:end_idx]
+
+            if not page_contacts:
+                await message.reply_text("No more saved contacts.")
+                return
+
+            for contact in page_contacts:
+                formatted_message, whatsapp_number, _ = Messages.format_importer(
+                    contact, saved=True, user_id=context.user_data.get('user_id')
+                )
+
+                keyboard = []
+                if whatsapp_number:
+                    whatsapp_url = f"https://wa.me/{whatsapp_number}"
+                    keyboard.append([InlineKeyboardButton("💬 Chat WhatsApp", url=whatsapp_url)])
+
+                await message.reply_text(
+                    formatted_message,
+                    parse_mode='MarkdownV2',
+                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                )
+
+            # Add pagination buttons
+            navigation = []
+            if page > 0:
+                navigation.append(InlineKeyboardButton("⬅️ Previous", callback_data="saved_prev"))
+            if end_idx < len(contacts):
+                navigation.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
+
+            if navigation:
+                await message.reply_text(
+                    f"Page {page + 1}",
+                    reply_markup=InlineKeyboardMarkup([navigation])
+                )
+
+        except Exception as e:
+            logging.error(f"Error showing saved contacts: {str(e)}", exc_info=True)
+            await message.reply_text(Messages.ERROR_MESSAGE)

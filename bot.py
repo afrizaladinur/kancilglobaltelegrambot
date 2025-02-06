@@ -1,13 +1,10 @@
 import logging
 import asyncio
-from telegram.ext import ApplicationBuilder, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
 from config import BOT_TOKEN
 from handlers import CommandHandler
 from telegram.ext import filters, MessageHandler
 from telegram import BotCommand
-from telegram import Update
-from telegram.ext import ContextTypes
-import telegram
 
 BOT_INFO = {
     'name': 'Direktori Ekspor Impor',
@@ -22,7 +19,6 @@ class TelegramBot:
     _polling_start_time = None
     _retry_count = 0
     _max_retries = 3
-    _polling_lock = asyncio.Lock()
 
     def __new__(cls):
         if cls._instance is None:
@@ -36,7 +32,7 @@ class TelegramBot:
             logging.info("Bot initialized as singleton instance")
 
     async def initialize_application(self):
-        """Initialize the bot application with proper locking and retry mechanism"""
+        """Initialize the bot application with proper locking"""
         async with self._lock:
             try:
                 # Force cleanup of any existing instance first
@@ -49,68 +45,34 @@ class TelegramBot:
                 self._polling_start_time = None
                 self._retry_count = 0
 
-                # Delete any existing webhook first to ensure clean slate
-                temp_app = ApplicationBuilder().token(BOT_TOKEN).build()
+                # Delete any webhook first
+                temp_app = Application.builder().token(BOT_TOKEN).build()
                 await temp_app.bot.delete_webhook(drop_pending_updates=True)
                 await temp_app.shutdown()
                 await asyncio.sleep(2)
 
-                while self._retry_count < self._max_retries:
-                    try:
-                        # Initialize application with higher timeouts
-                        self._current_application = (
-                            ApplicationBuilder()
-                            .token(BOT_TOKEN)
-                            .connect_timeout(30)
-                            .read_timeout(30)
-                            .write_timeout(30)
-                            .pool_timeout(30)
-                            .get_updates_read_timeout(30)
-                            .build()
-                        )
+                # Create new application with error handlers
+                self._current_application = (
+                    Application.builder()
+                    .token(BOT_TOKEN)
+                    .connect_timeout(30)
+                    .read_timeout(30)
+                    .write_timeout(30)
+                    .pool_timeout(30)
+                    .get_updates_read_timeout(30)
+                    .concurrent_updates(True)
+                    .build()
+                )
 
-                        # Ensure clean slate for polling
-                        async with self._polling_lock:
-                            await self._current_application.bot.delete_webhook(drop_pending_updates=True)
-                            await asyncio.sleep(2)
+                # Delete webhook again to ensure clean polling
+                await self._current_application.bot.delete_webhook(drop_pending_updates=True)
+                await asyncio.sleep(2)
 
-                            try:
-                                # Test get_updates without the unsupported parameter
-                                await self._current_application.bot.get_updates(
-                                    timeout=1,
-                                    offset=-1,
-                                    allowed_updates=['message', 'callback_query']
-                                )
-                                await asyncio.sleep(2)
-                                break  # If successful, break the retry loop
-                            except telegram.error.Conflict as e:
-                                logging.warning(f"Polling conflict detected: {e}")
-                                await self.cleanup()
-                                await asyncio.sleep(5)
-                                self._retry_count += 1
-                                continue
-                            except Exception as e:
-                                logging.error(f"Get updates test failed: {e}")
-                                await asyncio.sleep(5)
-                                self._retry_count += 1
-                                continue
-
-                        # Setup handlers and commands
-                        self._register_handlers()
-                        await self._set_commands()
-                        logging.info("Bot application initialized successfully")
-                        return self._current_application
-
-                    except Exception as e:
-                        self._retry_count += 1
-                        logging.error(f"Initialization attempt {self._retry_count} failed: {str(e)}")
-                        if self._retry_count < self._max_retries:
-                            await asyncio.sleep(5)
-                            continue
-                        raise
-
-                if self._retry_count >= self._max_retries:
-                    raise RuntimeError("Failed to initialize bot after maximum retries")
+                # Setup handlers and commands
+                self._register_handlers()
+                await self._set_commands()
+                logging.info("Bot application initialized successfully")
+                return self._current_application
 
             except Exception as e:
                 logging.error(f"Fatal error in initialization: {str(e)}")
@@ -119,7 +81,7 @@ class TelegramBot:
                 raise
 
     async def cleanup(self):
-        """Cleanup bot resources with proper locking and verification"""
+        """Cleanup bot resources with proper verification"""
         async with self._lock:
             if self._current_application:
                 try:
@@ -129,19 +91,16 @@ class TelegramBot:
                         await self._current_application.updater.stop()
                         await asyncio.sleep(2)
 
-                    # Stop the application
-                    if hasattr(self._current_application, 'stop'):
-                        await self._current_application.stop()
-                        await asyncio.sleep(1)
-                    if hasattr(self._current_application, 'shutdown'):
-                        await self._current_application.shutdown()
-                        await asyncio.sleep(1)
+                    # Stop and shutdown application
+                    await self._current_application.stop()
+                    await self._current_application.shutdown()
 
                     # Ensure webhook is deleted
-                    await self._current_application.bot.delete_webhook(drop_pending_updates=True)
-                    await asyncio.sleep(2)
+                    try:
+                        await self._current_application.bot.delete_webhook(drop_pending_updates=True)
+                    except Exception as e:
+                        logging.warning(f"Error deleting webhook during cleanup: {e}")
 
-                    # Clear instance
                     self._current_application = None
                     self._polling_start_time = None
                     self._retry_count = 0
@@ -169,38 +128,20 @@ class TelegramBot:
         if not self._current_application:
             raise RuntimeError("Bot application not initialized")
 
-        retry_count = 0
-        max_retries = 3
-
-        while retry_count < max_retries:
-            try:
-                # Clear existing commands first
-                await self._current_application.bot.delete_my_commands()
-                await asyncio.sleep(1)
-
-                # Set new commands
-                commands = [
-                    BotCommand('start', '🏠 Menu Utama'),
-                    BotCommand('saved', '📁 Kontak Tersimpan'),
-                    BotCommand('credits', '💳 Kredit Saya')
-                ]
-                await self._current_application.bot.set_my_commands(commands)
-                logging.info("Bot commands registered successfully")
-                break
-            except Exception as e:
-                retry_count += 1
-                logging.error(f"Error setting commands (attempt {retry_count}): {str(e)}")
-                if retry_count < max_retries:
-                    await asyncio.sleep(2)
-                else:
-                    raise
+        commands = [
+            BotCommand('start', '🏠 Menu Utama'),
+            BotCommand('saved', '📁 Kontak Tersimpan'),
+            BotCommand('credits', '💳 Kredit Saya')
+        ]
+        await self._current_application.bot.set_my_commands(commands)
+        logging.info("Bot commands registered successfully")
 
     def _register_handlers(self):
         if not self._current_application:
             raise RuntimeError("Bot application not initialized")
 
         try:
-            # Clear existing handlers
+            # Clear existing handlers if any
             if hasattr(self._current_application, 'handlers'):
                 self._current_application.handlers.clear()
 
@@ -211,7 +152,7 @@ class TelegramBot:
             self._current_application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
             # Add fallback handler
-            self._current_application.add_handler(MessageHandler(filters.Text(['/start']), self.command_handler.start))
+            self._current_application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^/start$'), self.command_handler.start))
 
             # Add callback query handler
             self._current_application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
@@ -224,48 +165,6 @@ class TelegramBot:
             logging.error(f"Error registering handlers: {str(e)}")
             raise
 
-    async def _error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def _error_handler(self, update, context):
         """Global error handler for the bot"""
         logging.error(f"Update {update} caused error: {context.error}")
-        if isinstance(context.error, telegram.error.Conflict):
-            logging.error("Detected polling conflict, attempting cleanup...")
-            await self.cleanup()
-            await asyncio.sleep(5)  # Wait before potential restart
-
-    async def wait_for_cleanup(self):
-        """Wait for any existing bot instance to cleanup with improved verification"""
-        retry_count = 0
-        max_retries = 5
-        retry_delay = 3
-
-        while retry_count < max_retries:
-            try:
-                # Ensure no existing instance is running
-                if self._current_application and hasattr(self._current_application, 'updater'):
-                    if self._current_application.updater.running:
-                        logging.info(f"Attempt {retry_count + 1}: Cleaning up running instance")
-                        await self.cleanup()
-                        await asyncio.sleep(retry_delay)
-
-                # Verify no other instances are running
-                async with self._polling_lock:
-                    try:
-                        temp_app = ApplicationBuilder().token(BOT_TOKEN).build()
-                        await temp_app.bot.get_updates(timeout=1, offset=-1)
-                        await temp_app.shutdown()
-                        return True
-                    except Exception as e:
-                        logging.warning(f"Verification failed: {e}")
-                        retry_count += 1
-                        if retry_count < max_retries:
-                            await asyncio.sleep(retry_delay)
-                            continue
-                        return False
-
-            except Exception as e:
-                logging.warning(f"Cleanup attempt {retry_count + 1} failed: {str(e)}")
-                retry_count += 1
-                if retry_count < max_retries:
-                    await asyncio.sleep(retry_delay)
-
-        return False
