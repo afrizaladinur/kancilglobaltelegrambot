@@ -52,8 +52,8 @@ class CommandHandler:
             # Track group members
             is_member = False
             try:
-                # Try to get member status directly
-                chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
+                # Try to get member status directly using group ID
+                chat_member = await context.bot.get_chat_member(chat_id="-1002091744987", user_id=user_id)
                 is_member = chat_member.status in ['member', 'administrator', 'creator']
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
