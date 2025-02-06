@@ -9,7 +9,7 @@ run = ["sh", "-c", "python main.py"]
 ignorePorts = true
 
 [workflows]
-runButton = "Project"
+runButton = "Telegram Bot"
 
 [[workflows.workflow]]
 name = "Project"
