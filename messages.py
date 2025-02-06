@@ -95,16 +95,11 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • ❓ *Bantuan* - Panduan lengkap
 
 *Sistem Kredit:*
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap
+• Kredit adalah mata uang dalam bot ini
+• Digunakan untuk menyimpan kontak & akses fitur
+• Setiap pengguna baru dapat 10 kredit gratis
 
-*Catatan:*
-• Kredit gratis: 10 kredit untuk pengguna baru
-• Kontak yang belum disimpan akan disensor
-• Kontak bisa diekspor ke CSV untuk pencatatan
-
-*Sistem Kredit:*
+*Biaya per Kontak:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
 • 2 kredit - Kontak lengkap tanpa WhatsApp
 • 1 kredit - Kontak tidak lengkap
@@ -165,10 +160,19 @@ Biaya kredit untuk kontak ini:
 Silakan beli kredit tambahan dengan mengetik /credits"""
     CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
     BUY_CREDITS_INFO = """
-💰 Paket Kredit:
-- 75 kredit: Rp 150.000
-- 150 kredit: Rp 300.000
-- 250 kredit: Rp 399.000
+💡 Sistem Kredit:
+
+Kredit digunakan untuk:
+• Menyimpan kontak importir (1-3 kredit)
+• Mengakses komunitas (5 kredit)
+• Mengunduh data ke CSV (1 kredit)
+
+Biaya kredit per kontak:
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp 
+• 1 kredit - Kontak tidak lengkap
+
+Setiap pengguna baru mendapat 10 kredit gratis!
 """
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
