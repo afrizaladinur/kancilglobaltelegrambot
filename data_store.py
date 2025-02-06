@@ -10,12 +10,8 @@ class DataStore:
             pool_pre_ping=True,  # Enable connection health checks
             pool_recycle=300,    # Recycle connections every 5 minutes
             connect_args={
-                "sslmode": "verify-full",
-                "connect_timeout": 30,
-                "keepalives": 1,
-                "keepalives_idle": 30,
-                "keepalives_interval": 10,
-                "keepalives_count": 5
+                "sslmode": "require",
+                "connect_timeout": 30
             }
         )
         self._init_tables()
