@@ -49,14 +49,20 @@ class CommandHandler:
                     credits = 10.0 if not is_admin else 999999.0
                 self.data_store.track_user_command(user_id, 'start')
 
-            # Check if user is already in community
+            # Track group members like admins
+            member_ids = []
             try:
+                chat = await context.bot.get_chat("@kancilglobalnetwork")
+                admins = await context.bot.get_chat_administrators(chat.id)
+                member_ids = [admin.user.id for admin in admins]
+                
                 chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
-                is_member = chat_member.status in ['member', 'administrator', 'creator']
+                if chat_member.status in ['member', 'administrator', 'creator']:
+                    member_ids.append(user_id)
             except Exception as e:
                 logging.error(f"Error checking member status: {str(e)}")
-                is_member = False
 
+            is_member = user_id in member_ids
             community_button = [InlineKeyboardButton(
                 "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
                 **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
