@@ -218,66 +218,41 @@ class DataStore:
             conditions = []
             params = {}
 
-            # Product name mappings - Easy to modify per product
+            # Convert search terms to include common variations
             product_mappings = {
-                # Fish Products (HS 0301-0305)
-                'ikan': ['fish', 'ikan', 'seafood'],
-                'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
-                'segar': ['fresh', 'segar', 'fresh fish'],
-                'beku': ['frozen', 'beku', 'frozen fish'],
-
-                # Coconut Products (HS 1513)
-                'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
-                'minyak': ['oil', 'minyak', 'virgin oil'],
-                'vco': ['virgin coconut oil', 'vco', 'virgin'],
-
-                # Charcoal/Briquette (HS 44029010)
-                'briket': ['briquette', 'briket', 'charcoal briquette'],
-                'arang': ['charcoal', 'arang', 'carbon'],
-                'batok': ['shell', 'batok', 'tempurung'],
-
-                # Fruits (HS 0810)
-                'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
-                'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-
-                # Coffee (HS 0901)
-                'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
-                'bubuk': ['powder', 'bubuk', 'ground']
+                'ikan': ['fish', 'seafood', 'tuna', 'salmon'],
+                'fish': ['ikan', 'seafood', 'tuna', 'salmon'],
+                'kelapa': ['coconut', 'cocos', 'kopra'],
+                'minyak': ['oil', 'virgin', 'vco'],
+                'arang': ['charcoal', 'briket', 'briquette']
             }
 
             for i, term in enumerate(search_terms):
                 term_conditions = []
                 term_lower = term.lower()
 
-                # Handle HS code search
-                if term_lower.isdigit():
-                    term_conditions.append(f"LOWER(product) LIKE :term_{i}")
-                    params[f'term_{i}'] = f'%{term_lower}%'
-                else:
-                    # Add original term
-                    search_terms_for_word = [term_lower]
+                # Get mapped terms if available
+                search_terms_for_word = [term_lower]
+                if term_lower in product_mappings:
+                    search_terms_for_word.extend(product_mappings[term_lower])
 
-                    # Add mapped terms if they exist
-                    if term_lower in product_mappings:
-                        search_terms_for_word.extend(product_mappings[term_lower])
-
-                    # Build conditions for all terms
-                    for mapped_term in search_terms_for_word:
-                        param_key = f'term_{i}_{len(params)}'
-                        term_conditions.append(
-                            f"(LOWER(name) LIKE :{param_key} OR "
-                            f"LOWER(country) LIKE :{param_key} OR "
-                            f"LOWER(role) LIKE :{param_key} OR "
-                            f"LOWER(product) LIKE :{param_key})"
-                        )
-                        params[param_key] = f'%{mapped_term}%'
+                # Build conditions for all terms including mappings
+                for search_term in search_terms_for_word:
+                    param_key = f'term_{i}_{search_term}'
+                    term_conditions.append(
+                        f"(LOWER(name) LIKE :{param_key} OR "
+                        f"LOWER(country) LIKE :{param_key} OR "
+                        f"LOWER(role) LIKE :{param_key} OR "
+                        f"LOWER(product) LIKE :{param_key})"
+                    )
+                    params[param_key] = f'%{search_term}%'
 
                 conditions.append("(" + " OR ".join(term_conditions) + ")")
 
-            # Default ranking based on first term
-            search_sql = f"""
+            # Search SQL with ranking
+            search_sql = """
             WITH ranked_results AS (
-                SELECT 
+                SELECT DISTINCT
                     name, 
                     country, 
                     phone as contact, 
@@ -286,29 +261,24 @@ class DataStore:
                     wa_availability,
                     product,
                     role as product_description,
-                    1 as match_type
+                    CASE 
+                        WHEN phone IS NOT NULL AND email_1 IS NOT NULL AND website IS NOT NULL THEN 3
+                        WHEN (phone IS NOT NULL AND email_1 IS NOT NULL) OR 
+                             (phone IS NOT NULL AND website IS NOT NULL) OR 
+                             (email_1 IS NOT NULL AND website IS NOT NULL) THEN 2
+                        ELSE 1
+                    END as contact_score
                 FROM importers
-                WHERE phone IS NOT NULL 
-                AND phone != ''
-                AND ({' OR '.join(conditions)})
+                WHERE (phone IS NOT NULL OR email_1 IS NOT NULL OR website IS NOT NULL)
+                AND ({conditions})
             )
-            SELECT 
-                name, country, contact, website, email,
-                CASE 
-                    WHEN wa_availability = 'Available' THEN true
-                    ELSE false
-                END as wa_available,
-                product as hs_code,
-                product_description
-            FROM ranked_results
-            WHERE contact IS NOT NULL AND contact != ''
-            ORDER BY RANDOM()
+            SELECT * FROM ranked_results 
+            ORDER BY contact_score DESC, RANDOM()
             LIMIT 10;
-            """
+            """.format(conditions=' AND '.join(conditions))
 
             with self.engine.connect() as conn:
                 try:
-                    # Log the actual SQL query for debugging
                     logging.info(f"Executing search SQL: {search_sql}")
                     logging.info(f"With parameters: {params}")
 
@@ -319,17 +289,16 @@ class DataStore:
 
                     logging.info(f"Search found {len(result)} results for query: '{query}'")
 
-                    # Convert result to list of dicts
                     formatted_results = []
                     for row in result:
                         importer_dict = {
                             'name': row.name,
                             'country': row.country,
-                            'contact': row.contact,
+                            'contact': row.contact or '',
                             'website': row.website or '',
                             'email': row.email or '',
-                            'wa_available': row.wa_available,
-                            'hs_code': row.hs_code,
+                            'wa_available': row.wa_availability == 'Available',
+                            'hs_code': row.product,
                             'product_description': row.product_description or ''
                         }
                         logging.debug(f"Formatted result: {importer_dict}")
@@ -340,7 +309,7 @@ class DataStore:
                 except Exception as e:
                     logging.error(f"Database execution error: {str(e)}", exc_info=True)
                     conn.rollback()
-                    raise
+                    return []
 
         except Exception as e:
             logging.error(f"Error searching importers: {str(e)}", exc_info=True)

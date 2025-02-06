@@ -9,7 +9,7 @@ run = ["sh", "-c", "python main.py"]
 ignorePorts = true
 
 [workflows]
-runButton = "Telegram Bot"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -18,25 +18,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Telegram Bot"
+args = "CSV Import"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "CSV Import"
-
-[[workflows.workflow]]
-name = "Telegram Bot"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python main.py"
+args = "Telegram Bot"
 
 [[workflows.workflow]]
 name = "CSV Import"
@@ -57,6 +43,20 @@ author = 39314606
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "ENVIRONMENT=development python main.py"
+
+[[workflows.workflow]]
+name = "Telegram Bot"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
 
 [[ports]]
 localPort = 5000
