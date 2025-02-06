@@ -4,6 +4,7 @@ import signal
 import os
 import tempfile
 import fcntl
+import psutil
 from contextlib import contextmanager
 from bot import TelegramBot
 
@@ -18,16 +19,44 @@ LOCK_FILE = os.path.join(tempfile.gettempdir(), 'telegram_bot.lock')
 
 @contextmanager
 def file_lock():
-    """Process-level lock using file locking with improved error handling"""
+    """Process-level lock using file locking with improved error handling and process verification"""
     lock_fd = None
     try:
+        # First check if another bot process is running
+        if os.path.exists(LOCK_FILE):
+            try:
+                with open(LOCK_FILE, 'r') as f:
+                    old_pid = int(f.read().strip())
+                    if psutil.pid_exists(old_pid):
+                        process = psutil.Process(old_pid)
+                        cmdline = ' '.join(process.cmdline())
+                        if "python" in process.name().lower() and "main.py" in cmdline:
+                            # Kill the old process
+                            logger.info(f"Terminating existing bot process (PID: {old_pid})")
+                            process.terminate()
+                            # Wait for process to terminate
+                            try:
+                                process.wait(timeout=10)
+                            except psutil.TimeoutExpired:
+                                process.kill()  # Force kill if terminate doesn't work
+                            logger.info(f"Previous bot process terminated")
+            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                logger.info(f"Removing stale lock file: {e}")
+
+            # Clean up the old lock file
+            try:
+                os.remove(LOCK_FILE)
+                logger.info("Removed old lock file")
+            except OSError as e:
+                logger.warning(f"Error removing lock file: {e}")
+
         # Open the lock file in exclusive mode
         lock_fd = open(LOCK_FILE, 'w')
 
         try:
             # Try to acquire an exclusive lock
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            # Write PID to file
+            # Write current PID to file
             lock_fd.write(str(os.getpid()))
             lock_fd.flush()
             os.fsync(lock_fd.fileno())  # Ensure PID is written to disk
@@ -35,14 +64,7 @@ def file_lock():
             yield
         except (IOError, OSError) as e:
             logger.error(f"Could not acquire lock: {e}")
-            # Check if another process holds the lock
-            try:
-                with open(LOCK_FILE, 'r') as f:
-                    other_pid = f.read().strip()
-                    logger.error(f"Lock is held by process {other_pid}")
-            except:
-                pass
-            raise RuntimeError("Another bot instance is already running")
+            raise RuntimeError("Could not acquire bot lock")
 
     except Exception as e:
         logger.error(f"Error with lock file: {e}")
@@ -66,14 +88,18 @@ async def cleanup(bot, signal_received=None):
     if signal_received:
         logger.info(f"Received signal: {signal_received}")
     logger.info("Starting cleanup...")
+
     try:
         if bot:
             await bot.cleanup()
             # Wait for cleanup to complete and verify
-            cleanup_timeout = 10  # 10 seconds timeout
+            cleanup_timeout = 15  # Increased timeout to 15 seconds
             start_time = asyncio.get_event_loop().time()
             while asyncio.get_event_loop().time() - start_time < cleanup_timeout:
-                if not bot._current_application or not bot._current_application.updater.running:
+                if not bot._current_application or (
+                    hasattr(bot._current_application, 'updater') and 
+                    not bot._current_application.updater.running
+                ):
                     break
                 await asyncio.sleep(1)
             logger.info("Bot cleanup completed")
@@ -94,13 +120,13 @@ async def run_bot():
     try:
         with file_lock():
             # Wait for any previous instances to fully shut down
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)  # Increased wait time
             logger.info("Starting bot initialization...")
 
             # Initialize bot as singleton
             bot = TelegramBot()
 
-            # Ensure previous instance is cleaned up
+            # Ensure webhook is deleted and previous instance is cleaned up
             if not await bot.wait_for_cleanup():
                 logger.error("Failed to cleanup existing bot instance")
                 return
@@ -129,7 +155,7 @@ async def run_bot():
 
             # Clear any existing updates and ensure webhook is deleted
             await application.bot.delete_webhook(drop_pending_updates=True)
-            await asyncio.sleep(1)  # Brief pause after webhook deletion
+            await asyncio.sleep(2)  # Brief pause after webhook deletion
 
             # Start polling with proper error handling
             logger.info("Starting polling...")
@@ -159,13 +185,30 @@ async def run_bot():
 
 if __name__ == '__main__':
     try:
-        # Cleanup any stale lock file before starting
+        # Force cleanup of any stale lock file and processes
         if os.path.exists(LOCK_FILE):
+            try:
+                with open(LOCK_FILE, 'r') as f:
+                    old_pid = int(f.read().strip())
+                    if psutil.pid_exists(old_pid):
+                        try:
+                            process = psutil.Process(old_pid)
+                            process.terminate()
+                            try:
+                                process.wait(timeout=10)
+                            except psutil.TimeoutExpired:
+                                process.kill()
+                            logger.info(f"Terminated old process {old_pid}")
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+            except:
+                pass
             try:
                 os.remove(LOCK_FILE)
             except Exception as e:
                 logger.error(f"Error removing stale lock file: {e}")
 
+        # Run the bot
         asyncio.run(run_bot())
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
