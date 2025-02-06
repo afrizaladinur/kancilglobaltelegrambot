@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 async def run_bot():
     """Setup and run the Telegram bot"""
     try:
-        bot = TelegramBot()
+        from data_store import DataStore
+        data_store = DataStore()
+        bot = TelegramBot(engine=data_store.engine)
         await bot.setup()
         application = bot.get_application()
 
