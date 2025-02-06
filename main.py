@@ -20,8 +20,10 @@ async def run_bot():
 
         logger.info("Starting bot...")
         await application.initialize()
+        # Delete webhook to ensure no duplicate updates
+        await application.bot.delete_webhook(drop_pending_updates=True)
         await application.start()
-        await application.updater.start_polling()
+        await application.updater.start_polling(drop_pending_updates=True)
 
         try:
             # Keep the bot running
@@ -31,6 +33,7 @@ async def run_bot():
             logger.info("Bot stopped")
         finally:
             await application.stop()
+            await application.shutdown()
 
     except Exception as e:
         logger.error(f"Error running bot: {str(e)}", exc_info=True)
