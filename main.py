@@ -56,13 +56,4 @@ if __name__ == '__main__':
         logger.error(f"Error running application: {str(e)}", exc_info=True)
         raise
     finally:
-        # Ensure proper cleanup
-        async def cleanup():
-            try:
-                await application.stop()
-                await application.shutdown()
-            except Exception as e:
-                logger.error(f"Error during cleanup: {str(e)}")
-            logger.info("Application shutdown complete")
-            
-        asyncio.run(cleanup())
+        logger.info("Application shutdown complete")
