@@ -379,8 +379,8 @@ class DataStore:
                             logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
                             return False
 
-                    # Check if contact already exists
-                    existing = conn.execute(
+                        # Check if contact already exists
+                        existing = conn.execute(
                         text("""
                         SELECT id FROM saved_contacts 
                         WHERE user_id = :user_id AND importer_name = :name
