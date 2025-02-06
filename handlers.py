@@ -504,9 +504,6 @@ class CommandHandler:
                             text=f"Halaman {current_page + 1} dari {total_pages}",
                             reply_markup=InlineKeyboardMarkup([nav_buttons])
                         )
-
-                            keyboard = []
-                            if importer['phone']:
                                 phone = str(importer['phone']).replace('+', '').replace(' ', '')
                                 keyboard.append([InlineKeyboardButton(
                                     "💬 Chat di WhatsApp",
