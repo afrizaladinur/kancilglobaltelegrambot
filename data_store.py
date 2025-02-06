@@ -5,10 +5,17 @@ from sqlalchemy import create_engine, text
 
 class DataStore:
     def __init__(self):
+        database_url = os.environ.get('DATABASE_URL')
+        # Use connection pooler URL for deployment
+        if '-pooler' not in database_url:
+            database_url = database_url.replace('.us-east-2', '-pooler.us-east-2')
+        
         self.engine = create_engine(
-            os.environ.get('DATABASE_URL'),
-            pool_pre_ping=True,  # Enable connection health checks
-            pool_recycle=300,    # Recycle connections every 5 minutes
+            database_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=300,
             connect_args={
                 "sslmode": "require",
                 "connect_timeout": 30
