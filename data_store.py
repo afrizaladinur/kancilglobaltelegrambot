@@ -13,12 +13,17 @@ class DataStore:
         self.engine = create_engine(
             database_url,
             pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
+            pool_size=10,
+            max_overflow=20,
             pool_recycle=300,
+            pool_timeout=30,
             connect_args={
                 "sslmode": "require",
-                "connect_timeout": 30
+                "connect_timeout": 60,
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5
             }
         )
         self._init_tables()
@@ -354,9 +359,11 @@ class DataStore:
             return []
 
     async def save_contact(self, user_id: int, importer: Dict) -> bool:
-        """Save an importer contact for a user"""
-        try:
-            logging.info(f"Starting save contact process for user {user_id}")
+        """Save an importer contact for a user with retry logic"""
+        retries = 3
+        while retries > 0:
+            try:
+                logging.info(f"Starting save contact process for user {user_id} (attempts left: {retries})")
             credit_cost = self.calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
@@ -438,9 +445,14 @@ class DataStore:
                     logging.error(f"Transaction error: {str(tx_error)}", exc_info=True)
                     return False
 
-        except Exception as e:
-            logging.error(f"Error in save_contact: {str(e)}", exc_info=True)
-            return False
+            except Exception as e:
+                logging.error(f"Error in save_contact (attempts left: {retries}): {str(e)}", exc_info=True)
+                retries -= 1
+                if retries > 0:
+                    await asyncio.sleep(1)  # Wait before retry
+                    continue
+                return False
+        return False
 
     def get_saved_contacts(self, user_id: int) -> List[Dict]:
         """Get saved contacts for a user"""
