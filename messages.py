@@ -239,7 +239,7 @@ Silakan beli kredit tambahan dengan mengetik /credits"""
     def format_importer(importer: dict, saved: bool = False, user_id: Optional[int] = None):
         try:
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
-
+            
             # Check if contact is already saved
             if not saved and user_id:
                 try:
