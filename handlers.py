@@ -1523,8 +1523,6 @@ class CommandHandler:
                         await query.message.edit_reply_markup(
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
-                    else:
-                        await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
 
                 elif query.data == "show_help":
                     try:
