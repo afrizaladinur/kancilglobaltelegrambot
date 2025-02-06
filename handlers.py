@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from sqlalchemy import text
 
 from data_store import DataStore
-from app import app
+from app import app, RATE_LIMIT_WINDOW, MAX_REQUESTS
 from messages import Messages
 
 class CommandHandler:
@@ -26,7 +26,7 @@ class CommandHandler:
 
         for attempt in range(max_retries):
             try:
-                logging.info(f"Executing search query (attempt {attempt + 1}/{max_retries})")
+                logging.info(f"Executing search query '{query}' (attempt {attempt + 1}/{max_retries}) for user {context.user_data.get('user_id', 'unknown')}")
 
                 async with self.engine.connect() as conn:
                     async with conn.begin():
@@ -42,7 +42,7 @@ class CommandHandler:
                         rows = await result.fetchall()
 
                         if not rows:
-                            logging.warning(f"No results found (attempt {attempt + 1})")
+                            logging.warning(f"No results found for query '{query}' (attempt {attempt + 1})")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(retry_delay)
                                 continue
@@ -69,7 +69,7 @@ class CommandHandler:
                                 continue
 
                         if not formatted_results:
-                            logging.warning("No valid results after formatting")
+                            logging.warning("No valid results after formatting for query '{query}'")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(retry_delay)
                                 continue
@@ -78,12 +78,12 @@ class CommandHandler:
                         # Store results in context
                         context.user_data['last_search_results'] = formatted_results
                         context.user_data['last_search_timestamp'] = datetime.now().isoformat()
-                        logging.info(f"Successfully stored {len(formatted_results)} results")
+                        logging.info(f"Successfully stored {len(formatted_results)} results for query '{query}'")
 
                         return formatted_results
 
             except asyncio.TimeoutError:
-                logging.error(f"Search query timeout (attempt {attempt + 1})")
+                logging.error(f"Search query '{query}' timeout (attempt {attempt + 1})")
             except Exception as e:
                 logging.error(f"Error in search (attempt {attempt + 1}): {str(e)}", exc_info=True)
 
@@ -91,13 +91,14 @@ class CommandHandler:
                 await asyncio.sleep(retry_delay)
                 continue
 
-        logging.error(f"Search failed after {max_retries} attempts")
+        logging.error(f"Search for query '{query}' failed after {max_retries} attempts")
         return None
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             query = update.callback_query
             await query.answer()
+            logging.info(f"Processing button callback '{query.data}' from user {query.from_user.id}")
 
             if query.data == "folder_seafood":
                 keyboard = [[InlineKeyboardButton("Kembali", callback_data="back_to_main")]]
@@ -106,6 +107,7 @@ class CommandHandler:
                     parse_mode='Markdown',
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
+                logging.info(f"Seafood menu shown to user {query.from_user.id}")
 
             elif query.data == "menu_seafood":
                 with self.engine.connect() as conn:
@@ -146,6 +148,7 @@ class CommandHandler:
                         parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
+                    logging.info(f"Seafood options shown to user {query.from_user.id}")
 
             elif query.data == "menu_agriculture":
                 with self.engine.connect() as conn:
@@ -184,6 +187,7 @@ class CommandHandler:
                         parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
+                    logging.info(f"Agriculture options shown to user {query.from_user.id}")
 
             elif query.data == "menu_processed":
                 try:
@@ -212,6 +216,7 @@ class CommandHandler:
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                        logging.info(f"Processed products shown to user {query.from_user.id}")
                 except Exception as e:
                     logging.error(f"Error getting HS code counts: {str(e)}")
                     await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
@@ -294,6 +299,7 @@ class CommandHandler:
                         filename="orders.csv",
                         caption="Here's your orders export."
                     )
+                    logging.info(f"Orders exported by user {query.from_user.id}")
                 except Exception as e:
                     logging.error(f"Error exporting orders: {str(e)}")
                     await query.message.reply_text("Error exporting orders.")
@@ -340,6 +346,7 @@ class CommandHandler:
                                 chat_id=order.user_id,
                                 text=f"✅ Your order (ID: {order_id}) has been fulfilled!\n{order.credits} credits have been added to your account."
                             )
+                            logging.info(f"Order {order_id} fulfilled by user {query.from_user.id}")
                         else:
                             await query.answer("Failed to add credits", show_alert=True)
 
@@ -386,6 +393,7 @@ class CommandHandler:
                     await query.message.edit_reply_markup(
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
+                    logging.info(f"User {user_id} joined community")
                 else:
                     await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
 
@@ -400,6 +408,7 @@ class CommandHandler:
                         parse_mode='Markdown',
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
+                    logging.info(f"Help shown to user {user_id}")
                 except Exception as e:
                     logging.error(f"Error showing help: {str(e)}")
                     await query.message.reply_text(Messages.ERROR_MESSAGE)
@@ -420,6 +429,7 @@ class CommandHandler:
                         f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
+                    logging.info(f"Credits shown to user {user_id}")
                 except Exception as e:
                     logging.error(f"Error showing credits: {str(e)}")
                     await query.message.reply_text(Messages.ERROR_MESSAGE)
@@ -436,7 +446,7 @@ class CommandHandler:
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
         try:
-            if not await self.check_rate_limit(update):
+            if not await self._check_rate_limit(update):
                 return
 
             user_id = update.effective_user.id
@@ -540,6 +550,7 @@ class CommandHandler:
                     f"Page {page + 1} of {total_pages}",
                     reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
                 )
+                logging.info(f"Orders shown to admin user {user_id}")
 
         except Exception as e:
             logging.error(f"Error in orders command: {str(e)}", exc_info=True)
@@ -548,7 +559,7 @@ class CommandHandler:
     async def give_credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /givecredits command for admins"""
         try:
-            if not await self.check_rate_limit(update):
+            if not await self._check_rate_limit(update):
                 return
 
             user_id = update.effective_user.id
@@ -581,6 +592,7 @@ class CommandHandler:
                         f"✅ Successfully added {credit_amount} credits to user {target_user_id}\n"
                         f"New balance: {new_balance} credits"
                     )
+                    logging.info(f"Admin {user_id} added {credit_amount} credits to user {target_user_id}")
                 else:
                     await update.message.reply_text("❌ Failed to add credits. User may not exist.")
 
@@ -591,7 +603,7 @@ class CommandHandler:
     async def credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /credits command"""
         try:
-            if not await self.check_rate_limit(update):
+            if not await self._check_rate_limit(update):
                 return
 
             user_id = update.effective_user.id
@@ -705,66 +717,125 @@ class CommandHandler:
                 "Silakan coba lagi nanti."
             )
 
-    async def check_rate_limit(self, update: Update) -> bool:
-        """Check rate limits for commands"""
-        user_id = update.effective_user.id
-        command = update.message.text.split()[0] if update.message else None
-        with app.app_context():
-            return self.data_store.check_rate_limit(user_id, command)
+    async def _check_rate_limit(self, update: Update) -> bool:
+        """
+        Check if the user has exceeded rate limits.
+        Returns True if the user can proceed, False if rate limited.
+        """
+        try:
+            user_id = update.effective_user.id
+            current_time = time.time()
+
+            # Initialize user's rate limit data if not exists
+            if user_id not in self._last_save_time:
+                self._last_save_time[user_id] = {
+                    'timestamps': [],
+                    'last_warning': 0
+                }
+
+            # Clean up old timestamps
+            window_start = current_time - RATE_LIMIT_WINDOW
+            self._last_save_time[user_id]['timestamps'] = [
+                t for t in self._last_save_time[user_id]['timestamps'] 
+                if t > window_start
+            ]
+
+            # Add current timestamp
+            self._last_save_time[user_id]['timestamps'].append(current_time)
+
+            # Check if rate limited
+            if len(self._last_save_time[user_id]['timestamps']) > MAX_REQUESTS:
+                # Only send warning message once per window
+                if current_time - self._last_save_time[user_id]['last_warning'] > RATE_LIMIT_WINDOW:
+                    await update.message.reply_text(Messages.RATE_LIMIT_EXCEEDED)
+                    self._last_save_time[user_id]['last_warning'] = current_time
+                return False
+
+            return True
+
+        except Exception as e:
+            logging.error(f"Error in rate limit check: {str(e)}")
+            return True  # Allow operation on rate limit check failure
 
     async def _construct_search_query(self, search_term: str) -> Optional[str]:
-        """Construct a more robust search query with fuzzy matching"""
+        """Construct a more robust search query with fuzzy matching and comprehensive conditions"""
         try:
-            # Define search conditions based on product type
+            if not search_term or len(search_term.strip()) == 0:
+                logging.error("Empty search term provided")
+                return None
+
+            # Define search conditions based on product type with expanded terms
             conditions = {
-                "0301": "LOWER(product) SIMILAR TO '%(0301|fish|ikan)%'",
-                "0302": "LOWER(product) SIMILAR TO '%(0302|fresh fish|ikan segar)%'",
-                "0303": "LOWER(product) SIMILAR TO '%(0303|frozen fish|ikan beku)%'",
-                "0304": "LOWER(product) SIMILAR TO '%(0304|fillet|fish fillet)%'",
-                "anchovy": "LOWER(product) SIMILAR TO '%(anchovy|0305|teri)%'",
-                "0901": "LOWER(product) SIMILAR TO '%(0901|coffee|kopi)%'",
-                "manggis": "LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'",
-                "44029010": "LOWER(product) SIMILAR TO '%(44029010|charcoal|arang)%'"
+                # Fish products with multiple terms
+                "0301": "LOWER(product) SIMILAR TO '%(0301|fish|ikan|seafood)%'",
+                "0302": "LOWER(product) SIMILAR TO '%(0302|fresh fish|ikan segar|fresh seafood)%'",
+                "0303": "LOWER(product) SIMILAR TO '%(0303|frozen fish|ikan beku|frozen seafood)%'",
+                "0304": "LOWER(product) SIMILAR TO '%(0304|fillet|fish fillet|ikan fillet)%'",
+                "anchovy": "LOWER(product) SIMILAR TO '%(anchovy|0305|teri|ikan teri)%'",
+
+                #Agricultural products
+                "0901": "LOWER(product) SIMILAR TO '%(0901|coffee|kopi|arabica|robusta)%'",
+                "manggis": "LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen|garcinia)%'",
+                "1513": "LOWER(product) SIMILAR TO '%(1513|coconut|kelapa|VCO|virgin)%'",
+
+                # Processed products
+                "44029010": "LOWER(product) SIMILAR TO '%(44029010|charcoal|arang|briket|briquette)%'"
             }
 
+            # Enhanced base query with better ranking
             base_query = """
             WITH ranked_results AS (
                 SELECT DISTINCT ON (name)
-                    name, email_1 as email, phone as contact, 
-                    website, country, wa_availability as wa_available, 
-                    product, role as product_description,
+                    name, 
+                    email_1 as email, 
+                    phone as contact, 
+                    website, 
+                    country, 
+                    wa_availability as wa_available, 
+                    product, 
+                    role as product_description,
                     CASE 
-                        WHEN wa_availability = 'Available' THEN 4
-                        WHEN phone IS NOT NULL AND email_1 IS NOT NULL AND website IS NOT NULL THEN 3
+                        WHEN wa_availability = 'Available' THEN 4  -- Prioritize WhatsApp availability
+                        WHEN phone IS NOT NULL AND email_1 IS NOT NULL AND website IS NOT NULL THEN 3  -- All contact methods
                         WHEN (phone IS NOT NULL AND email_1 IS NOT NULL) OR 
                              (phone IS NOT NULL AND website IS NOT NULL) OR 
-                             (email_1 IS NOT NULL AND website IS NOT NULL) THEN 2
-                        ELSE 1
-                    END as contact_score
+                             (email_1 IS NOT NULL AND website IS NOT NULL) THEN 2  -- Two contact methods
+                        ELSE 1  -- At least one contact method
+                    END as contact_score,
+                    CASE
+                        WHEN LOWER(name) LIKE '%{term}%' THEN 3  -- Direct name match
+                        WHEN LOWER(product) SIMILAR TO '%(hs|{term})%' THEN 2  -- Product/HS code match
+                        ELSE 1  -- Other matches
+                    END as relevance_score
                 FROM importers
                 WHERE (phone IS NOT NULL OR email_1 IS NOT NULL OR website IS NOT NULL)
                 AND {where_clause}
             )
             SELECT * FROM ranked_results 
-            ORDER BY contact_score DESC, name ASC
+            ORDER BY contact_score DESC, relevance_score DESC, name ASC
             LIMIT 50;
             """
 
-            # Get condition or create a more comprehensive search
+            # Get condition or create a comprehensive search
             search_term_lower = search_term.lower().strip()
             if search_term_lower in conditions:
                 where_clause = conditions[search_term_lower]
             else:
-                # More comprehensive search for non-standard terms
+                # Comprehensive search for non-standard terms
                 where_clause = f"""(
                     LOWER(name) LIKE '%{search_term_lower}%'
-                    OR LOWER(product) LIKE '%{search_term_lower}%'
+                    OR LOWER(product) SIMILAR TO '%({search_term_lower}|hs)%'
                     OR LOWER(role) LIKE '%{search_term_lower}%'
                     OR LOWER(country) LIKE '%{search_term_lower}%'
                 )"""
 
-            complete_query = base_query.format(where_clause=where_clause)
-            logging.info(f"Constructed search query for term '{search_term}' with expanded conditions")
+            # Format query with search term for relevance scoring
+            complete_query = base_query.format(
+                where_clause=where_clause,
+                term=search_term_lower
+            )
+
+            logging.info(f"Constructed enhanced search query for term '{search_term}'")
             return complete_query
 
         except Exception as e:
@@ -874,7 +945,7 @@ class CommandHandler:
         """Show main categories with contact counts"""
         try:
             header_text = """📊 *Kontak Tersedia*
-
+            
 Pilih kategori produk:"""
 
             async with self.engine.connect() as conn:
@@ -906,6 +977,76 @@ Pilih kategori produk:"""
                 parse_mode='Markdown',
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
+            logging.info(f"Categories shown")
         except Exception as e:
             logging.error(f"Error showing categories: {str(e)}")
             await message.reply_text("Mohon tunggu beberapa saat lagi.")
+
+    async def _check_rate_limit(self, update: Update) -> bool:
+        """Check rate limiting for commands"""
+        user_id = update.effective_user.id
+        command = update.message.text.split()[0] if update.message else None
+        try:
+            with app.app_context():
+                result = self.data_store.check_rate_limit(user_id, command)
+                if not result:
+                    await update.message.reply_text(
+                        "⚠️ Mohon tunggu beberapa detik sebelum mencoba lagi.",
+                        parse_mode='Markdown'
+                    )
+                return result
+        except Exception as e:
+            logging.error(f"Error in rate limit check: {str(e)}")
+            return True  # Allow operation on rate limit check failure
+
+    def check_rate_limit(self, user_id: int, command: Optional[str]) -> bool:
+        """Check if the user has exceeded rate limits"""
+        try:
+            current_time = time.time()
+            user_key = f"{user_id}:{command}" if command else str(user_id)
+
+            # Get last command time
+            last_time = self._last_save_time.get(user_key, 0)
+
+            # 3 second cooldown
+            if current_time - last_time < 3:
+                return False
+
+            self._last_save_time[user_key] = current_time
+            return True
+
+        except Exception as e:
+            logging.error(f"Error in rate limit check: {str(e)}")
+            return True  # Allow operation on rate limit check failure
+
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /start command"""
+        try:
+            logging.info(f"Processing /start command for user {update.effective_user.id}")
+            user_id = update.effective_user.id
+
+            with app.app_context():
+                self.data_store.track_user_command(user_id, 'start')
+                credits = self.data_store.get_user_credits(user_id)
+                logging.info(f"User {user_id} has {credits} credits")
+
+            keyboard = [
+                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
+                [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
+                 InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
+                [InlineKeyboardButton("🌐 Gabung Komunitas", callback_data="join_community")],
+                [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+                [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
+            ]
+
+            await update.message.reply_text(
+                Messages.WELCOME_MESSAGE.format(credits),
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            logging.info(f"Start command processed successfully for user {user_id}")
+
+        except Exception as e:
+            logging.error(f"Error in start command: {str(e)}", exc_info=True)
+            await update.message.reply_text(Messages.ERROR_MESSAGE)

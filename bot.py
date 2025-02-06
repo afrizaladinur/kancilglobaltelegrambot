@@ -75,12 +75,11 @@ class TelegramBot:
                             await asyncio.sleep(2)
 
                             try:
-                                # Test get_updates with specific settings
+                                # Test get_updates without the unsupported parameter
                                 await self._current_application.bot.get_updates(
                                     timeout=1,
                                     offset=-1,
-                                    allowed_updates=['message', 'callback_query'],
-                                    drop_pending_updates=True
+                                    allowed_updates=['message', 'callback_query']
                                 )
                                 await asyncio.sleep(2)
                                 break  # If successful, break the retry loop
