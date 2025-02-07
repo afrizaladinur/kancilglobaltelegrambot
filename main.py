@@ -93,7 +93,7 @@ async def run_bot():
         # Start Flask server in a separate thread
         from threading import Thread
         def run_flask():
-            app.run(host='0.0.0.0', port=8080)
+            app.run(host='0.0.0.0', port=8080, debug=False)
 
         Thread(target=run_flask, daemon=True).start()
 
