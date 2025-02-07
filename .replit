@@ -37,7 +37,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
-waitForPort = 8080
+waitForPort = 8443
 
 [[workflows.workflow]]
 name = "CSV Import"

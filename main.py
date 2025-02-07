@@ -3,7 +3,6 @@ import asyncio
 from bot import TelegramBot
 from app import app
 import os
-from flask import request, Response
 
 # Configure logging
 logging.basicConfig(
@@ -17,21 +16,6 @@ logger = logging.getLogger(__name__)
 def health_check():
     return "OK"
 
-# Single webhook route
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Handle incoming updates from Telegram"""
-    try:
-        if request.is_json:
-            update = request.get_json()
-            # Pass update to bot application
-            await app.bot.application.update_queue.put(update)
-            return Response('', status=200)
-        return Response('', status=400)
-    except Exception as e:
-        logger.error(f"Error in webhook handler: {str(e)}")
-        return Response('', status=500)
-
 async def run_bot():
     """Setup and run the Telegram bot"""
     try:
@@ -44,14 +28,20 @@ async def run_bot():
         import app as app_module
         app_module.bot = bot
 
-        # Get Replit domain from environment
+        # Get Replit domain from environment, with fallbacks
         replit_domain = os.environ.get('REPLIT_DOMAIN')
-        if not replit_domain:
-            logger.error("REPLIT_DOMAIN environment variable is missing")
-            raise ValueError("REPLIT_DOMAIN environment variable is missing")
+        replit_slug = os.environ.get('REPLIT_SLUG')
 
-        # Construct webhook URL using the actual Replit domain
-        webhook_url = f"https://{replit_domain}/webhook"
+        if replit_domain:
+            domain = replit_domain
+        elif replit_slug:
+            domain = f"{replit_slug}.repl.co"
+        else:
+            logger.error("No valid domain found for webhook setup")
+            raise ValueError("Missing required domain configuration")
+
+        # Construct webhook URL
+        webhook_url = f"https://{domain}/webhook"
         logger.info(f"Setting webhook URL to: {webhook_url}")
 
         # Initialize application
@@ -93,9 +83,19 @@ async def run_bot():
         # Start Flask server in a separate thread
         from threading import Thread
         def run_flask():
-            app.run(host='0.0.0.0', port=8080)
+            try:
+                app.run(
+                    host='0.0.0.0',
+                    port=8443,
+                    ssl_context='adhoc',
+                    debug=False  # Disable debug mode in production
+                )
+            except Exception as e:
+                logger.error(f"Flask server error: {str(e)}")
+                raise
 
         Thread(target=run_flask, daemon=True).start()
+        logger.info("Flask server started successfully")
 
         # Keep the bot running
         try:
