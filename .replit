@@ -9,7 +9,7 @@ run = ["sh", "-c", "python main.py"]
 ignorePorts = true
 
 [workflows]
-runButton = "Telegram Bot"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -37,6 +37,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
+waitForPort = 8080
 
 [[workflows.workflow]]
 name = "CSV Import"
