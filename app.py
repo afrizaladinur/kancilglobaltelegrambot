@@ -1,6 +1,8 @@
 import os
-from flask import Flask, request, Response
+from flask import Flask, request, Response, jsonify
 from telegram import Update
+from sqlalchemy.orm import DeclarativeBase
+from flask_sqlalchemy import SQLAlchemy
 import json
 
 class Base(DeclarativeBase):
