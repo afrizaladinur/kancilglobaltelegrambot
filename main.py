@@ -28,15 +28,9 @@ async def run_bot():
         import app as app_module
         app_module.bot = bot
 
-        # Get Replit domain
-        repl_owner = os.environ.get('REPL_OWNER')
-        repl_slug = os.environ.get('REPL_SLUG')
-        if not (repl_owner and repl_slug):
-            logger.error("No valid domain found for webhook setup")
-            raise ValueError("Missing required domain configuration")
-            
-        domain = f"{repl_slug}.{repl_owner}.repl.co"
-        logger.info(f"Using domain: {domain}")
+        # Get deployment URL from environment
+        domain = os.environ.get('REPL_SLUG') + '.' + os.environ.get('REPL_OWNER') + '.repl.co'
+        logger.info(f"Using deployment domain: {domain}")
 
         # Construct webhook URL
         webhook_url = f"https://{domain}/webhook"
