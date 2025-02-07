@@ -139,7 +139,12 @@ class TelegramBot:
     async def start(self):
         """Start the bot with proper webhook handling"""
         try:
-            webhook_url = os.getenv('BOT_WEBHOOK_URL', 'https://your-domain.com/webhook')
+            replit_url = os.getenv('REPL_SLUG', '')
+            if replit_url:
+                webhook_url = f"https://{replit_url}.repl.co/webhook/{self.bot.token}"
+            else:
+                webhook_url = os.getenv('BOT_WEBHOOK_URL', 'https://your-domain.com/webhook')
+
             await self.bot.set_webhook(webhook_url)
             logger.info(f"Webhook set to {webhook_url}")
             return self.dp
