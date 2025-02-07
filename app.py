@@ -1,9 +1,8 @@
-
 import os
-from flask import Flask, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
-from sqlalchemy.orm import DeclarativeBase
+from flask import Flask, request, Response
+from telegram import Update
+from bot import TelegramBot # Assuming this is defined elsewhere, you might need to create this file and class.
+import json
 
 class Base(DeclarativeBase):
     pass
@@ -25,6 +24,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 
 db.init_app(app)
+bot = None # Initialize bot here.  You'll likely need to instantiate your TelegramBot class here.
 
 @app.route('/')
 def index():
@@ -38,17 +38,25 @@ def view_users():
             FROM user_credits
             ORDER BY last_updated DESC
         """)).fetchall()
-        
+
         stats = conn.execute(text("""
             SELECT user_id, command, usage_count, last_used
             FROM user_stats
             ORDER BY last_used DESC
         """)).fetchall()
-        
+
         return jsonify({
             'users_credits': [dict(row) for row in credits],
             'users_stats': [dict(row) for row in stats]
         })
+
+@app.route('/webhook', methods=['POST'])
+async def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(), bot.application.bot if bot else None)
+        await bot.application.process_update(update) # Assuming bot.application.process_update exists in your TelegramBot class
+        return Response('ok', status=200)
+    return Response(status=403)
 
 with app.app_context():
     import models

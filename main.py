@@ -18,17 +18,34 @@ async def run_bot():
         await bot.setup()
         application = bot.get_application()
 
-        logger.info("Starting bot...")
+        # Get Replit domain
+        repl_owner = os.getenv('REPL_OWNER')
+        repl_slug = os.getenv('REPL_SLUG')
+        webhook_url = f"https://{repl_slug}.{repl_owner}.repl.co/webhook"
+
+        logger.info(f"Starting bot with webhook at {webhook_url}")
         await application.initialize()
         await application.start()
-        await application.updater.start_polling()
+
+        # Remove any existing webhook
+        await application.bot.delete_webhook()
+        # Set webhook
+        await application.bot.set_webhook(webhook_url)
+
+        # Start webhook server
+        await application.run_webhook(
+            listen="0.0.0.0",
+            port=8080,
+            url_path="webhook",
+            webhook_url=webhook_url
+        )
 
         try:
-            # Keep the bot running
             while True:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
             logger.info("Bot stopped")
+            await application.bot.delete_webhook()
         finally:
             await application.stop()
 
