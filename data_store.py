@@ -214,9 +214,15 @@ class DataStore:
 
                     logger.info(f"Contact saved for user {user_id}")
                     return True
+        except asyncpg.UniqueViolationError:
+            logger.info(f"Contact already saved for user {user_id}")
+            return "duplicate"
+        except asyncpg.InsufficientPrivilegeError:
+            logger.error(f"Database permission error for user {user_id}")
+            return "permission"
         except Exception as e:
             logger.error(f"Error saving contact: {e}")
-            return False
+            return "error"
 
     def calculate_credit_cost(self, importer: Dict) -> float:
         """Calculate credit cost with validation"""
