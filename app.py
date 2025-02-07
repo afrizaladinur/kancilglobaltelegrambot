@@ -1,7 +1,6 @@
 import os
 from flask import Flask, request, Response
 from telegram import Update
-from bot import TelegramBot # Assuming this is defined elsewhere, you might need to create this file and class.
 import json
 
 class Base(DeclarativeBase):
@@ -24,7 +23,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 
 db.init_app(app)
-bot = None # Initialize bot here.  You'll likely need to instantiate your TelegramBot class here.
+bot = None  # Will be set from main.py
 
 @app.route('/')
 def index():

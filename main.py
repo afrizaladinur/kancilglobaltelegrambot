@@ -17,6 +17,10 @@ async def run_bot():
         bot = TelegramBot()
         await bot.setup()
         application = bot.get_application()
+        # Set bot instance in app
+        from app import app
+        import app as app_module
+        app_module.bot = bot
 
         # Get Replit domain
         repl_owner = os.getenv('REPL_OWNER')
