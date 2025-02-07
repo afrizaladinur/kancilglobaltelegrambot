@@ -4,8 +4,7 @@ import psutil
 import os
 from typing import Dict, Any
 from datetime import datetime
-from sqlalchemy import text
-from app import db
+from loguru import logger
 
 class SystemMonitor:
     def __init__(self):
@@ -57,20 +56,19 @@ class SystemMonitor:
             self.logger.error(f"Error getting system health: {str(e)}")
             return {}
 
-    def check_database_health(self) -> Dict[str, bool]:
+    async def check_database_health(self, data_store) -> Dict[str, Any]:
         """Check database connection and basic functionality"""
         try:
-            with db.engine.connect() as conn:
+            async with data_store.pool.acquire() as conn:
                 # Test basic connectivity
-                conn.execute(text("SELECT 1")).scalar()
+                await conn.execute("SELECT 1")
 
                 # Get connection pool stats
-                pool = db.engine.pool
+                pool = data_store.pool
                 pool_stats = {
-                    'size': pool.size(),
-                    'checkedin': pool.checkedin(),
-                    'overflow': pool.overflow(),
-                    'checkedout': pool.checkedout()
+                    'size': pool.get_size(),
+                    'free_size': pool.get_free_size(),
+                    'max_size': pool.get_max_size()
                 }
 
                 self.logger.info(f"Database health check passed. Pool stats: {pool_stats}")

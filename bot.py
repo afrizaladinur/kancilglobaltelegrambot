@@ -1,185 +1,158 @@
 import logging
 import asyncio
-from telegram.ext import Application, CommandHandler as TelegramCommandHandler, CallbackQueryHandler
+import os
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message, BotCommand
+from aiogram.filters import Command
+from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN
 from handlers import CommandHandler
-from telegram.ext import filters, MessageHandler
-from telegram import BotCommand
 from monitoring import monitor
+from prometheus_client import Counter, Histogram
+from loguru import logger
+
+# Prometheus metrics
+REQUEST_COUNT = Counter('bot_requests_total', 'Total bot requests')
+REQUEST_LATENCY = Histogram('bot_request_duration_seconds', 'Request latency')
 
 class TelegramBot:
     _instance = None
-    _initialized = False
     _lock = asyncio.Lock()
-    _current_application = None
-    _polling_start_time = None
-    _retry_count = 0
-    _max_retries = 3
+    command_handler = CommandHandler() # Initialize command handler here
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
-        if not self._initialized:
-            self.command_handler = CommandHandler()
-            self._initialized = True
-            logging.info("Bot initialized as singleton instance")
-
-    async def initialize_application(self):
-        """Initialize the bot application with proper locking"""
+    async def init(self):
+        """Initialize the bot with proper async handling"""
         async with self._lock:
-            try:
-                # Monitor system health before initialization
-                health_status = monitor.get_system_health()
-                logging.info(f"System health before initialization: {health_status}")
+            if not hasattr(self, 'bot'):
+                # Configure loguru
+                logger.add("logs/bot_{time}.log", rotation="1 day", retention="7 days")
+                logger.info("Initializing bot...")
 
-                if self._current_application:
-                    logging.info("Cleaning up existing application before initialization")
-                    await self.cleanup()
-                    await asyncio.sleep(5)
-
-                logging.info("Starting fresh application initialization")
-                self._polling_start_time = None
-                self._retry_count = 0
-
-                # Delete any webhook first
-                temp_app = Application.builder().token(BOT_TOKEN).build()
-                await temp_app.bot.delete_webhook(drop_pending_updates=True)
-                await temp_app.shutdown()
-                await asyncio.sleep(2)
-
-                # Create new application with error handlers
-                self._current_application = (
-                    Application.builder()
-                    .token(BOT_TOKEN)
-                    .connect_timeout(30)
-                    .read_timeout(30)
-                    .write_timeout(30)
-                    .pool_timeout(30)
-                    .get_updates_read_timeout(30)
-                    .concurrent_updates(True)
-                    .build()
+                # Initialize bot with only supported settings
+                default_settings = DefaultBotProperties(
+                    parse_mode="HTML"
                 )
 
-                # Check database health
-                db_health = monitor.check_database_health()
-                if not db_health['database_connected']:
-                    raise RuntimeError("Database health check failed")
+                # Initialize bot with proper settings
+                self.bot = Bot(token=BOT_TOKEN, default=default_settings)
+                self.dp = Dispatcher()
 
-                # Delete webhook again to ensure clean polling
-                await self._current_application.bot.delete_webhook(drop_pending_updates=True)
-                await asyncio.sleep(2)
-
-                # Setup handlers and commands
-                self._register_handlers()
+                # Register handlers
+                await self._register_handlers()
                 await self._set_commands()
-                logging.info("Bot application initialized successfully")
-                return self._current_application
 
-            except Exception as e:
-                monitor.log_error(e, context={'stage': 'initialization'})
-                if self._current_application:
-                    await self.cleanup()
-                raise
+                logger.info("Bot initialized successfully")
 
-    async def cleanup(self):
-        """Cleanup bot resources with proper verification"""
-        async with self._lock:
-            if self._current_application:
-                try:
-                    logging.info("Starting application cleanup")
-                    # Stop polling first
-                    if hasattr(self._current_application, 'updater') and self._current_application.updater.running:
-                        await self._current_application.updater.stop()
-                        await asyncio.sleep(2)
-
-                    # Stop and shutdown application
-                    await self._current_application.stop()
-                    await self._current_application.shutdown()
-
-                    # Ensure webhook is deleted
-                    try:
-                        await self._current_application.bot.delete_webhook(drop_pending_updates=True)
-                    except Exception as e:
-                        logging.warning(f"Error deleting webhook during cleanup: {e}")
-
-                    self._current_application = None
-                    self._polling_start_time = None
-                    self._retry_count = 0
-                    logging.info("Bot cleanup completed successfully")
-                except Exception as e:
-                    logging.error(f"Error during cleanup: {str(e)}")
-                    raise
-
-    async def setup(self):
-        try:
-            self.application = await self.initialize_application()
-            self._polling_start_time = asyncio.get_event_loop().time()
-            logging.info("Bot setup completed successfully")
-        except Exception as e:
-            logging.error(f"Error in setup: {str(e)}")
-            await self.cleanup()
-            raise
-
-    def get_application(self):
-        if not self._current_application:
-            raise RuntimeError("Bot application not initialized")
-        return self._current_application
-
-    async def _set_commands(self):
-        if not self._current_application:
-            raise RuntimeError("Bot application not initialized")
-
-        commands = [
-            BotCommand('start', '🏠 Menu Utama'),
-            BotCommand('saved', '📁 Kontak Tersimpan'),
-            BotCommand('credits', '💳 Kredit Saya')
-        ]
-        await self._current_application.bot.set_my_commands(commands)
-        logging.info("Bot commands registered successfully")
-
-    def _register_handlers(self):
+    async def _register_handlers(self):
         """Register command handlers with enhanced error handling"""
-        if not self._current_application:
-            raise RuntimeError("Bot application not initialized")
-
         try:
-            # Clear existing handlers if any
-            if hasattr(self._current_application, 'handlers'):
-                self._current_application.handlers.clear()
-
-            # Register handlers
-            self._current_application.add_handler(TelegramCommandHandler("start", self.command_handler.start))
-            self._current_application.add_handler(TelegramCommandHandler("saved", self.command_handler.saved))
-            self._current_application.add_handler(TelegramCommandHandler("credits", self.command_handler.credits))
-            self._current_application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
-
-            # Add fallback handler
-            self._current_application.add_handler(
-                MessageHandler(filters.TEXT & filters.Regex('^/start$'), self.command_handler.start)
-            )
+            # Register command handlers
+            self.dp.message.register(self._start_handler, Command("start"))
+            self.dp.message.register(self._saved_handler, Command("saved"))
+            self.dp.message.register(self._credits_handler, Command("credits"))
+            self.dp.message.register(self._orders_handler, Command("orders"))
 
             # Add callback query handler
-            self._current_application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
+            self.dp.callback_query.register(self.command_handler.button_callback)
 
-            # Set error handler
-            self._current_application.add_error_handler(self._error_handler)
+            # Add error handler
+            self.dp.errors.register(self._error_handler)
 
-            logging.info("Handlers registered successfully")
+            logger.info("Handlers registered successfully")
         except Exception as e:
+            logger.error(f"Error registering handlers: {e}")
             monitor.log_error(e, context={'stage': 'handler_registration'})
             raise
 
-    async def _error_handler(self, update, context):
-        """Enhanced error handler for the bot"""
+    async def _set_commands(self):
+        """Set bot commands with proper error handling"""
+        try:
+            commands = [
+                BotCommand(command='start', description='🏠 Menu Utama'),
+                BotCommand(command='saved', description='📁 Kontak Tersimpan'),
+                BotCommand(command='credits', description='💳 Kredit Saya'),
+                BotCommand(command='orders', description='Daftar Pesanan')
+            ]
+            await self.bot.set_my_commands(commands)
+            logger.info("Bot commands set successfully")
+        except Exception as e:
+            logger.error(f"Error setting commands: {e}")
+            raise
+
+    @REQUEST_LATENCY.time()
+    async def _start_handler(self, message: Message):
+        """Handle /start command with metrics"""
+        REQUEST_COUNT.inc()
+        try:
+            await self.command_handler.start(message)
+        except Exception as e:
+            logger.error(f"Error in start handler: {e}")
+            await message.answer("Sorry, an error occurred. Please try again later.")
+
+    @REQUEST_LATENCY.time()
+    async def _saved_handler(self, message: Message):
+        """Handle /saved command with metrics"""
+        REQUEST_COUNT.inc()
+        try:
+            await self.command_handler.saved(message)
+        except Exception as e:
+            logger.error(f"Error in saved handler: {e}")
+            await message.answer("Sorry, an error occurred. Please try again later.")
+
+    @REQUEST_LATENCY.time()
+    async def _credits_handler(self, message: Message):
+        """Handle /credits command with metrics"""
+        REQUEST_COUNT.inc()
+        try:
+            await self.command_handler.credits(message)
+        except Exception as e:
+            logger.error(f"Error in credits handler: {e}")
+            await message.answer("Sorry, an error occurred. Please try again later.")
+
+    @REQUEST_LATENCY.time()
+    async def _orders_handler(self, message: Message):
+        """Handle /orders command with metrics"""
+        REQUEST_COUNT.inc()
+        try:
+            await self.command_handler.orders(message)
+        except Exception as e:
+            logger.error(f"Error in orders handler: {e}")
+            await message.answer("Sorry, an error occurred. Please try again later.")
+
+    async def _error_handler(self, update: Message, exception: Exception):
+        """Enhanced error handler with proper logging"""
+        logger.error(f"Update {update} caused error {exception}")
         monitor.log_error(
-            context.error,
+            exception,
             context={
-                'update_id': update.update_id if update else None,
-                'chat_id': update.effective_chat.id if update and update.effective_chat else None,
-                'user_id': update.effective_user.id if update and update.effective_user else None,
-                'command': update.effective_message.text if update and update.effective_message else None
+                'update': str(update),
+                'user_id': update.from_user.id if update.from_user else None,
+                'chat_id': update.chat.id if update.chat else None
             }
         )
+
+    async def start(self):
+        """Start the bot with proper webhook handling"""
+        try:
+            webhook_url = os.getenv('BOT_WEBHOOK_URL', 'https://your-domain.com/webhook')
+            await self.bot.set_webhook(webhook_url)
+            logger.info(f"Webhook set to {webhook_url}")
+            return self.dp
+        except Exception as e:
+            logger.error(f"Error starting bot: {e}")
+            raise
+
+    async def stop(self):
+        """Graceful shutdown"""
+        try:
+            await self.bot.delete_webhook()
+            await self.bot.close()
+            logger.info("Bot stopped successfully")
+        except Exception as e:
+            logger.error(f"Error stopping bot: {e}")
+            raise

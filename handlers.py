@@ -1,776 +1,305 @@
 import logging
-import time
 import asyncio
 from datetime import datetime
-from typing import Optional
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
-from sqlalchemy import text
+from typing import Dict, List, Optional
+from aiogram import types
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from loguru import logger
+from prometheus_client import Counter, Histogram
 
 from data_store import DataStore
-from app import app, RATE_LIMIT_WINDOW, MAX_REQUESTS
 from messages import Messages
+from monitoring import monitor
+
+# Prometheus metrics
+COMMAND_COUNTER = Counter('bot_commands_total', 'Total bot commands', ['command'])
+COMMAND_LATENCY = Histogram('bot_command_duration_seconds', 'Command latency', ['command'])
 
 class CommandHandler:
     def __init__(self):
         self.data_store = DataStore()
-        self.engine = self.data_store.engine
         logging.info("CommandHandler initialized")
         self._last_save_time = {}
-        self._rate_limit_data = {}  # Store rate limit data separately
+        self._rate_limit_data = {}
 
-    async def search_contacts(self, query: str, context: ContextTypes.DEFAULT_TYPE):
+    async def start(self, message: types.Message):
+        """Handle /start command with metrics"""
+        COMMAND_COUNTER.labels(command='start').inc()
+        with COMMAND_LATENCY.labels(command='start').time():
+            try:
+                user_id = message.from_user.id
+                await self.data_store.initialize_user_credits(user_id)
+
+                keyboard = InlineKeyboardBuilder()
+                keyboard.button(text="📦 Kontak Tersedia", callback_data="show_hs_codes")
+                keyboard.button(text="📁 Kontak Tersimpan", callback_data="show_saved")
+                keyboard.button(text="💳 Kredit Saya", callback_data="show_credits")
+                keyboard.button(text="💰 Beli Kredit", callback_data="buy_credits")
+                keyboard.button(text="❓ Bantuan", callback_data="show_help")
+                keyboard.button(text="👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")
+                keyboard.adjust(2, 2, 1, 1)
+
+                await message.answer(
+                    Messages.WELCOME_MESSAGE,
+                    reply_markup=keyboard.as_markup()
+                )
+                logger.info(f"Start command processed for user {user_id}")
+
+            except Exception as e:
+                logger.error(f"Error in start command: {e}")
+                await message.answer(Messages.ERROR_MESSAGE)
+
+    async def _show_search_results(self, message: types.Message, results: List[Dict], page: int = 0):
+        """Display search results with improved error handling and logging"""
+        try:
+            logger.info(f"Showing search results. Total results: {len(results)}")
+
+            if not results:
+                logger.warning("No search results found")
+                await message.answer(
+                    "❌ Maaf, kontak tidak ditemukan. Silakan coba kata kunci lain.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            items_per_page = 3
+            total_pages = (len(results) + items_per_page - 1) // items_per_page
+            start_idx = page * items_per_page
+            end_idx = min(start_idx + items_per_page, len(results))
+            current_results = results[start_idx:end_idx]
+
+            logger.info(f"Displaying page {page + 1}/{total_pages} (items {start_idx + 1}-{end_idx} of {len(results)})")
+
+            # Display current results
+            for importer in current_results:
+                try:
+                    message_text, whatsapp_number, credit_cost = Messages.format_importer(importer)
+                    keyboard = InlineKeyboardBuilder()
+
+                    # Add WhatsApp button if available
+                    if whatsapp_number:
+                        keyboard.button(
+                            text="💬 Chat di WhatsApp",
+                            url=f"https://wa.me/{whatsapp_number}"
+                        )
+
+                    # Add save button
+                    keyboard.button(
+                        text=f"💾 Simpan ({credit_cost} kredit)",
+                        callback_data=f"save_{importer['name']}"
+                    )
+                    keyboard.adjust(1)
+
+                    await message.answer(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=keyboard.as_markup()
+                    )
+                    logger.info(f"Successfully displayed result: {importer['name']}")
+                except Exception as e:
+                    logger.error(f"Error displaying result: {str(e)}")
+                    continue
+
+            # Add navigation buttons
+            nav_keyboard = InlineKeyboardBuilder()
+            if page > 0:
+                nav_keyboard.button(text="⬅️ Sebelumnya", callback_data="prev_page")
+            if end_idx < len(results):
+                nav_keyboard.button(text="Selanjutnya ➡️", callback_data="next_page")
+
+            nav_keyboard.button(text="🔄 Cari Lagi", callback_data="regenerate_search")
+            nav_keyboard.button(text="🔙 Kembali", callback_data="back_to_categories")
+            nav_keyboard.adjust(2, 1, 1)
+
+            # Send navigation message
+            await message.answer(
+                f"Halaman {page + 1} dari {total_pages}",
+                reply_markup=nav_keyboard.as_markup()
+            )
+
+            logger.info(f"Search results display completed.")
+
+        except Exception as e:
+            logger.error(f"Error in _show_search_results: {str(e)}")
+            await message.answer(
+                "❌ Mohon maaf, terjadi kesalahan. Silakan coba beberapa saat lagi.",
+                parse_mode='Markdown'
+            )
+
+    async def search(self, message: types.Message, query: str):
+        """Handle search command with metrics"""
+        COMMAND_COUNTER.labels(command='search').inc()
+        with COMMAND_LATENCY.labels(command='search').time():
+            try:
+                user_id = message.from_user.id
+                logger.info(f"Processing search command for user {user_id}")
+
+                results = await self.data_store.search_importers(query)
+                if not results:
+                    logger.info(f"No results found for query: {query}")
+                    await message.answer("Mohon tunggu beberapa saat lagi.")
+                    return
+
+                await self._show_search_results(message, results)
+
+            except Exception as e:
+                logger.error(f"Error in search command: {str(e)}")
+                await message.answer(Messages.ERROR_MESSAGE)
+
+    async def button_callback(self, callback_query: types.CallbackQuery):
+        """Handle button callbacks with metrics"""
+        COMMAND_COUNTER.labels(command='button_callback').inc()
+        with COMMAND_LATENCY.labels(command='button_callback').time():
+            try:
+                user_id = callback_query.from_user.id
+                data = callback_query.data
+
+                if not await self._check_rate_limit(user_id, f'button_{data}'):
+                    await callback_query.answer("Too many requests. Please wait a minute.", show_alert=True)
+                    return
+
+                # Handle different button callbacks
+                if data == "show_credits":
+                    credits = await self.data_store.get_user_credits(user_id)
+                    keyboard = InlineKeyboardBuilder()
+                    keyboard.button(text="🔙 Back", callback_data="back_to_main")
+                    await callback_query.message.edit_text(
+                        f"{Messages.CREDITS_REMAINING.format(credits)}",
+                        reply_markup=keyboard.as_markup()
+                    )
+                elif data.startswith("search_"):
+                    search_term = data.replace("search_", "")
+                    await self.search(callback_query.message, search_term)
+                elif data == "show_saved":
+                    await self.saved(callback_query.message)
+                elif data == "back_to_main":
+                    await callback_query.message.edit_text("Welcome!", reply_markup=None)
+                elif data == "show_hs_codes":
+                    await self.show_categories(callback_query.message)
+
+                logger.info(f"Button callback {data} processed for user {user_id}")
+
+            except Exception as e:
+                logger.error(f"Error in button callback: {e}")
+                await callback_query.message.answer(Messages.ERROR_MESSAGE)
+
+    async def _check_rate_limit(self, user_id: int, command: str) -> bool:
+        """Check if user has exceeded rate limit"""
+        current_time = datetime.now().timestamp()
+        user_key = f"{user_id}:{command}"
+
+        if user_key in self._rate_limit_data:
+            timestamps = self._rate_limit_data[user_key]
+            timestamps = [ts for ts in timestamps if current_time - ts <= 60]
+
+            if len(timestamps) >= 10:  # Max 10 requests per minute
+                logger.warning(f"Rate limit exceeded for user {user_id} on command {command}")
+                monitor.log_rate_limit_event(user_id, command)
+                return False
+
+            timestamps.append(current_time)
+            self._rate_limit_data[user_key] = timestamps
+        else:
+            self._rate_limit_data[user_key] = [current_time]
+
+        return True
+
+    async def saved(self, message: types.Message):
+        """Handle saved contacts command"""
+        try:
+            if not await self._check_rate_limit(message.from_user.id, 'saved'):
+                return
+
+            user_id = message.from_user.id
+            saved_contacts = await self.data_store.get_saved_contacts(user_id)
+
+            if not saved_contacts:
+                keyboard = InlineKeyboardBuilder()
+                keyboard.button(text="🔙 Kembali", callback_data="back_to_main")
+                await message.answer(
+                    Messages.NO_SAVED_CONTACTS,
+                    reply_markup=keyboard.as_markup()
+                )
+                return
+
+            await self._show_saved_contacts(message, saved_contacts)
+            logger.info(f"Saved contacts shown to user {user_id}")
+
+        except Exception as e:
+            logger.error(f"Error in saved command: {e}")
+            await message.answer(Messages.ERROR_MESSAGE)
+
+    async def _show_saved_contacts(self, message, contacts):
+        try:
+            page = 0
+            items_per_page = 5
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            page_contacts = contacts[start_idx:end_idx]
+
+            if not page_contacts:
+                await message.answer("No more saved contacts.")
+                return
+
+            for contact in page_contacts:
+                formatted_message, whatsapp_number, _ = Messages.format_importer(
+                    contact, saved=True, user_id=message.from_user.id
+                )
+
+                keyboard = InlineKeyboardBuilder()
+                if whatsapp_number:
+                    whatsapp_url = f"https://wa.me/{whatsapp_number}"
+                    keyboard.button("💬 Chat WhatsApp", url=whatsapp_url)
+                keyboard.adjust(1)
+
+                await message.answer(
+                    formatted_message,
+                    parse_mode='MarkdownV2',
+                    reply_markup=keyboard.as_markup() if keyboard.buttons else None
+                )
+
+            #Add Pagination - simplified for brevity
+
+        except Exception as e:
+            logger.exception(f"Error showing saved contacts: {e}")
+            await message.answer(Messages.ERROR_MESSAGE)
+
+    async def search_contacts(self, query: str, user_id: int) -> Optional[List[Dict]]:
         """Search for contacts with improved error handling and retries"""
         max_retries = 3
-        retry_delay = 1  # seconds
+        retry_delay = 1
 
         for attempt in range(max_retries):
             try:
-                logging.info(f"Executing search query '{query}' (attempt {attempt + 1}/{max_retries}) for user {context.user_data.get('user_id', 'unknown')}")
+                logger.info(f"Executing search query '{query}' (attempt {attempt + 1}/{max_retries}) for user {user_id}")
 
-                async with self.engine.connect() as conn:
-                    async with conn.begin():
-                        # Clear existing results
-                        if 'last_search_results' in context.user_data:
-                            context.user_data.pop('last_search_results')
+                results = await self.data_store.search_importers(query)
+                if not results:
+                    logger.warning(f"No results found for query '{query}' (attempt {attempt + 1})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    return None
 
-                        # Execute search with timeout
-                        result = await asyncio.wait_for(
-                            conn.execute(text(query)),
-                            timeout=10.0
-                        )
-                        rows = await result.fetchall()
-
-                        if not rows:
-                            logging.warning(f"No results found for query '{query}' (attempt {attempt + 1})")
-                            if attempt < max_retries - 1:
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            return None
-
-                        # Format results
-                        formatted_results = []
-                        for row in rows:
-                            try:
-                                formatted_result = {
-                                    'name': row.name.strip() if row.name else '',
-                                    'email': row.email.strip() if row.email else '',
-                                    'contact': row.contact.strip() if row.contact else '',
-                                    'website': row.website.strip() if row.website else '',
-                                    'country': row.country.strip() if row.country else '',
-                                    'wa_available': bool(row.wa_available),
-                                    'hs_code': row.product.strip() if row.product else '',
-                                    'product_description': row.product_description.strip() if row.product_description else '',
-                                    'search_timestamp': datetime.now().isoformat()
-                                }
-                                formatted_results.append(formatted_result)
-                            except Exception as e:
-                                logging.error(f"Error formatting row: {str(e)}", exc_info=True)
-                                continue
-
-                        if not formatted_results:
-                            logging.warning("No valid results after formatting for query '{query}'")
-                            if attempt < max_retries - 1:
-                                await asyncio.sleep(retry_delay)
-                                continue
-                            return None
-
-                        # Store results in context
-                        context.user_data['last_search_results'] = formatted_results
-                        context.user_data['last_search_timestamp'] = datetime.now().isoformat()
-                        logging.info(f"Successfully stored {len(formatted_results)} results for query '{query}'")
-
-                        return formatted_results
+                return results
 
             except asyncio.TimeoutError:
-                logging.error(f"Search query '{query}' timeout (attempt {attempt + 1})")
+                logger.error(f"Search query '{query}' timeout (attempt {attempt + 1})")
             except Exception as e:
-                logging.error(f"Error in search (attempt {attempt + 1}): {str(e)}", exc_info=True)
+                logger.error(f"Error in search (attempt {attempt + 1}): {str(e)}")
 
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
                 continue
 
-        logging.error(f"Search for query '{query}' failed after {max_retries} attempts")
+        logger.error(f"Search for query '{query}' failed after {max_retries} attempts")
         return None
-
-    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        try:
-            query = update.callback_query
-            await query.answer()
-            logging.info(f"Processing button callback '{query.data}' from user {query.from_user.id}")
-
-            if query.data == "folder_seafood":
-                keyboard = [[InlineKeyboardButton("Kembali", callback_data="back_to_main")]]
-                await query.message.reply_text(
-                    "Menu Seafood",
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-                logging.info(f"Seafood menu shown to user {query.from_user.id}")
-
-            elif query.data == "menu_seafood":
-                with self.engine.connect() as conn:
-                    hs_counts = conn.execute(text("""
-                        SELECT 
-                            CASE 
-                                WHEN LOWER(product) LIKE '%0301%' THEN '0301'
-                                WHEN LOWER(product) LIKE '%0302%' THEN '0302'
-                                WHEN LOWER(product) LIKE '%0303%' THEN '0303'
-                                WHEN LOWER(product) LIKE '%0304%' THEN '0304'
-                                WHEN LOWER(product) LIKE '%0305%' OR LOWER(product) LIKE '%anchovy%' THEN '0305'
-                            END as hs_code,
-                            COUNT(*) as count
-                        FROM importers
-                        WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
-                        GROUP BY hs_code
-                        ORDER BY hs_code;
-                    """)).fetchall()
-
-                    counts_dict = {row[0]: row[1] for row in hs_counts}
-
-                    keyboard = [
-                        [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                                callback_data="search_0301")],
-                        [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                                callback_data="search_0302")],
-                        [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                                callback_data="search_0303")],
-                        [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                                callback_data="search_0304")],
-                        [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                                callback_data="search_anchovy")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
-                    ]
-
-                    await query.message.reply_text(
-                        "🌊 *Produk Laut*",
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    logging.info(f"Seafood options shown to user {query.from_user.id}")
-
-            elif query.data == "menu_agriculture":
-                with self.engine.connect() as conn:
-                    hs_counts = conn.execute(text("""
-                        SELECT 
-                            CASE 
-                                WHEN LOWER(product) LIKE '%0901%' THEN '0901'
-                                WHEN LOWER(product) LIKE '%1513%' OR LOWER(product) LIKE '%coconut oil%' THEN '1513'
-                            END as hs_code,
-                            COUNT(*) as count
-                        FROM importers
-                        WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
-                        GROUP BY hs_code
-                        ORDER BY hs_code;
-                    """)).fetchall()
-
-                    counts_dict = {row[0]: row[1] for row in hs_counts}
-
-                    keyboard = []
-                    if counts_dict.get('0901'):
-                        keyboard.append([InlineKeyboardButton(
-                            f"☕ Kopi ({counts_dict['0901']} kontak)",
-                            callback_data="search_0901"
-                        )])
-                    if counts_dict.get('1513'):
-                        keyboard.append([InlineKeyboardButton(
-                            f"🥥 Minyak Kelapa ({counts_dict['1513']} kontak)",
-                            callback_data="search_coconut_oil"
-                        )])
-
-                    # Add pagination and navigation buttons
-                    keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
-
-                    await query.message.reply_text(
-                        "🌿 *Produk Agrikultur*",
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    logging.info(f"Agriculture options shown to user {query.from_user.id}")
-
-            elif query.data == "menu_processed":
-                try:
-                    async with self.engine.connect() as conn:
-                        result = await conn.execute(text("""
-                            SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) LIKE '%44029010%';
-                        """))
-                        hs_counts = await result.fetchall()
-
-                        count = hs_counts[0][0] if hs_counts else 0
-
-                        keyboard = [
-                            [InlineKeyboardButton(
-                                f"🪵 Briket Batok (44029010) - {count} kontak",
-                                callback_data="search_briket"
-                            )],
-                            [InlineKeyboardButton(
-                                "🔙 Kembali",
-                                callback_data="back_to_categories"
-                            )]
-                        ]
-
-                        await query.message.reply_text(
-                            "🌳 *Produk Olahan*",
-                            parse_mode='Markdown',
-                            reply_markup=InlineKeyboardMarkup(keyboard)
-                        )
-                        logging.info(f"Processed products shown to user {query.from_user.id}")
-                except Exception as e:
-                    logging.error(f"Error getting HS code counts: {str(e)}")
-                    await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
-
-            elif query.data.startswith('search_'):
-                user_id = query.from_user.id
-                search_term = query.data.replace('search_', '')
-
-                # Log the search attempt
-                logging.info(f"User {user_id} searching for term: {search_term}")
-
-                try:
-                    # Clear previous search data
-                    context.user_data.clear()
-
-                    # Construct search query based on term
-                    search_query = await self._construct_search_query(search_term)
-                    if not search_query:
-                        await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
-                        return
-
-                    # Perform search with retries
-                    results = await self.search_contacts(search_query, context)
-                    if not results:
-                        logging.warning(f"Search failed after multiple attempts for term: {search_term}")
-                        await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
-                        return
-
-                    # Store results and reset page
-                    context.user_data['last_search_results'] = results
-                    context.user_data['search_page'] = 0
-                    context.user_data['last_search_query'] = search_query
-                    #Show first page of results
-                    await self._show_search_results(query.message, context)
-                except Exception as e:
-                    logging.error(f"Error in search handler: {str(e)}", exc_info=True)
-                    await query.message.reply_text("Mohon tunggu beberapa saat lagi.")
-
-            elif query.data.startswith('section_'):
-                # Just ignore section headers
-                await query.answer()
-
-            elif query.data in ["orders_prev", "orders_next"]:
-                if query.from_user.id not in [6422072438]:  # Admin check
-                    await query.answer("Not authorized", show_alert=True)
-                    return
-
-                page = context.user_data.get('orders_page', 0)
-                if query.data == "orders_prev":
-                    page = max(0, page - 1)
-                else:
-                    page = page + 1
-
-                context.user_data['orders_page'] = page
-                await self.orders(update, context)
-
-            elif query.data == "export_orders":
-                if query.from_user.id not in [6422072438]:  # Admin check
-                    await query.answer("Not authorized", show_alert=True)
-                    return
-
-                try:
-                    with self.engine.connect() as conn:
-                        orders = conn.execute(text("""
-                            SELECT * FROM credit_orders 
-                            ORDER BY created_at DESC
-                        """)).fetchall()
-
-                    if not orders:
-                        await query.message.reply_text("No orders to export.")
-                        return
-
-                    csv_content = "Order ID,User ID,Credits,Amount,Status,Created At\n"
-                    for order in orders:
-                        csv_content += f"{order.order_id},{order.user_id},{order.credits},"
-                        csv_content += f"{order.amount},{order.status},{order.created_at}\n"
-
-                    await query.message.reply_document(
-                        document=csv_content.encode(),
-                        filename="orders.csv",
-                        caption="Here's your orders export."
-                    )
-                    logging.info(f"Orders exported by user {query.from_user.id}")
-                except Exception as e:
-                    logging.error(f"Error exporting orders: {str(e)}")
-                    await query.message.reply_text("Error exporting orders.")
-
-            elif query.data.startswith('fulfill_'):
-                if query.from_user.id not in [6422072438]:  # Admin check
-                    await query.answer("Not authorized", show_alert=True)
-                    return
-
-                order_id = '_'.join(query.data.split('_')[1:])  # Handle order IDs with underscores
-                try:
-                    with self.engine.begin() as conn:
-                        # Get order details
-                        order = conn.execute(text("""
-                            SELECT user_id, credits, status
-                            FROM credit_orders 
-                            WHERE order_id = :order_id
-                            FOR UPDATE
-                        """), {"order_id": order_id}).first()
-
-                        if not order:
-                            await query.answer("Order not found", show_alert=True)
-                            return
-
-                        if order.status == "fulfilled":
-                            await query.answer("Order already fulfilled", show_alert=True)
-                            return
-
-                        # Add credits to user
-                        if self.data_store.add_credits(order.user_id, order.credits):
-                            # Update order status
-                            conn.execute(text("""
-                                UPDATE credit_orders 
-                                SET status = 'fulfilled', 
-                                    fulfilled_at = CURRENT_TIMESTAMP
-                                WHERE order_id = :order_id
-                            """), {"order_id": order_id})
-
-                            # Delete the order message
-                            await query.message.delete()
-
-                            # Notify user
-                            await context.bot.send_message(
-                                chat_id=order.user_id,
-                                text=f"✅ Your order (ID: {order_id}) has been fulfilled!\n{order.credits} credits have been added to your account."
-                            )
-                            logging.info(f"Order {order_id} fulfilled by user {query.from_user.id}")
-                        else:
-                            await query.answer("Failed to add credits", show_alert=True)
-
-                except Exception as e:
-                    logging.error(f"Error fulfilling order: {str(e)}")
-                    await query.answer("Error processing order", show_alert=True)
-
-            elif query.data == "join_community":
-                user_id = query.from_user.id
-                with app.app_context():
-                    credits = self.data_store.get_user_credits(user_id)
-
-                if credits < 5:
-                    await query.message.reply_text(
-                        "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
-                        "Dibutuhkan: 5 kredit\n"
-                        "Sisa kredit Anda: " + str(credits)
-                    )
-                    return
-
-                if self.data_store.use_credit(user_id, 5):
-                    keyboard = [[InlineKeyboardButton(
-                        "🚀 Gabung Sekarang",
-                        url="https://t.me/+kuNU6lDtYoNlMTc1"
-                    )]]
-                    sent_message = await query.message.reply_text(
-                        Messages.COMMUNITY_INFO,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    # Delete the message after 1 second
-                    await asyncio.sleep(1)
-                    await sent_message.delete()
-                    # Update the original keyboard
-                    keyboard = [
-                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                        [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
-                         InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                        [InlineKeyboardButton("🔓 Buka Kancil Global Network", url="https://t.me/+kuNU6lDtYoNlMTc1")],
-                        [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                        [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-                    ]
-                    await query.message.edit_reply_markup(
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    logging.info(f"User {user_id} joined community")
-                else:
-                    await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
-
-            elif query.data == "show_help":
-                try:
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        self.data_store.track_user_command(user_id, 'help')
-                    keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                    await query.message.edit_text(
-                        Messages.HELP,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    logging.info(f"Help shown to user {user_id}")
-                except Exception as e:
-                    logging.error(f"Error showing help: {str(e)}")
-                    await query.message.reply_text(Messages.ERROR_MESSAGE)
-            elif query.data == "show_credits":
-                try:
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        self.data_store.track_user_command(user_id, 'credits')
-                        credits = self.data_store.get_user_credits(user_id)
-
-                    keyboard = [                    [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                    ]
-
-                    await query.message.edit_text(
-                        f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    logging.info(f"Credits shown to user {user_id}")
-                except Exception as e:
-                    logging.error(f"Error showing credits: {str(e)}")
-                    await query.message.reply_text(Messages.ERROR_MESSAGE)
-            elif query.data == "show_saved":
-                await self.saved(update, context)
-            elif query.data == "saved_prev":
-                context.user_data['saved_page'] = max(0, context.user_data.get('saved_page', 0) -1)
-                await self._show_saved_contacts(query.message, context)
-            elif query.data == "saved_next":
-                context.user_data['saved_page'] = context.user_data.get('saved_page', 0) + 1
-                await self._show_saved_contacts(query.message, context)
-            else:
-                logging.warning(f"Unknown callback query data: {query.data}")
-
-        except Exception as e:
-            logging.error(f"Error in button callback: {str(e)}", exc_info=True)
-            try:
-                await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
-            except:
-                pass
-
-    async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stats command"""
-        try:
-            if not await self._check_rate_limit(update):
-                return
-
-            user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'stats')
-                stats = self.data_store.get_user_stats(user_id)
-            await update.message.reply_text(
-                Messages.format_stats(stats),
-                parse_mode='Markdown'
-            )
-            logging.info(f"Stats command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in stats command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /orders command for admins"""
-        try:
-            user_id = update.effective_user.id
-            admin_ids = [6422072438]  # Admin check
-
-            if user_id not in admin_ids:
-                await update.message.reply_text("⛔️ You are not authorized to use this command.")
-                return
-
-            # Fetch orders from database with pagination
-            with self.engine.connect() as conn:
-                # Get total count
-                total_count = conn.execute(text("""
-                    SELECT COUNT(*) FROM credit_orders WHERE status = 'pending'
-                """)).scalar()
-
-                # Get current page from context
-                page = context.user_data.get('orders_page', 0)
-                items_per_page = 5
-
-                # Calculate offset
-                offset = page * items_per_page
-                orders = conn.execute(text("""
-                    SELECT order_id, user_id, credits, amount, status, created_at
-                    FROM credit_orders 
-                    WHERE status = 'pending'
-                    ORDER BY created_at DESC
-                    LIMIT :limit OFFSET :offset
-                """), {
-                    "limit": items_per_page,
-                    "offset": offset
-                }).fetchall()
-
-                total_pages = (total_count + items_per_page - 1) // items_per_page
-
-                # Format order messages
-                for order in orders:
-                    status_emoji = "✅" if order.status == "fulfilled" else "⏳"
-                    # Get user info from Telegram
-                    try:
-                        user = await context.bot.get_chat(order.user_id)
-                        username = f"@{user.username}" if user.username else "No username"
-                    except:
-                        username = "Unknown"
-
-                    message = f"""
-                    *Order ID:* `{order.order_id}`
-                    *User ID:* `{order.user_id}`
-                    *Username:* {username}
-                    *Credits:* {order.credits}
-                    *Amount:* Rp {order.amount:,}
-                    *Status:* {status_emoji} {order.status}
-                    *Date:* {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}
-                """
-                    keyboard = []
-                    if order.status != "fulfilled":
-                        keyboard.append([InlineKeyboardButton(
-                            "✅ Fulfill Order",
-                            callback_data=f"fulfill_{order.order_id}"
-                        )])
-                    elif order.status == "fulfilled":
-                        message += "\n✅ *Order fulfilled*"
-
-                    await update.message.reply_text(
-                        message,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                    )
-
-                # Add pagination buttons
-                pagination_buttons = []
-                if page > 0:
-                    pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="orders_prev"))
-                pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="orders_page"))
-                if page < total_pages - 1:
-                    pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="orders_next"))
-
-                # Add export button
-                export_buttons = [
-                    [InlineKeyboardButton("📥 Export Orders", callback_data="export_orders")],
-                    [InlineKeyboardButton("🔙 Back", callback_data="back_to_main")]
-                ]
-
-                await update.message.reply_text(
-                    f"Page {page + 1} of {total_pages}",
-                    reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
-                )
-                logging.info(f"Orders shown to admin user {user_id}")
-
-        except Exception as e:
-            logging.error(f"Error in orders command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def give_credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /givecredits command for admins"""
-        try:
-            if not await self._check_rate_limit(update):
-                return
-
-            user_id = update.effective_user.id
-            admin_ids = [6422072438]  # Your Telegram ID
-
-            if user_id not in admin_ids:
-                await update.message.reply_text("⛔️ You are not authorized to use this command.")
-                return
-
-            # Check command format
-            if not context.args or len(context.args) != 2:
-                await update.message.reply_text("Usage: /givecredits <user_id> <amount>")
-                return
-
-            try:
-                target_user_id = int(context.args[0])
-                credit_amount = int(context.args[1])
-            except ValueError:
-                await update.message.reply_text("Invalid user ID or credit amount. Both must be numbers.")
-                return
-
-            if credit_amount <= 0:
-                await update.message.reply_text("Credit amount must be positive.")
-                return
-
-            with app.app_context():
-                if self.data_store.add_credits(target_user_id, credit_amount):
-                    new_balance = self.data_store.get_user_credits(target_user_id)
-                    await update.message.reply_text(
-                        f"✅ Successfully added {credit_amount} credits to user {target_user_id}\n"
-                        f"New balance: {new_balance} credits"
-                    )
-                    logging.info(f"Admin {user_id} added {credit_amount} credits to user {target_user_id}")
-                else:
-                    await update.message.reply_text("❌ Failed to add credits. User may not exist.")
-
-        except Exception as e:
-            logging.error(f"Error in give_credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def credits(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /credits command"""
-        try:
-            if not await self._check_rate_limit(update):
-                return
-
-            user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'credits')
-                credits = self.data_store.get_user_credits(user_id)
-
-            keyboard = [
-                [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-            ]
-
-            await update.message.reply_text(
-                f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            logging.info(f"Credits command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-            logging.info(f"Credits command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle search command"""
-        try:
-            user_id = update.effective_user.id
-            logging.info(f"Processing search command for user {user_id}")
-
-            if not context.args:
-                logging.info("No search query provided")
-                keyboard = [[InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")]]
-                await update.message.reply_text(
-                    "Silakan masukkan kata kunci pencarian.\n"
-                    "Contoh: /search ikan atau /search coffee",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode='Markdown'
-                )
-                return
-
-            query = ' '.join(context.args)
-            logging.info(f"Search query from user {user_id}: {query}")
-
-            # Use the new search_contacts function
-            results = await self.search_contacts(await self._construct_search_query(query), context)
-
-            if not results:
-                logging.info(f"No results found for query: {query}")
-                await update.message.reply_text(
-                    "Mohon tunggu beberapa saat lagi."
-                )
-                return
-
-            # Clear previous search results and store new ones
-            context.user_data.clear()  # Clear previous data
-            context.user_data['last_search_results'] = results
-            context.user_data['search_page'] = 0
-            context.user_data['last_search_query'] = query
-
-            logging.info(f"Stored {len(results)} results in context for user {user_id}")
-            logging.debug(f"Context keys after storage: {context.user_data.keys()}")
-
-            # Show first page results
-            page = 0
-            items_per_page = 2
-            total_pages = (len(results) + items_per_page - 1) // items_per_page
-            start_idx = page * items_per_page
-            end_idx = start_idx + items_per_page
-            current_results = results[start_idx:end_idx]
-
-            for importer in current_results:
-                message_text, _, _ = Messages.format_importer(importer, user_id=user_id)
-                # Store the full name as callback data
-                keyboard = [[InlineKeyboardButton(
-                    "💾 Simpan Kontak",
-                    callback_data=f"save_{importer['name']}"
-                )]]
-
-                await update.message.reply_text(
-                    message_text,
-                    parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-
-            # Add navigation buttons
-            navigation = []
-            if total_pages > 1:
-                navigation.append(InlineKeyboardButton("Next ➡️", callback_data="search_next"))
-
-            back_button = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-
-            if navigation:
-                await update.message.reply_text(
-                    f"Halaman {page + 1} dari {total_pages}",
-                    reply_markup=InlineKeyboardMarkup([navigation] + back_button)
-                )
-            else:
-                await update.message.reply_text(
-                    "Gunakan tombol di bawah untuk navigasi",
-                    reply_markup=InlineKeyboardMarkup(back_button)
-                )
-
-        except Exception as e:
-            logging.error(f"Error in search command: {str(e)}", exc_info=True)
-            await update.message.reply_text(
-                "Terjadi kesalahan dalam pencarian.\n"
-                "Silakan coba lagi nanti."
-            )
-
-    async def _check_rate_limit(self, update: Update) -> bool:
-        """
-        Check if the user has exceeded rate limits.
-        Returns True if the user can proceed, False if rate limited.
-        """
-        try:
-            user_id = update.effective_user.id
-            current_time = time.time()
-
-            # Initialize rate limit data if not exists
-            if user_id not in self._rate_limit_data:
-                self._rate_limit_data[user_id] = {
-                    'timestamps': [],
-                    'last_warning': 0
-                }
-
-            # Clean up old timestamps
-            window_start = current_time- RATE_LIMIT_WINDOW
-            self._rate_limit_data[user_id]['timestamps'] = [
-                t for t in self._rate_limit_data[user_id]['timestamps'] 
-                if t > window_start
-            ]
-
-            # Add current timestamp
-            self._rate_limit_data[user_id]['timestamps'].append(current_time)
-
-            # Check if rate limited
-            if len(self._rate_limit_data[user_id]['timestamps']) > MAX_REQUESTS:
-                # Only send warning`
-                if current_time - self._rate_limit_data[user_id]['last_warning'] > RATE_LIMIT_WINDOW:
-                    await update.message.reply_text(Messages.RATE_LIMIT_EXCEEDED)
-                    self._rate_limit_data[user_id]['last_warning'] = current_time
-                return False
-
-            return True
-
-        except Exception as e:
-            logging.error(f"Error in rate limit check: {str(e)}")
-            return True  # Allow operation on rate limit check failure
 
     async def _construct_search_query(self, search_term: str) -> Optional[str]:
         """Construct a more robust search query with fuzzy matching and comprehensive conditions"""
         try:
             if not search_term or len(search_term.strip()) == 0:
-                logging.error("Empty search term provided")
+                logger.error("Empty search term provided")
                 return None
 
             # Define search conditions based on product type with expanded terms
@@ -844,290 +373,207 @@ class CommandHandler:
                 term=search_term_lower
             )
 
-            logging.info(f"Constructed enhanced search query for term '{search_term}'")
+            logger.info(f"Constructed enhanced search query for term '{search_term}'")
             return complete_query
 
         except Exception as e:
-            logging.error(f"Error constructing search query: {str(e)}", exc_info=True)
+            logger.error(f"Error constructing search query: {str(e)}", exc_info=True)
             return None
 
-    async def _show_search_results(self, message, context: ContextTypes.DEFAULT_TYPE):
-        """Display search results with improved error handling and logging"""
-        try:
-            results = context.user_data.get('last_search_results', [])
-            logging.info(f"Showing search results. Total results: {len(results)}")
+    async def button_callback(self, callback_query: types.CallbackQuery):
+        """Handle button callbacks"""
+        COMMAND_COUNTER.labels(command='button_callback').inc()
+        with COMMAND_LATENCY.labels(command='button_callback').time():
+            try:
+                user_id = callback_query.from_user.id
+                data = callback_query.data
 
-            if not results:
-                logging.warning("No search results found in context")
-                await message.reply_text(
-                    "❌ Maaf, kontak tidak ditemukan. Silakan coba kata kunci lain.",
+                if not await self._check_rate_limit(user_id, f'button_{data}'):
+                    await callback_query.answer("Too many requests. Please wait a minute.", show_alert=True)
+                    return
+
+                # Handle different button callbacks
+                if data == "show_credits":
+                    credits = await self.data_store.get_user_credits(user_id)
+                    keyboard = InlineKeyboardBuilder()
+                    keyboard.button(text="🔙 Back", callback_data="back_to_main")
+                    await callback_query.message.edit_text(
+                        f"{Messages.CREDITS_REMAINING.format(credits)}",
+                        reply_markup=keyboard.as_markup()
+                    )
+                elif data.startswith("search_"):
+                    search_term = data.replace("search_", "")
+                    await self.search(callback_query.message, search_term)
+                elif data == "show_saved":
+                    await self.saved(callback_query.message)
+                elif data == "back_to_main":
+                    await callback_query.message.edit_text("Welcome!", reply_markup=None)
+                elif data == "show_hs_codes":
+                    await self.show_categories(callback_query.message)
+
+                logger.info(f"Button callback {data} processed for user {user_id}")
+
+            except Exception as e:
+                logger.error(f"Error in button callback: {e}")
+                await callback_query.message.answer(Messages.ERROR_MESSAGE)
+
+    async def show_categories(self, message: types.Message):
+        COMMAND_COUNTER.labels(command='show_categories').inc()
+        with COMMAND_LATENCY.labels(command='show_categories').time():
+            try:
+                header_text = """📊 *Kontak Tersedia*
+Pilih kategori produk:"""
+                async with self.data_store.pool.acquire() as conn: # Assuming asyncpg pool is now in DataStore
+                    # Get counts for each category using asyncpg
+                    seafood_count = await conn.fetchval("SELECT COUNT(*) FROM importers WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'")
+                    agriculture_count = await conn.fetchval("SELECT COUNT(*) FROM importers WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'")
+                    processed_count = await conn.fetchval("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%44029010%'")
+
+                keyboard = InlineKeyboardBuilder()
+                keyboard.button(text=f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")
+                keyboard.button(text=f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")
+                keyboard.button(text=f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")
+                keyboard.button(text="🔙 Kembali", callback_data="back_to_main")
+                keyboard.adjust(1)
+
+                await message.answer(
+                    header_text,
+                    reply_markup=keyboard.as_markup(),
                     parse_mode='Markdown'
                 )
+                logger.info(f"Categories shown")
+            except Exception as e:
+                logger.error(f"Error showing categories: {str(e)}")
+                await message.answer("Mohon tunggu beberapa saat lagi.")
+
+
+    async def stats(self, message: types.Message):
+        COMMAND_COUNTER.labels(command='stats').inc()
+        with COMMAND_LATENCY.labels(command='stats').time():
+            try:
+                if not await self._check_rate_limit(message.from_user.id, 'stats'):
+                    return
+
+                user_id = message.from_user.id
+                stats = await self.data_store.get_user_stats(user_id)
+                await message.answer(Messages.format_stats(stats), parse_mode='Markdown')
+                logger.info(f"Stats command processed for user {user_id}")
+
+            except Exception as e:
+                logger.error(f"Error in stats command: {str(e)}", exc_info=True)
+                await message.answer(Messages.ERROR_MESSAGE)
+
+
+    async def orders(self, message: types.Message):
+        try:
+            user_id = message.from_user.id
+            admin_ids = [6422072438]  # Admin check
+
+            if user_id not in admin_ids:
+                await message.answer("⛔️ You are not authorized to use this command.")
                 return
 
-            page = context.user_data.get('search_page', 0)
-            items_per_page = 3
-            total_pages = (len(results) + items_per_page - 1) // items_per_page
-            start_idx = page * items_per_page
-            end_idx = min(start_idx + items_per_page, len(results))
-            current_results = results[start_idx:end_idx]
-
-            logging.info(f"Displaying page {page + 1}/{total_pages} (items {start_idx + 1}-{end_idx} of {len(results)})")
-
-            # Clean up previous messages
-            new_messages = []
-            if 'current_search_messages' in context.user_data:
-                for msg_id in context.user_data['current_search_messages']:
-                    try:
-                        await message.bot.delete_message(
-                            chat_id=message.chat_id,
-                            message_id=msg_id
-                        )
-                    except Exception as e:
-                        logging.error(f"Error deleting message {msg_id}: {str(e)}")
-
-            # Display current results
-            for importer in current_results:
-                try:
-                    message_text, whatsapp_number, credit_cost = Messages.format_importer(importer)
-                    keyboard = []
-
-                    # Add WhatsApp button if available
-                    if whatsapp_number:
-                        keyboard.append([InlineKeyboardButton(
-                            "💬 Chat di WhatsApp",
-                            url=f"https://wa.me/{whatsapp_number}"
-                        )])
-
-                    # Add save button
-                    keyboard.append([InlineKeyboardButton(
-                        f"💾 Simpan ({credit_cost} kredit)",
-                        callback_data=f"save_{importer['name']}"
-                    )])
-
-                    sent_msg = await message.reply_text(
-                        message_text,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                    new_messages.append(sent_msg.message_id)
-                    logging.info(f"Successfully displayed result: {importer['name']}")
-                except Exception as e:
-                    logging.error(f"Error displaying result: {str(e)}", exc_info=True)
-                    continue
-
-            # Add navigation buttons
-            navigation_buttons = []
-            if page > 0:
-                navigation_buttons.append(InlineKeyboardButton("⬅️ Sebelumnya", callback_data="prev_page"))
-            if end_idx < len(results):
-                navigation_buttons.append(InlineKeyboardButton("Selanjutnya ➡️", callback_data="next_page"))
-
-            # Add navigation bar
-            button_rows = []
-            if navigation_buttons:
-                button_rows.append(navigation_buttons)
-            button_rows.extend([
-                [InlineKeyboardButton("🔄 Cari Lagi", callback_data="regenerate_search")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-            ])
-
-            # Send navigation message
-            sent_msg = await message.reply_text(
-                f"Halaman {page + 1} dari {total_pages}",
-                reply_markup=InlineKeyboardMarkup(button_rows)
-            )
-            new_messages.append(sent_msg.message_id)
-
-            # Store message IDs for future cleanup
-            context.user_data['current_search_messages'] = new_messages
-            logging.info(f"Search results display completed. Total messages: {len(new_messages)}")
-
+            # Adapt to aiogram and asyncpg.  This is a partial implementation
+            #  More complete pagination and error handling would be necessary in a production environment.
+            async with self.data_store.pool.acquire() as conn:
+                orders = await conn.fetch("""
+                    SELECT order_id, user_id, credits, amount, status, created_at
+                    FROM credit_orders 
+                    WHERE status = 'pending'
+                    ORDER BY created_at DESC
+                """)
+                for order in orders:
+                    await message.answer(f"Order ID: {order['order_id']}, User ID: {order['user_id']}, Status: {order['status']}")
         except Exception as e:
-            logging.error(f"Error in _show_search_results: {str(e)}", exc_info=True)
-            await message.reply_text(
-                "❌ Mohon maaf, terjadi kesalahan. Silakan coba beberapa saat lagi.",
-                parse_mode='Markdown'
-            )
+            logger.exception(f"Error in orders command: {e}")
+            await message.answer(Messages.ERROR_MESSAGE)
 
-    async def show_categories(self, message):
-        """Show main categories with contact counts"""
+    async def give_credits(self, message: types.Message, context: types.CallbackQuery):
         try:
-            header_text = """📊 *Kontak Tersedia*
-            
-Pilih kategori produk:"""
-
-            async with self.engine.connect() as conn:
-                # Get counts for each category
-                seafood_count = await conn.scalar(text("""
-                    SELECT COUNT(*) FROM importers 
-                    WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
-                """))
-
-                agriculture_count = await conn.scalar(text("""
-                    SELECT COUNT(*) FROM importers 
-                    WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
-                """))
-
-                processed_count = await conn.scalar(text("""
-                    SELECT COUNT(*) FROM importers 
-                    WHERE LOWER(product) LIKE '%44029010%'
-                """))
-
-            keyboard = [
-                [InlineKeyboardButton(f"🌊 Produk Laut ({seafood_count} kontak)", callback_data="folder_seafood")],
-                [InlineKeyboardButton(f"🌿 Produk Agrikultur ({agriculture_count} kontak)", callback_data="folder_agriculture")],
-                [InlineKeyboardButton(f"🌳 Produk Olahan ({processed_count} kontak)", callback_data="folder_processed")],
-                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-            ]
-
-            await message.reply_text(
-                header_text,
-                parse_mode='Markdown',
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            logging.info(f"Categories shown")
-        except Exception as e:
-            logging.error(f"Error showing categories: {str(e)}")
-            await message.reply_text("Mohon tunggu beberapa saat lagi.")
-
-    async def _check_rate_limit(self, update: Update) -> bool:
-        """Check rate limiting for commands"""
-        user_id = update.effective_user.id
-        command = update.message.text.split()[0] if update.message else None
-        try:
-            with app.app_context():
-                result = self.data_store.check_rate_limit(user_id, command)
-                if not result:
-                    await update.message.reply_text(
-                        "⚠️ Mohon tunggu beberapa detik sebelum mencoba lagi.",
-                        parse_mode='Markdown'
-                    )
-                return result
-        except Exception as e:
-            logging.error(f"Error in rate limit check: {str(e)}")
-            return True  # Allow operation on rate limit check failure
-
-    def check_rate_limit(self, user_id: int, command: Optional[str]) -> bool:
-        """Check if the user has exceeded rate limits"""
-        try:
-            current_time = time.time()
-            user_key = f"{user_id}:{command}" if command else str(user_id)
-
-            # Get last command time
-            last_time = self._last_save_time.get(user_key, 0)
-
-            # 3 second cooldown
-            if current_time - last_time < 3:
-                return False
-
-            self._last_save_time[user_key] = current_time
-            return True
-
-        except Exception as e:
-            logging.error(f"Error in rate limit check: {str(e)}")
-            return True  # Allow operation on rate limit check failure
-
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command"""
-        try:
-            logging.info(f"Processing /start command for user {update.effective_user.id}")
-            user_id = update.effective_user.id
-
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'start')
-                credits = self.data_store.get_user_credits(user_id)
-                logging.info(f"User {user_id} has {credits} credits")
-
-            keyboard = [
-                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits"),
-                 InlineKeyboardButton("💰 Beli Kredit", callback_data="buy_credits")],
-                [InlineKeyboardButton("🌐 Gabung Komunitas", callback_data="join_community")],
-                [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-            ]
-
-            await update.message.reply_text(
-                Messages.WELCOME_MESSAGE.format(credits),
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
-            )
-            logging.info(f"Start command processed successfully for user {user_id}")
-
-        except Exception as e:
-            logging.error(f"Error in start command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /saved command"""
-        try:
-            if not await self._check_rate_limit(update):
+            if not await self._check_rate_limit(message.from_user.id, 'give_credits'):
                 return
 
-            user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'saved')
-                saved_contacts = self.data_store.get_saved_contacts(user_id)
+            user_id = message.from_user.id
+            admin_ids = [6422072438]  # Your Telegram ID
+
+            if user_id not in admin_ids:
+                await message.answer("⛔️ You are not authorized to use this command.")
+                return
+
+            # Check command format
+            if not context.args or len(context.args) != 2:
+                await message.answer("Usage: /givecredits <user_id> <amount>")
+                return
+
+            try:
+                target_user_id = int(context.args[0])
+                credit_amount = int(context.args[1])
+            except ValueError:
+                await message.answer("Invalid user ID or credit amount. Both must be numbers.")
+                return
+
+            if credit_amount <= 0:
+                await message.answer("Credit amount must be positive.")
+                return
+
+            success = await self.data_store.add_credits(target_user_id, credit_amount)
+            if success:
+                new_balance = await self.data_store.get_user_credits(target_user_id)
+                await message.answer(
+                    f"✅ Successfully added {credit_amount} credits to user {target_user_id}\n"
+                    f"New balance: {new_balance} credits"
+                )
+                logger.info(f"Admin {user_id} added {credit_amount} credits to user {target_user_id}")
+            else:
+                await message.answer("❌ Failed to add credits. User may not exist.")
+
+        except Exception as e:
+            logger.exception(f"Error in give_credits command: {e}")
+            await message.answer(Messages.ERROR_MESSAGE)
+
+    async def credits(self, message: types.Message):
+        COMMAND_COUNTER.labels(command='credits').inc()
+        with COMMAND_LATENCY.labels(command='credits').time():
+            try:
+                if not await self._check_rate_limit(message.from_user.id, 'credits'):
+                    return
+
+                user_id = message.from_user.id
+                credits = await self.data_store.get_user_credits(user_id)
+
+                keyboard = InlineKeyboardBuilder()
+                keyboard.button(text="🔙 Kembali", callback_data="back_to_main")
+                await message.answer(
+                    f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
+                    reply_markup=keyboard.as_markup()
+                )
+                logger.info(f"Credits command processed for user {user_id}")
+
+            except Exception as e:
+                logger.error(f"Error in credits command: {str(e)}", exc_info=True)
+                await message.answer(Messages.ERROR_MESSAGE)
+
+    async def saved(self, message: types.Message):
+        """Handle saved contacts command"""
+        try:
+            if not await self._check_rate_limit(message.from_user.id, 'saved'):
+                return
+
+            user_id = message.from_user.id
+            saved_contacts = await self.data_store.get_saved_contacts(user_id)
 
             if not saved_contacts:
-                await update.message.reply_text(Messages.NO_SAVED_CONTACTS)
+                keyboard = InlineKeyboardBuilder()
+                keyboard.button(text="🔙 Kembali", callback_data="back_to_main")
+                await message.answer(
+                    Messages.NO_SAVED_CONTACTS,
+                    reply_markup=keyboard.as_markup()
+                )
                 return
 
-            # Show saved contacts with pagination
-            context.user_data['saved_contacts'] = saved_contacts
-            context.user_data['saved_page'] = 0
-            await self._show_saved_contacts(update.message, context)
-            logging.info(f"Saved contacts shown to user {user_id}")
+            await self._show_saved_contacts(message, saved_contacts)
+            logger.info(f"Saved contacts shown to user {user_id}")
 
         except Exception as e:
-            logging.error(f"Error in saved command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
-    async def _show_saved_contacts(self, message, context):
-        """Helper method to display saved contacts with pagination"""
-        try:
-            page = context.user_data.get('saved_page', 0)
-            contacts = context.user_data.get('saved_contacts', [])
-            items_per_page = 5
-            start_idx = page * items_per_page
-            end_idx = start_idx + items_per_page
-            page_contacts = contacts[start_idx:end_idx]
-
-            if not page_contacts:
-                await message.reply_text("No more saved contacts.")
-                return
-
-            for contact in page_contacts:
-                formatted_message, whatsapp_number, _ = Messages.format_importer(
-                    contact, saved=True, user_id=context.user_data.get('user_id')
-                )
-
-                keyboard = []
-                if whatsapp_number:
-                    whatsapp_url = f"https://wa.me/{whatsapp_number}"
-                    keyboard.append([InlineKeyboardButton("💬 Chat WhatsApp", url=whatsapp_url)])
-
-                await message.reply_text(
-                    formatted_message,
-                    parse_mode='MarkdownV2',
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                )
-
-            # Add pagination buttons
-            navigation = []
-            if page > 0:
-                navigation.append(InlineKeyboardButton("⬅️ Previous", callback_data="saved_prev"))
-            if end_idx < len(contacts):
-                navigation.append(InlineKeyboardButton("Next ➡️", callback_data="saved_next"))
-
-            if navigation:
-                await message.reply_text(
-                    f"Page {page + 1}",
-                    reply_markup=InlineKeyboardMarkup([navigation])
-                )
-
-        except Exception as e:
-            logging.error(f"Error showing saved contacts: {str(e)}", exc_info=True)
-            await message.reply_text(Messages.ERROR_MESSAGE)
+            logger.error(f"Error in saved command: {e}")
+            await message.answer(Messages.ERROR_MESSAGE)
