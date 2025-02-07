@@ -24,7 +24,10 @@ async def run_bot():
         app_module.bot = bot
 
         # Get Replit domain
-        webhook_url = f"https://{os.getenv('REPL_ID')}.id.repl.co/webhook"
+        repl_slug = os.environ.get('REPL_SLUG')
+        repl_owner = os.environ.get('REPL_OWNER')
+        webhook_url = f"https://{repl_slug}.{repl_owner}.repl.co/webhook"
+        logger.info(f"Setting webhook URL to: {webhook_url}")
 
         logger.info(f"Starting bot with webhook at {webhook_url}")
         await application.initialize()
