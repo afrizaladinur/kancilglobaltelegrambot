@@ -106,6 +106,15 @@ def setup_app(bot_instance: TelegramBot, data_store: DataStore) -> web.Applicati
     app['bot'] = bot_instance.bot
     app['data_store'] = data_store
 
+    # Add root route handler
+    async def index_handler(request):
+        return web.Response(
+            text="Telegram Bot Service Status: Running",
+            content_type='text/html'
+        )
+
+    app.router.add_get('/', index_handler)
+
     # Setup webhook handler
     webhook_handler = SimpleRequestHandler(
         dispatcher=bot_instance.dp,
