@@ -2,6 +2,7 @@ import logging
 import asyncio
 from bot import TelegramBot
 from app import app
+import os
 
 # Configure logging
 logging.basicConfig(
