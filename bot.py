@@ -5,11 +5,7 @@ from config import BOT_TOKEN
 from handlers import CommandHandler
 from telegram.ext import filters, MessageHandler
 from telegram import BotCommand
-
-BOT_INFO = {
-    'name': 'Direktori Ekspor Impor',
-    'username': 'kancilglobalbot'
-}
+from monitoring import monitor
 
 class TelegramBot:
     _instance = None
@@ -35,11 +31,14 @@ class TelegramBot:
         """Initialize the bot application with proper locking"""
         async with self._lock:
             try:
-                # Force cleanup of any existing instance first
+                # Monitor system health before initialization
+                health_status = monitor.get_system_health()
+                logging.info(f"System health before initialization: {health_status}")
+
                 if self._current_application:
                     logging.info("Cleaning up existing application before initialization")
                     await self.cleanup()
-                    await asyncio.sleep(5)  # Wait for cleanup
+                    await asyncio.sleep(5)
 
                 logging.info("Starting fresh application initialization")
                 self._polling_start_time = None
@@ -64,6 +63,11 @@ class TelegramBot:
                     .build()
                 )
 
+                # Check database health
+                db_health = monitor.check_database_health()
+                if not db_health['database_connected']:
+                    raise RuntimeError("Database health check failed")
+
                 # Delete webhook again to ensure clean polling
                 await self._current_application.bot.delete_webhook(drop_pending_updates=True)
                 await asyncio.sleep(2)
@@ -75,7 +79,7 @@ class TelegramBot:
                 return self._current_application
 
             except Exception as e:
-                logging.error(f"Fatal error in initialization: {str(e)}")
+                monitor.log_error(e, context={'stage': 'initialization'})
                 if self._current_application:
                     await self.cleanup()
                 raise
@@ -137,6 +141,7 @@ class TelegramBot:
         logging.info("Bot commands registered successfully")
 
     def _register_handlers(self):
+        """Register command handlers with enhanced error handling"""
         if not self._current_application:
             raise RuntimeError("Bot application not initialized")
 
@@ -152,7 +157,9 @@ class TelegramBot:
             self._current_application.add_handler(TelegramCommandHandler("orders", self.command_handler.orders))
 
             # Add fallback handler
-            self._current_application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^/start$'), self.command_handler.start))
+            self._current_application.add_handler(
+                MessageHandler(filters.TEXT & filters.Regex('^/start$'), self.command_handler.start)
+            )
 
             # Add callback query handler
             self._current_application.add_handler(CallbackQueryHandler(self.command_handler.button_callback))
@@ -162,9 +169,17 @@ class TelegramBot:
 
             logging.info("Handlers registered successfully")
         except Exception as e:
-            logging.error(f"Error registering handlers: {str(e)}")
+            monitor.log_error(e, context={'stage': 'handler_registration'})
             raise
 
     async def _error_handler(self, update, context):
-        """Global error handler for the bot"""
-        logging.error(f"Update {update} caused error: {context.error}")
+        """Enhanced error handler for the bot"""
+        monitor.log_error(
+            context.error,
+            context={
+                'update_id': update.update_id if update else None,
+                'chat_id': update.effective_chat.id if update and update.effective_chat else None,
+                'user_id': update.effective_user.id if update and update.effective_user else None,
+                'command': update.effective_message.text if update and update.effective_message else None
+            }
+        )

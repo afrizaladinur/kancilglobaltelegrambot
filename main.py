@@ -7,6 +7,7 @@ import fcntl
 import psutil
 from contextlib import contextmanager
 from bot import TelegramBot
+from monitoring import monitor
 
 # Configure logging
 logging.basicConfig(
@@ -87,6 +88,10 @@ async def cleanup(bot, signal_received=None):
     logger.info("Starting cleanup...")
 
     try:
+        # Monitor system state before cleanup
+        health_status = monitor.get_system_health()
+        logger.info(f"System health before cleanup: {health_status}")
+
         # Kill any existing bot processes first
         kill_existing_bot_processes()
 
@@ -115,7 +120,7 @@ async def cleanup(bot, signal_received=None):
                 await asyncio.sleep(1)
             logger.info("Bot cleanup completed")
     except Exception as e:
-        logger.error(f"Error during cleanup: {str(e)}")
+        monitor.log_error(e, context={'stage': 'cleanup', 'signal': signal_received})
     finally:
         logger.info("Cleanup completed")
         # Ensure lock file is removed during cleanup
@@ -123,13 +128,17 @@ async def cleanup(bot, signal_received=None):
             try:
                 os.remove(LOCK_FILE)
             except Exception as e:
-                logger.error(f"Error removing lock file during cleanup: {e}")
+                monitor.log_error(e, context={'stage': 'lock_file_cleanup'})
 
 async def run_bot():
     """Setup and run the Telegram bot with improved instance management"""
     bot = None
     try:
         with file_lock():
+            # Monitor system health at startup
+            health_status = monitor.get_system_health()
+            logger.info(f"Initial system health: {health_status}")
+
             # Kill any existing processes and wait for cleanup
             kill_existing_bot_processes()
             await asyncio.sleep(5)  # Wait for processes to fully terminate
@@ -143,7 +152,7 @@ async def run_bot():
             try:
                 await bot.setup()
             except Exception as e:
-                logger.error(f"Error during bot setup: {str(e)}")
+                monitor.log_error(e, context={'stage': 'bot_setup'})
                 await cleanup(bot)
                 return
 
@@ -157,7 +166,7 @@ async def run_bot():
 
             application = bot.get_application()
 
-            # Start the bot
+            # Start the bot with enhanced monitoring
             await application.initialize()
             await application.start()
 
@@ -165,7 +174,7 @@ async def run_bot():
             await application.bot.delete_webhook(drop_pending_updates=True)
             await asyncio.sleep(2)  # Brief pause after webhook deletion
 
-            # Start polling
+            # Start polling with optimized settings
             await application.updater.start_polling(
                 allowed_updates=['message', 'callback_query'],
                 drop_pending_updates=True,
@@ -178,14 +187,17 @@ async def run_bot():
 
             logger.info("Bot started successfully")
 
-            # Keep the bot running
+            # Periodic health checks
             while True:
-                await asyncio.sleep(1)
+                await asyncio.sleep(300)  # Check every 5 minutes
+                health_status = monitor.get_system_health()
+                db_health = monitor.check_database_health()
+                logger.info(f"Health check - System: {health_status}, Database: {db_health}")
 
     except asyncio.CancelledError:
         logger.info("Bot operation cancelled")
     except Exception as e:
-        logger.error(f"Error running bot: {str(e)}", exc_info=True)
+        monitor.log_error(e, context={'stage': 'main_loop'})
         raise
     finally:
         if bot:
