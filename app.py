@@ -1,10 +1,8 @@
 import os
-import logging
 from flask import Flask, request, Response, jsonify
 from telegram import Update
 from sqlalchemy.orm import DeclarativeBase
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
 import json
 
 class Base(DeclarativeBase):
@@ -33,39 +31,38 @@ bot = None  # Will be set from main.py
 def index():
     return jsonify({"status": "ok", "message": "Server is running"})
 
+@app.route('/admin/users')
+def view_users():
+    with db.engine.connect() as conn:
+        credits = conn.execute(text("""
+            SELECT user_id, credits, last_updated 
+            FROM user_credits
+            ORDER BY last_updated DESC
+        """)).fetchall()
+
+        stats = conn.execute(text("""
+            SELECT user_id, command, usage_count, last_used
+            FROM user_stats
+            ORDER BY last_used DESC
+        """)).fetchall()
+
+        return jsonify({
+            'users_credits': [dict(row) for row in credits],
+            'users_stats': [dict(row) for row in stats]
+        })
+
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     if request.method == "POST":
-        try:
-            if not bot or not bot.application:
-                logging.error("Bot not initialized")
-                return Response('Bot not initialized', status=500)
-
-            update = Update.de_json(request.get_json(), bot.application.bot)
-            if update is None:
-                logging.error("Invalid update received")
-                return Response('Invalid update', status=400)
-
-            await bot.application.process_update(update)
-            return Response('ok', status=200)
-        except Exception as e:
-            logging.error(f"Webhook error: {str(e)}", exc_info=True)
-            return Response(f'Error: {str(e)}', status=500)
+        update = Update.de_json(request.get_json(), bot.application.bot if bot else None)
+        await bot.application.process_update(update) # Assuming bot.application.process_update exists in your TelegramBot class
+        return Response('ok', status=200)
     return Response(status=403)
-
-@app.route('/health')
-def health():
-    return jsonify({
-        "status": "healthy",
-        "bot_initialized": bot is not None,
-        "database_connected": db.engine.pool.checkedout() >= 0
-    })
 
 with app.app_context():
     import models
     db.create_all()
 
-    # Load sample data if needed
     if not models.Importer.query.first():
         from config import SAMPLE_IMPORTERS
         try:
@@ -78,7 +75,7 @@ with app.app_context():
                 )
                 db.session.add(importer)
             db.session.commit()
-            logging.info("Sample data loaded successfully")
+            print("Sample data loaded successfully")
         except Exception as e:
-            logging.error(f"Error loading sample data: {e}")
+            print(f"Error loading sample data: {e}")
             db.session.rollback()
