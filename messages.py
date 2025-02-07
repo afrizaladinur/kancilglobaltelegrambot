@@ -2,29 +2,6 @@ import logging
 from typing import Optional
 
 class Messages:
-    WELCOME_MESSAGE = """
-Selamat datang di Bot Eksportir Indonesia! 🇮🇩
-
-*Fitur Terbaru:* Gabung Kancil Global Network! 🌟
-
-*Menu Utama:*
-• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
-• 📁 *Kontak Tersimpan* - Akses kontak yang sudah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit ({} kredit)
-• 💰 *Beli Kredit* - Tambah saldo kredit
-
-*Sistem Kredit:*
-• Kredit adalah mata uang dalam bot ini
-• Digunakan untuk menyimpan kontak & akses fitur
-• Setiap pengguna baru dapat 10 kredit gratis
-
-*Panduan Penggunaan:*
-• Gunakan menu di bawah untuk memulai
-• Pilih kategori produk yang diinginkan
-• Simpan kontak untuk akses informasi lengkap
-
-Silakan pilih menu di bawah untuk memulai! 🚀
-"""
 
     COMMUNITY_INFO = """
 *Kancil Global Network* 🌟
@@ -357,20 +334,4 @@ Total perintah: {total}
 
 Rincian perintah:
 {command_stats}
-"""
-
-    CREDITS_INFO = """
-💳 *Informasi Kredit Anda*
-
-Sisa kredit: {}
-
-*Biaya Kredit per Kontak:*
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap
-
-*Tips:*
-• Dapatkan kredit gratis untuk memulai
-• Kredit dapat digunakan untuk menyimpan kontak
-• Simpan kontak penting untuk akses di masa depan
 """
