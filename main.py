@@ -18,19 +18,7 @@ def health_check():
     return "OK"
 
 # Single webhook route
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Handle incoming updates from Telegram"""
-    try:
-        if request.is_json:
-            update = request.get_json()
-            # Pass update to bot application
-            await app.bot.application.update_queue.put(update)
-            return Response('', status=200)
-        return Response('', status=400)
-    except Exception as e:
-        logger.error(f"Error in webhook handler: {str(e)}")
-        return Response('', status=500)
+# Webhook route is now handled in app.py
 
 async def run_bot():
     """Setup and run the Telegram bot"""
