@@ -28,11 +28,16 @@ async def run_bot():
         import app as app_module
         app_module.bot = bot
 
-        # Get deployment URL from environment
-        domain = os.environ.get('REPL_SLUG') + '.' + os.environ.get('REPL_OWNER') + '.repl.co'
-        logger.info(f"Using deployment domain: {domain}")
+        # Get the Replit deployment URL
+        repl_owner = os.environ.get('REPL_OWNER')
+        repl_slug = os.environ.get('REPL_SLUG')
 
-        # Construct webhook URL
+        if not repl_owner or not repl_slug:
+            logger.error("REPL_OWNER or REPL_SLUG not found. Please run this in a Replit environment.")
+            return
+
+        # Use the .repl.co domain for webhook
+        domain = f"{repl_slug}.{repl_owner}.repl.co"
         webhook_url = f"https://{domain}/webhook"
         logger.info(f"Setting webhook URL to: {webhook_url}")
 
@@ -40,64 +45,38 @@ async def run_bot():
         await application.initialize()
         await application.start()
 
-        # Setup webhook in a task
-        async def setup_webhook():
-            try:
-                # Remove existing webhook
-                logger.info("Removing existing webhook...")
-                await application.bot.delete_webhook()
-
-                # Set new webhook
-                logger.info(f"Setting new webhook to {webhook_url}...")
-                success = await application.bot.set_webhook(
-                    url=webhook_url,
-                    allowed_updates=["message", "callback_query"]
-                )
-                if success:
-                    logger.info("Webhook setup completed successfully")
-                else:
-                    raise ValueError("Failed to set webhook")
-            except Exception as e:
-                logger.error(f"Webhook setup failed: {str(e)}")
-                raise
-
-        # Create and run webhook setup task with timeout
-        webhook_task = asyncio.create_task(setup_webhook())
+        # Setup webhook
         try:
-            await asyncio.wait_for(webhook_task, timeout=30.0)
-        except asyncio.TimeoutError:
-            logger.error("Webhook setup timed out")
-            raise
-        except Exception as e:
-            logger.error(f"Error in webhook setup: {str(e)}")
-            raise
-
-        # Start Flask server in a separate thread
-        from threading import Thread
-        def run_flask():
-            try:
-                app.run(
-                    host='0.0.0.0',
-                    port=8443,
-                    ssl_context='adhoc',
-                    debug=False  # Disable debug mode in production
-                )
-            except Exception as e:
-                logger.error(f"Flask server error: {str(e)}")
-                raise
-
-        Thread(target=run_flask, daemon=True).start()
-        logger.info("Flask server started successfully")
-
-        # Keep the bot running
-        try:
-            while True:
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            logger.info("Bot stopped")
+            # Remove existing webhook first
+            logger.info("Removing existing webhook...")
             await application.bot.delete_webhook()
-        finally:
-            await application.stop()
+
+            # Set new webhook with HTTPS URL
+            logger.info(f"Setting new webhook to {webhook_url}...")
+            success = await application.bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=["message", "callback_query"]
+            )
+            if success:
+                logger.info("Webhook setup completed successfully")
+            else:
+                logger.error("Failed to set webhook")
+                return
+        except Exception as e:
+            logger.error(f"Webhook setup failed: {str(e)}")
+            raise
+
+        # Start Flask server with SSL
+        try:
+            app.run(
+                host='0.0.0.0',
+                port=8443,
+                ssl_context='adhoc',  # Use automatic SSL certificate
+                debug=False
+            )
+        except Exception as e:
+            logger.error(f"Flask server error: {str(e)}")
+            raise
 
     except Exception as e:
         logger.error(f"Error running bot: {str(e)}", exc_info=True)
