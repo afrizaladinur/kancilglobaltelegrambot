@@ -17,63 +17,69 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-async def setup_webhook(app: web.Application):
-    """Setup webhook after server is running"""
+async def setup_webhook(bot: Bot):
+    """Setup webhook handler"""
     try:
         replit_slug = os.getenv('REPL_SLUG')
-        if not replit_slug:
-            logger.warning("REPL_SLUG not found, using default webhook URL")
-            return
+        if replit_slug:
+            webhook_base = f"https://{replit_slug}.repl.co"
+            webhook_path = f"/webhook/{BOT_TOKEN}"
+            webhook_url = f"{webhook_base}{webhook_path}"
 
-        bot_instance = app['bot_instance']
-        webhook_base = f"https://{replit_slug}.repl.co"
-        webhook_path = f"/webhook/{BOT_TOKEN}"
-        webhook_url = f"{webhook_base}{webhook_path}"
+            logger.info(f"Setting up webhook to {webhook_url}")
 
-        try:
-            # Delete any existing webhooks
-            await bot_instance.bot.delete_webhook()
-            # Set new webhook with retry logic
-            for attempt in range(3):
-                try:
-                    await bot_instance.bot.set_webhook(webhook_url)
-                    logger.info(f"Webhook set successfully to {webhook_url}")
-                    return
-                except Exception as e:
-                    if attempt < 2:
-                        logger.warning(f"Webhook setup attempt {attempt + 1} failed: {e}")
-                        await asyncio.sleep(1)
-                    else:
-                        raise
-        except Exception as e:
-            logger.error(f"Failed to set webhook after retries: {e}")
+            # Wrap the webhook operations in a single task
+            async def webhook_operations():
+                async with bot.session:
+                    # First delete existing webhook
+                    await bot.delete_webhook(drop_pending_updates=True)
+                    # Then set new webhook
+                    await bot.set_webhook(webhook_url)
+
+            # Create and run the task with timeout
+            await asyncio.wait_for(webhook_operations(), timeout=30.0)
+            logger.info("Webhook setup completed successfully")
+
+    except asyncio.TimeoutError:
+        logger.error("Webhook setup timed out")
+        raise
     except Exception as e:
-        logger.error(f"Error in webhook setup: {e}")
+        logger.error(f"Error in webhook setup: {str(e)}")
+        monitor.log_error(e, context={'stage': 'webhook_setup'})
+        raise
 
 async def on_startup(app: web.Application):
     """Startup handler"""
-    await setup_webhook(app)
+    try:
+        bot_instance = app['bot_instance']
+        if bot_instance and bot_instance.bot:
+            await setup_webhook(bot_instance.bot)
+    except Exception as e:
+        logger.error(f"Error in startup: {e}")
+        monitor.log_error(e, context={'stage': 'startup'})
 
 async def on_shutdown(app: web.Application):
-    """Cleanup on shutdown"""
+    """Shutdown handler"""
     try:
         if 'bot_instance' in app:
-            await app['bot_instance'].bot.session.close()
-            await app['bot_instance'].bot.delete_webhook()
+            bot = app['bot_instance'].bot
+            await bot.delete_webhook()
+            await bot.session.close()
         if 'data_store' in app:
             await app['data_store'].close()
-        logger.info("Cleaned up bot session and connections")
+        logger.info("Cleaned up connections")
     except Exception as e:
         logger.error(f"Error in shutdown: {e}")
+        monitor.log_error(e, context={'stage': 'shutdown'})
 
-async def init_app():
+async def create_app():
     """Initialize services and setup web application"""
     try:
         # Start metrics server
         start_http_server(8000)
         logger.info("Metrics server started")
 
-        # Initialize bot first
+        # Initialize bot
         bot_instance = TelegramBot()
         await bot_instance.init()
         logger.info("Bot initialized")
@@ -109,13 +115,17 @@ async def init_app():
         return app
     except Exception as e:
         logger.error(f"Error creating application: {e}")
-        monitor.log_error(e, context={'stage': 'startup'})
+        monitor.log_error(e, context={'stage': 'app_creation'})
         raise
 
-def main():
-    """Application entry point"""
+if __name__ == '__main__':
     try:
-        app = asyncio.run(init_app())
+        # Create and configure event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Create and run application
+        app = loop.run_until_complete(create_app())
         web.run_app(app, host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
         logger.info("Shutdown signal received")
@@ -124,6 +134,3 @@ def main():
         monitor.log_error(e, context={'stage': 'startup'})
     finally:
         logger.info("Application shutdown complete")
-
-if __name__ == '__main__':
-    main()

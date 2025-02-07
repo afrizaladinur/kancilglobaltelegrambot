@@ -9,7 +9,13 @@ from config import BOT_TOKEN
 from handlers import CommandHandler
 from monitoring import monitor
 from prometheus_client import Counter, Histogram
-from loguru import logger
+
+# Configure logging - using standard logging to maintain consistency with edited code.
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG
+)
+logger = logging.getLogger(__name__)
 
 # Prometheus metrics
 REQUEST_COUNT = Counter('bot_requests_total', 'Total bot requests')
@@ -17,8 +23,8 @@ REQUEST_LATENCY = Histogram('bot_request_duration_seconds', 'Request latency')
 
 class TelegramBot:
     _instance = None
+    _initialized = False
     _lock = asyncio.Lock()
-    command_handler = CommandHandler() # Initialize command handler here
 
     def __new__(cls):
         if cls._instance is None:
@@ -28,49 +34,41 @@ class TelegramBot:
     async def init(self):
         """Initialize the bot with proper async handling"""
         async with self._lock:
-            if not hasattr(self, 'bot'):
-                # Configure loguru
-                logger.add("logs/bot_{time}.log", rotation="1 day", retention="7 days")
-                logger.info("Initializing bot...")
+            if not self._initialized:
+                try:
+                    logger.info("Initializing bot...")
 
-                # Initialize bot with only supported settings
-                default_settings = DefaultBotProperties(
-                    parse_mode="HTML"
-                )
+                    # Initialize command handler first
+                    self.command_handler = CommandHandler()
 
-                # Initialize bot with proper settings
-                self.bot = Bot(token=BOT_TOKEN, default=default_settings)
-                self.dp = Dispatcher()
+                    # Initialize bot with default settings and parse_mode
+                    default_settings = DefaultBotProperties(
+                        parse_mode="HTML"
+                    )
+                    self.bot = Bot(token=BOT_TOKEN, default=default_settings)
+                    self.dp = Dispatcher()
 
-                # Register handlers
-                await self._register_handlers()
-                await self._set_commands()
+                    # Register handlers
+                    self.dp.message.register(self._start_handler, Command("start"))
+                    self.dp.message.register(self._saved_handler, Command("saved"))
+                    self.dp.message.register(self._credits_handler, Command("credits"))
+                    self.dp.message.register(self._orders_handler, Command("orders"))
 
-                logger.info("Bot initialized successfully")
+                    # Register callback query handler
+                    self.dp.callback_query.register(self.command_handler.button_callback)
 
-    async def _register_handlers(self):
-        """Register command handlers with enhanced error handling"""
-        try:
-            # Register command handlers
-            self.dp.message.register(self._start_handler, Command("start"))
-            self.dp.message.register(self._saved_handler, Command("saved"))
-            self.dp.message.register(self._credits_handler, Command("credits"))
-            self.dp.message.register(self._orders_handler, Command("orders"))
+                    # Set commands
+                    await self._set_commands()
 
-            # Add callback query handler
-            self.dp.callback_query.register(self.command_handler.button_callback)
-
-            # Add error handler
-            self.dp.errors.register(self._error_handler)
-
-            logger.info("Handlers registered successfully")
-        except Exception as e:
-            logger.error(f"Error registering handlers: {e}")
-            monitor.log_error(e, context={'stage': 'handler_registration'})
-            raise
+                    self._initialized = True
+                    logger.info("Bot initialized successfully")
+                except Exception as e:
+                    logger.error(f"Error initializing bot: {e}")
+                    monitor.log_error(e, context={'stage': 'bot_initialization'}) #Added monitoring
+                    raise
 
     async def _set_commands(self):
-        """Set bot commands with proper error handling"""
+        """Set bot commands"""
         try:
             commands = [
                 BotCommand(command='start', description='🏠 Menu Utama'),
@@ -82,6 +80,7 @@ class TelegramBot:
             logger.info("Bot commands set successfully")
         except Exception as e:
             logger.error(f"Error setting commands: {e}")
+            monitor.log_error(e, context={'stage': 'command_setting'}) #Added monitoring
             raise
 
     @REQUEST_LATENCY.time()
@@ -150,6 +149,7 @@ class TelegramBot:
             return self.dp
         except Exception as e:
             logger.error(f"Error starting bot: {e}")
+            monitor.log_error(e, context={'stage': 'webhook_setup'}) #Added monitoring
             raise
 
     async def stop(self):
@@ -160,4 +160,5 @@ class TelegramBot:
             logger.info("Bot stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping bot: {e}")
+            monitor.log_error(e, context={'stage': 'bot_shutdown'}) #Added monitoring
             raise
