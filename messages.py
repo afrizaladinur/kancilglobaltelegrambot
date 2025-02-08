@@ -109,7 +109,9 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • Kombinasikan negara + kode HS untuk filter terbaik
 • Simpan kontak penting agar bisa diakses kapan saja
 
-Kredit awal: 10 kredit (gratis untuk pengguna baru)
+*👋 Khusus untuk user baru, kamu bisa mendapatkan 10 Kredit GRATIS!*
+1. Klik menu '💳 Kredit Saya'
+2. Kemudian pilih '🎁 Klaim 10 Kredit Gratis'
 """
     HELP = """
 *Panduan Penggunaan Bot Eksportir Indonesia* 🇮🇩
