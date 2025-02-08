@@ -101,7 +101,9 @@ async def run_bot():
         app_module.bot = bot
 
         # Determine deployment URL
-        if 'REPL_SLUG' in os.environ and 'REPL_OWNER' in os.environ:
+        if os.environ.get('WEBHOOK_DOMAIN'):
+            domain = os.environ['WEBHOOK_DOMAIN']
+        elif 'REPL_SLUG' in os.environ and 'REPL_OWNER' in os.environ:
             domain = f"{os.environ['REPL_SLUG']}.{os.environ['REPL_OWNER']}.repl.dev"
         else:
             port = int(os.environ.get('PORT', 80))
