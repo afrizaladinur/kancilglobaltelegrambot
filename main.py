@@ -32,14 +32,13 @@ async def run_bot():
         import app as app_module
         app_module.bot = bot
 
-        # Get Replit domain from environment
-        replit_domain = os.environ.get('REPLIT_DOMAIN')
-        if not replit_domain:
-            logger.error("REPLIT_DOMAIN environment variable is missing")
-            raise ValueError("REPLIT_DOMAIN environment variable is missing")
-
-        # Construct webhook URL using the actual Replit domain
-        webhook_url = f"https://{replit_domain}/webhook"
+        # Get deployment URL from environment
+        if 'REPL_SLUG' in os.environ and 'REPL_OWNER' in os.environ:
+            domain = f"{os.environ['REPL_SLUG']}.{os.environ['REPL_OWNER']}.repl.dev"
+        else:
+            domain = os.environ.get('REPL_HOSTNAME', '0.0.0.0:8080')
+            
+        webhook_url = f"https://{domain}/webhook"
         logger.info(f"Setting webhook URL to: {webhook_url}")
 
         # Initialize application
