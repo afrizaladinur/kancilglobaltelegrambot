@@ -1492,7 +1492,7 @@ class CommandHandler:
                     else:
                         await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
 
-                    elif query.data == "redeem_free_credits":
+                elif query.data == "redeem_free_credits":
                     user_id = query.from_user.id
                     try:
                         with self.engine.begin() as conn:
@@ -1535,44 +1535,44 @@ class CommandHandler:
                         logging.error(f"Error redeeming free credits: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
 
-                    elif query.data == "show_help":
-                        try:
-                            user_id = query.from_user.id
-                            with app.app_context():
-                                self.data_store.track_user_command(user_id, 'help')
-                            keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                            await query.message.edit_text(
-                                Messages.HELP,
-                                parse_mode='Markdown',
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                            )
-                        except Exception as e:
-                            logging.error(f"Error showing help: {str(e)}")
-                            await query.message.reply_text(Messages.ERROR_MESSAGE)
-                    elif query.data == "show_credits":
-                        try:
-                            user_id = query.from_user.id
-                            with app.app_context():
-                                self.data_store.track_user_command(user_id, 'credits')
-                                credits = self.data_store.get_user_credits(user_id)
+                elif query.data == "show_help":
+                    try:
+                        user_id = query.from_user.id
+                        with app.app_context():
+                            self.data_store.track_user_command(user_id, 'help')
+                        keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
+                        await query.message.edit_text(
+                            Messages.HELP,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logging.error(f"Error showing help: {str(e)}")
+                        await query.message.reply_text(Messages.ERROR_MESSAGE)
+                elif query.data == "show_credits":
+                    try:
+                        user_id = query.from_user.id
+                        with app.app_context():
+                            self.data_store.track_user_command(user_id, 'credits')
+                            credits = self.data_store.get_user_credits(user_id)
 
-                            keyboard = [
-                                [InlineKeyboardButton("🎁 Klaim 10 Kredit Gratis", callback_data="redeem_free_credits")],
-                                [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                                [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                                [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
-                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                            ]
+                        keyboard = [
+                            [InlineKeyboardButton("🎁 Klaim 10 Kredit Gratis", callback_data="redeem_free_credits")],
+                            [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
+                            [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
+                            [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                        ]
 
-                            await query.message.edit_text(
-                                f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                            )
-                        except Exception as e:
-                            logging.error(f"Error showing credits: {str(e)}")
-                            await query.message.reply_text(Messages.ERROR_MESSAGE)
-                    else:
-                        logging.warning(f"Unknown callback query data: {query.data}")
+                        await query.message.edit_text(
+                            f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logging.error(f"Error showing credits: {str(e)}")
+                        await query.message.reply_text(Messages.ERROR_MESSAGE)
+                else:
+                    logging.warning(f"Unknown callback query data: {query.data}")
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
