@@ -1492,6 +1492,49 @@ class CommandHandler:
                     else:
                         await query.message.reply_text("Terjadi kesalahan, silakan coba lagi.")
 
+                elif query.data == "redeem_free_credits":
+                    user_id = query.from_user.id
+                    try:
+                        with self.engine.begin() as conn:
+                            # Check if already redeemed with row lock
+                            result = conn.execute(text("""
+                                SELECT has_redeemed_free_credits, credits 
+                                FROM user_credits 
+                                WHERE user_id = :user_id
+                                FOR UPDATE
+                            """), {"user_id": user_id}).first()
+
+                            if not result:
+                                # Initialize user if not exists
+                                conn.execute(text("""
+                                    INSERT INTO user_credits (user_id, credits, has_redeemed_free_credits)
+                                    VALUES (:user_id, 10, true)
+                                """), {"user_id": user_id})
+                                new_balance = 10.0
+                            else:
+                                has_redeemed, current_credits = result
+
+                                if has_redeemed:
+                                    await query.message.reply_text("Anda sudah pernah mengklaim kredit gratis!")
+                                    return
+
+                                # Add credits and mark as redeemed
+                                conn.execute(text("""
+                                    UPDATE user_credits 
+                                    SET credits = credits + 10,
+                                        has_redeemed_free_credits = true
+                                    WHERE user_id = :user_id
+                                """), {"user_id": user_id})
+                                new_balance = current_credits + 10.0
+
+                        await query.message.reply_text(
+                            f"🎉 Selamat! 10 kredit gratis telah ditambahkan ke akun Anda!\n"
+                            f"Saldo saat ini: {new_balance:.1f} kredit"
+                        )
+                    except Exception as e:
+                        logging.error(f"Error redeeming free credits: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
+
                 elif query.data == "show_help":
                     try:
                         user_id = query.from_user.id
@@ -1514,6 +1557,7 @@ class CommandHandler:
                             credits = self.data_store.get_user_credits(user_id)
 
                         keyboard = [
+                            [InlineKeyboardButton("🎁 Klaim 10 Kredit Gratis", callback_data="redeem_free_credits")],
                             [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
                             [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
                             [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
