@@ -319,6 +319,14 @@ Setiap pengguna baru mendapat 10 kredit gratis!
             return 1.0
 
     @staticmethod
+    def format_search_results(results, page, items_per_page=2):
+        """Format search results with pagination"""
+        total_pages = (len(results) + items_per_page - 1) // items_per_page
+        start_idx = page * items_per_page
+        end_idx = start_idx + items_per_page
+        return results[start_idx:end_idx], total_pages
+
+    @staticmethod
     def format_importer(importer: dict, saved: bool = False, user_id: Optional[int] = None):
         try:
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"

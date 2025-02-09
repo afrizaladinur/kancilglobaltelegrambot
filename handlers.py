@@ -1261,6 +1261,7 @@ class CommandHandler:
                 elif query.data.startswith('search_'):
                     user_id = query.from_user.id
                     search_term = query.data.replace('search_', '')
+                    context.user_data['search_page'] = 0  # Reset page for new search
                     search_terms = {
                         '0301': '0301',
                         '0302': '0302',
