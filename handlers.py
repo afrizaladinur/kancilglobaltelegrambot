@@ -1260,19 +1260,24 @@ class CommandHandler:
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
                 elif query.data.startswith('search_'):
                     user_id = query.from_user.id
-                    search_term = query.data.replace('search_', '')
+                    search_term = query.data.replace('search_', '').replace('_', ' ')
                     context.user_data['search_page'] = 0  # Reset page for new search
-                    search_terms = {
-                        '0301': '0301',
-                        '0302': '0302',
-                        '0303': '0303', 
-                        '0304': '0304',
-                        'anchovy': 'anchovy',
-                        '0901': '0901',
-                        'coconut_oil': 'coconut oil',
-                        'briket': '44029010',
-                        'manggis': 'mangosteen'
-                    }
+
+                    try:
+                        # Get role from search term
+                        role = "Exporter" if "Exporter" in search_term else "Importer"
+                        # Remove role prefix from search term
+                        clean_term = search_term.replace("Exporter ", "").replace("Importer ", "")
+
+                        # Get results from database
+                        with app.app_context():
+                            results = self.data_store.search_importers_by_role(clean_term, role)
+
+                        if not results:
+                            await query.message.reply_text(
+                                f"Tidak ada hasil untuk pencarian '{clean_term}'"
+                            )
+                            return
 
                     if search_term in search_terms:
                         # Set up context.args manually
@@ -1640,14 +1645,53 @@ class CommandHandler:
                     )
 
                 elif query.data.startswith("supplier_") or query.data.startswith("buyer_"):
-                    category = query.data.split('_')[1]
-                    if query.data.startswith("supplier_"):
-                        categories = Messages.SUPPLIER_CATEGORIES
-                    else:
-                        categories = Messages.BUYER_CATEGORIES
+                    try:
+                        category_type, category = query.data.split('_', 1)
+                        categories = Messages.SUPPLIER_CATEGORIES if category_type == "supplier" else Messages.BUYER_CATEGORIES
+                        
+                        cat_data = {}
+                        # Handle nested categories
+                        for key, data in categories.items():
+                            if key.lower().replace(' ', '_') == category:
+                                cat_data = data
+                                break
 
-                    # Handle category navigation and search
-                    await self.handle_category_navigation(query, category, categories)
+                        if not cat_data:
+                            await query.message.reply_text("Category not found")
+                            return
+
+                        keyboard = []
+                        if 'subcategories' in cat_data:
+                            with self.engine.connect() as conn:
+                                for sub_name, sub_data in cat_data['subcategories'].items():
+                                    search_term = sub_data['search']
+                                    count = conn.execute(text("""
+                                        SELECT COUNT(*) FROM importers 
+                                        WHERE Role = :role AND Product LIKE :search
+                                    """), {
+                                        "role": "Exporter" if category_type == "supplier" else "Importer",
+                                        "search": f"%{search_term}%"
+                                    }).scalar()
+                                    
+                                    keyboard.append([InlineKeyboardButton(
+                                        f"{sub_data['emoji']} {sub_name} ({count} kontak)",
+                                        callback_data=f"search_{search_term.replace(' ', '_')}"
+                                    )])
+
+                        keyboard.append([InlineKeyboardButton(
+                            "🔙 Kembali", 
+                            callback_data="show_suppliers" if category_type == "supplier" else "show_buyers"
+                        )])
+
+                        await query.message.edit_text(
+                            f"📂 *{category.replace('_', ' ').title()}*\n\nPilih produk:",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                    except Exception as e:
+                        logging.error(f"Error in category navigation: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
                 else:
                     logging.warning(f"Unknown callback query data: {query.data}")

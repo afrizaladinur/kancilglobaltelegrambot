@@ -204,146 +204,41 @@ class DataStore:
             return False
 
     def search_importers(self, query: str) -> List[Dict]:
-        """Search importers by name, country, product/HS code"""
+        """Search importers by query"""
         try:
-            # Clean and prepare search terms
-            search_terms = query.strip().lower().split()
-            if not search_terms:
-                logging.error("Empty search query")
-                return []
-
-            logging.info(f"Starting search with terms: {search_terms}")
-
-            # Build the search conditions
-            conditions = []
-            params = {}
-
-            # Product name mappings - Easy to modify per product
-            product_mappings = {
-                # Fish Products (HS 0301-0305)
-                'ikan': ['fish', 'ikan', 'seafood'],
-                'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
-                'segar': ['fresh', 'segar', 'fresh fish'],
-                'beku': ['frozen', 'beku', 'frozen fish'],
-
-                # Coconut Products (HS 1513)
-                'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
-                'minyak': ['oil', 'minyak', 'virgin oil'],
-                'vco': ['virgin coconut oil', 'vco', 'virgin'],
-
-                # Charcoal/Briquette (HS 44029010)
-                'briket': ['briquette', 'briket', 'charcoal briquette'],
-                'arang': ['charcoal', 'arang', 'carbon'],
-                'batok': ['shell', 'batok', 'tempurung'],
-
-                # Fruits (HS 0810)
-                'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
-                'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-
-                # Coffee (HS 0901)
-                'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
-                'bubuk': ['powder', 'bubuk', 'ground']
-            }
-
-            for i, term in enumerate(search_terms):
-                term_conditions = []
-                term_lower = term.lower()
-
-                # Handle HS code search
-                if term_lower.isdigit():
-                    term_conditions.append(f"LOWER(product) LIKE :term_{i}")
-                    params[f'term_{i}'] = f'%{term_lower}%'
-                else:
-                    # Add original term
-                    search_terms_for_word = [term_lower]
-
-                    # Add mapped terms if they exist
-                    if term_lower in product_mappings:
-                        search_terms_for_word.extend(product_mappings[term_lower])
-
-                    # Build conditions for all terms
-                    for mapped_term in search_terms_for_word:
-                        param_key = f'term_{i}_{len(params)}'
-                        term_conditions.append(
-                            f"(LOWER(name) LIKE :{param_key} OR "
-                            f"LOWER(country) LIKE :{param_key} OR "
-                            f"LOWER(role) LIKE :{param_key} OR "
-                            f"LOWER(product) LIKE :{param_key})"
-                        )
-                        params[param_key] = f'%{mapped_term}%'
-
-                conditions.append("(" + " OR ".join(term_conditions) + ")")
-
-            # Default ranking based on first term
-            search_sql = f"""
-            WITH ranked_results AS (
-                SELECT 
-                    name, 
-                    country, 
-                    phone as contact, 
-                    website, 
-                    email_1 as email, 
-                    wa_availability,
-                    product,
-                    role as product_description,
-                    1 as match_type
-                FROM importers
-                WHERE phone IS NOT NULL 
-                AND phone != ''
-                AND ({' OR '.join(conditions)})
-            )
-            SELECT 
-                name, country, contact, website, email,
-                CASE 
-                    WHEN wa_availability = 'Available' THEN true
-                    ELSE false
-                END as wa_available,
-                product as hs_code,
-                product_description
-            FROM ranked_results
-            WHERE contact IS NOT NULL AND contact != ''
-            ORDER BY RANDOM()
-            LIMIT 10;
-            """
-
             with self.engine.connect() as conn:
-                try:
-                    # Log the actual SQL query for debugging
-                    logging.info(f"Executing search SQL: {search_sql}")
-                    logging.info(f"With parameters: {params}")
-
-                    result = conn.execute(
-                        text(search_sql), 
-                        params
-                    ).fetchall()
-
-                    logging.info(f"Search found {len(result)} results for query: '{query}'")
-
-                    # Convert result to list of dicts
-                    formatted_results = []
-                    for row in result:
-                        importer_dict = {
-                            'name': row.name,
-                            'country': row.country,
-                            'contact': row.contact,
-                            'website': row.website or '',
-                            'email': row.email or '',
-                            'wa_available': row.wa_available,
-                            'hs_code': row.hs_code,
-                            'product_description': row.product_description or ''
-                        }
-                        logging.debug(f"Formatted result: {importer_dict}")
-                        formatted_results.append(importer_dict)
-
-                    return formatted_results
-
-                except Exception as e:
-                    logging.error(f"Database execution error: {str(e)}", exc_info=True)
-                    conn.rollback()
-                    raise
-
+                results = conn.execute(text("""
+                    SELECT * FROM importers 
+                    WHERE LOWER(product) LIKE :query
+                    OR LOWER(name) LIKE :query
+                    OR LOWER(country) LIKE :query
+                    LIMIT 100
+                """), {
+                    "query": f"%{query.lower()}%"
+                }).fetchall()
+                return [dict(row) for row in results]
         except Exception as e:
-            logging.error(f"Error searching importers: {str(e)}", exc_info=True)
+            logging.error(f"Error searching importers: {str(e)}")
+            return []
+
+    def search_importers_by_role(self, query: str, role: str) -> List[Dict]:
+        """Search importers by query and role"""
+        try:
+            with self.engine.connect() as conn:
+                results = conn.execute(text("""
+                    SELECT * FROM importers 
+                    WHERE (LOWER(product) LIKE :query
+                    OR LOWER(name) LIKE :query
+                    OR LOWER(country) LIKE :query)
+                    AND role = :role
+                    LIMIT 100
+                """), {
+                    "query": f"%{query.lower()}%",
+                    "role": role
+                }).fetchall()
+                return [dict(row) for row in results]
+        except Exception as e:
+            logging.error(f"Error searching importers by role: {str(e)}")
             return []
 
     async def save_contact(self, user_id: int, importer: Dict) -> bool:
