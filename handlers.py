@@ -9,7 +9,6 @@ from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
-import xendit
 
 class CommandHandler:
     def __init__(self):
@@ -530,13 +529,14 @@ class CommandHandler:
                     )
 
                 elif query.data == "back_to_main":
-                    # Delete current message
+                    # Delete current message first
                     await query.message.delete()
-                    # Create a mock message object with the same attributes we need
-                    query.message.from_user = query.from_user
-                    # Call the start command directly
-                    await self.start(Update(update_id=update.update_id, message=query.message), context)
-
+                    # Update message context and call start
+                    update.message = query.message
+                    update.message.from_user = query.from_user
+                    await start(update, context)
+                    await query.answer()
+                    
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2  # Define pagination size
