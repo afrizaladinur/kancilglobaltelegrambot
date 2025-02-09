@@ -34,6 +34,26 @@ class CommandHandler:
             logging.error(f"Rate limit check error: {str(e)}")
             return True  # Allow operation on error to prevent blocking
 
+    def get_main_menu_markup(self, user_id, credits, is_member):
+        """Generate main menu markup and message"""
+        community_button = [InlineKeyboardButton(
+            "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
+            **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
+        )]
+
+        keyboard = [
+            [InlineKeyboardButton("📤 Kontak Supplier", callback_data="show_suppliers"),
+             InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")],
+            [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
+            [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
+            community_button,
+            [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
+            [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
+        ]
+
+        message_text = f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}"
+        return message_text, InlineKeyboardMarkup(keyboard)
+
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         try:
@@ -56,25 +76,11 @@ class CommandHandler:
                 logging.error(f"Error checking member status: {str(e)}")
                 is_member = False
 
-            community_button = [InlineKeyboardButton(
-                "🔓 Buka Kancil Global Network" if is_member else "🌟 Gabung Kancil Global Network",
-                **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"} if is_member else {"callback_data": "join_community"}
-            )]
-
-            keyboard = [
-                [InlineKeyboardButton("📤 Kontak Supplier", callback_data="show_suppliers"),
-                 InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")],
-                [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
-                community_button,
-                [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-            ]
-
+            message_text, reply_markup = self.get_main_menu_markup(user_id, credits, is_member)
             await update.message.reply_text(
-                f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}",
+                message_text,
                 parse_mode='Markdown',
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=reply_markup
             )
             logging.info(f"Start command processed for user {user_id}")
         except Exception as e:
@@ -335,15 +341,8 @@ class CommandHandler:
                     # Add pagination buttons
                     pagination_buttons = []
                     if page > 0:
-                        pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="show_saved_prev"))
-                    pagination_buttons.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="show_saved_page_info"))
-                    if page < total_pages - 1:
-                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
-
-                    export_buttons = [
                         [InlineKeyboardButton("📥 Simpan ke CSV", callback_data="export_contacts")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
-                    ]
                     sent_msg = await query.message.reply_text(
                         f"Halaman {page + 1} dari {total_pages}",
                         reply_markup=InlineKeyboardMarkup([pagination_buttons] + export_buttons)
@@ -412,17 +411,6 @@ class CommandHandler:
                     except Exception as e:
                         logging.error(f"Error exporting contacts: {str(e)}")
                         await query.message.reply_text("Error exporting contacts. Please try again later.")
-                elif query.data == "show_stats":
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        self.data_store.track_user_command(user_id, 'stats')
-                        stats = self.data_store.get_user_stats(user_id)
-                    keyboard = [[InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]]
-                    await query.message.reply_text(
-                        Messages.format_stats(stats),
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
                 elif query.data == "regenerate_search":
                     # Get the original search query
                     if 'last_search_query' in context.user_data:
@@ -529,14 +517,44 @@ class CommandHandler:
                     )
 
                 elif query.data == "back_to_main":
-                    # Delete current message first
-                    await query.message.delete()
-                    # Update message context and call start
-                    update.message = query.message
-                    update.message.from_user = query.from_user
-                    await start(update, context)
-                    await query.answer()
-                    
+                    try:
+                        # Delete current message
+                        await query.message.delete()
+                        
+                        # Get menu content without creating new objects
+                        user_id = query.from_user.id
+                        admin_ids = [6422072438]
+                        is_admin = user_id in admin_ids
+
+                        with app.app_context():
+                            credits = self.data_store.get_user_credits(user_id)
+                            if credits is None:
+                                self.data_store.initialize_user_credits(user_id, 10.0 if not is_admin else 999999.0)
+                                credits = 10.0 if not is_admin else 999999.0
+                            self.data_store.track_user_command(user_id, 'start')
+
+                        try:
+                            chat_member = await context.bot.get_chat_member(chat_id="@kancilglobalnetwork", user_id=user_id)
+                            is_member = chat_member.status in ['member', 'administrator', 'creator']
+                        
+                        except Exception as e:
+                            logging.error(f"Error checking member status: {str(e)}")
+                            is_member = False
+
+                        # Get menu content using existing method
+                        message_text, reply_markup = self.get_main_menu_markup(user_id, credits, is_member)
+                        
+                        # Send new message with main menu
+                        await query.message.reply_text(
+                            text=message_text,
+                            parse_mode='Markdown',
+                            reply_markup=reply_markup
+                        )
+
+                    except Exception as e:
+                        logging.error(f"Error in back_to_main: {str(e)}")
+                        await query.message.reply_text(Messages.ERROR_MESSAGE)
+
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
                     items_per_page = 2  # Define pagination size
@@ -1024,97 +1042,125 @@ class CommandHandler:
                         logging.error(f"Error getting HS code counts: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
 
-                elif query.data == "folder_seafood":
+                elif query.data == "show_suppliers":
                     try:
-                        # Delete previous message
+                        # Delete current message
                         await query.message.delete()
 
-                        folder_text = """🌊 *Produk Laut*
-
-                        Pilih produk:"""
+                        keyboard = []
                         with self.engine.connect() as conn:
-                            counts = {
-                                '0301': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0301%'")).scalar(),
-                                '0302': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0302%'")).scalar(),
-                                '0303': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0303%'")).scalar(),
-                                '0304': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%0304%'")).scalar(),
-                                'anchovy': conn.execute(text("SELECT COUNT(*) FROM importers WHERE LOWER(product) LIKE '%anchovy%'")).scalar()
-                            }
-
-                        keyboard = [
-                            [InlineKeyboardButton(f"🐟 Ikan Hidup ({counts['0301']} kontak)", callback_data="search_0301")],
-                            [InlineKeyboardButton(f"🐠 Ikan Segar ({counts['0302']} kontak)", callback_data="search_0302")],
-                            [InlineKeyboardButton(f"❄️ Ikan Beku ({counts['0303']} kontak)", callback_data="search_0303")],
-                            [InlineKeyboardButton(f"🍣 Fillet Ikan ({counts['0304']} kontak)", callback_data="search_0304")],
-                            [InlineKeyboardButton(f"🐟 Anchovy ({counts['anchovy']} kontak)", callback_data="search_anchovy")],
-                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-                        ]
+                            # Build keyboard with counts for each category
+                            for cat, data in Messages.SUPPLIER_CATEGORIES.items():
+                                search_term = data.get('search', '')
+                                if search_term:
+                                    # Direct search category
+                                    count = conn.execute(text("""
+                                        SELECT COUNT(*) FROM importers 
+                                        WHERE Role = 'Exporter' AND Product LIKE :search
+                                    """), {"search": f"%{search_term}%"}).scalar()
+                                elif 'subcategories' in data:
+                                    # Category with subcategories - sum all subcategory counts
+                                    search_terms = [sub_data['search'] for sub_data in data['subcategories'].values()]
+                                    search_pattern = '|'.join(search_terms)
+                                    count = conn.execute(text("""
+                                        SELECT COUNT(*) FROM importers 
+                                        WHERE Role = 'Exporter' AND Product SIMILAR TO :pattern
+                                    """), {"pattern": f"%({'|'.join(search_terms)})%"}).scalar()
+                                
+                                keyboard.append([InlineKeyboardButton(
+                                    f"{data['emoji']} {cat} ({count} kontak)",
+                                    callback_data=f"supplier_{cat.lower().replace(' ', '_')}"
+                                )])
+                        
+                        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+                        
                         await query.message.reply_text(
-                            folder_text,
+                            "📤 *Kontak Supplier Indonesia*\n\nPilih kategori produk:",
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
                     except Exception as e:
-                        logging.error(f"Error in folder_seafood handler: {str(e)}")
+                        logging.error(f"Error showing suppliers: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
+
+                elif query.data == "show_buyers":
+                    try:
+                        # Delete current message
+                        await query.message.delete()
+
+                        keyboard = []
+                        with self.engine.connect() as conn:
+                            for cat, data in Messages.BUYER_CATEGORIES.items():
+                                if 'subcategories' in data:
+                                    # Count all products in subcategories
+                                    all_search_terms = []
+                                    for sub_data in data['subcategories'].values():
+                                        if 'search' in sub_data:
+                                            all_search_terms.append(sub_data['search'])
+                                        elif 'items' in sub_data:
+                                            all_search_terms.extend(item['search'] for item in sub_data['items'].values())
+                                    
+                                    search_pattern = '|'.join(all_search_terms)
+                                    count = conn.execute(text("""
+                                        SELECT COUNT(*) FROM importers 
+                                        WHERE Role = 'Importer' AND Product SIMILAR TO :pattern
+                                    """), {"pattern": f"%({'|'.join(all_search_terms)})%"}).scalar()
+
+                                    keyboard.append([InlineKeyboardButton(
+                                        f"{data['emoji']} {cat} ({count} kontak)",
+                                        callback_data=f"buyer_{cat.lower().replace(' ', '_')}"
+                                    )])
+                        
+                        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+                        
+                        await query.message.reply_text(
+                            "📥 *Kontak Buyer*\n\nPilih kategori buyer:",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logging.error(f"Error showing buyers: {str(e)}")
+                        await query.message.reply_text("Maaf, terjadi kesalahan saat mengambil data.")
+
+                elif query.data.startswith("supplier_") or query.data.startswith("buyer_"):
+                    try:
+                        category_type, category = query.data.split('_', 1)
+                        categories = Messages.SUPPLIER_CATEGORIES if category_type == "supplier" else Messages.BUYER_CATEGORIES
+                        
+                        cat_data = categories.get(category)
+                        if not cat_data:
+                            return
+
+                        # Delete current message
+                        await query.message.delete()
+
+                        keyboard = []
+                        if 'subcategories' in cat_data:
+                            for sub, sub_data in cat_data['subcategories'].items():
+                                keyboard.append([InlineKeyboardButton(
+                                    f"{sub_data['emoji']} {sub}",
+                                    callback_data=f"search_{sub_data['search'].replace(' ', '_')}"
+                                )])
+                        elif 'search' in cat_data:
+                            # Directly trigger search
+                            context.args = [cat_data['search']]
+                            await self.search(update, context)
+                            return
+
+                        keyboard.append([InlineKeyboardButton(
+                            "🔙 Kembali", 
+                            callback_data="show_suppliers" if category_type == "supplier" else "show_buyers"
+                        )])
+
+                        await query.message.reply_text(
+                            f"📂 *{category}*\n\nPilih produk:",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+
+                    except Exception as e:
+                        logging.error(f"Error in category navigation: {str(e)}")
                         await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
-
-                elif query.data == "folder_agriculture":
-                    # Delete previous message
-                    await query.message.delete()
-
-                    folder_text = """🌿 *Produk Agrikultur*
-
-                    Pilih produk:"""
-                    with self.engine.connect() as conn:
-                        coffee_count = conn.execute(text("""
-                            SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) LIKE '%0901%'
-                        """)).scalar()
-
-                        manggis_count = conn.execute(text("""
-                            SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) SIMILAR TO '%(0810|manggis|mangosteen)%'
-                        """)).scalar()
-
-                    keyboard = [
-                        [InlineKeyboardButton(f"☕ Kopi ({coffee_count} kontak)", callback_data="search_0901")],
-                        [InlineKeyboardButton(f"🫐 Manggis ({manggis_count} kontak)", callback_data="search_manggis")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-                    ]
-                    await query.message.reply_text(
-                        folder_text,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-
-                elif query.data == "folder_processed":
-                    # Delete previous message
-                    await query.message.delete()
-
-                    folder_text = """🌳 *Produk Olahan*
-
-                    Pilih produk:"""
-                    with self.engine.connect() as conn:
-                        briket_count = conn.execute(text("""
-                            SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) LIKE '%44029010%'
-                        """)).scalar()
-
-                        coconut_count = conn.execute(text("""
-                            SELECT COUNT(*) FROM importers 
-                            WHERE LOWER(product) SIMILAR TO '%(1513|coconut oil|minyak kelapa)%'
-                        """)).scalar()
-
-                    keyboard = [
-                        [InlineKeyboardButton(f"🪵 Briket Batok ({briket_count} kontak)", callback_data="search_briket")],
-                        [InlineKeyboardButton(f"🥥 Minyak Kelapa ({coconut_count} kontak)", callback_data="search_coconut_oil")],
-                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-                    ]
-                    await query.message.reply_text(
-                        folder_text,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
 
                 elif query.data == "menu_seafood":
                     with self.engine.connect() as conn:
@@ -1640,25 +1686,6 @@ class CommandHandler:
             logging.error(f"Error in category navigation: {str(e)}")
             await query.message.reply_text(Messages.ERROR_MESSAGE)
 
-    async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stats command"""
-        try:
-            if not await self.check_rate_limit(update):
-                return
-
-            user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'stats')
-                stats = self.data_store.get_user_stats(user_id)
-            await update.message.reply_text(
-                Messages.format_stats(stats),
-                parse_mode='Markdown'
-            )
-            logging.info(f"Stats command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in stats command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
-
     async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /orders command for admins"""
         try:
@@ -1823,6 +1850,3 @@ class CommandHandler:
             logging.error(f"Error in credits command: {str(e)}", exc_info=True)
             await update.message.reply_text(Messages.ERROR_MESSAGE)
             logging.info(f"Credits command processed for user {user_id}")
-        except Exception as e:
-            logging.error(f"Error in credits command: {str(e)}", exc_info=True)
-            await update.message.reply_text(Messages.ERROR_MESSAGE)
