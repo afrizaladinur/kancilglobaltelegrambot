@@ -530,22 +530,12 @@ class CommandHandler:
                     )
 
                 elif query.data == "back_to_main":
-                    # Delete current message and show main menu
+                    # Delete current message
                     await query.message.delete()
-                    with app.app_context():
-                        credits = self.data_store.get_user_credits(query.from_user.id)
-                    keyboard = [
-                        [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
-                        [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
-                        [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
-                        [InlineKeyboardButton("❓ Bantuan", callback_data="show_help")],
-                        [InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")]
-                    ]
-                    await query.message.reply_text(
-                        Messages.START,
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
+                    # Create a mock message object with the same attributes we need
+                    query.message.from_user = query.from_user
+                    # Call the start command directly
+                    await self.start(Update(update_id=update.update_id, message=query.message), context)
 
                 elif query.data == "saved_prev" or query.data == "saved_next":
                     user_id = query.from_user.id
