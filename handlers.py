@@ -63,7 +63,8 @@ class CommandHandler:
             )]
 
             keyboard = [
-                [InlineKeyboardButton("📦 Kontak Tersedia", callback_data="show_hs_codes")],
+                [InlineKeyboardButton("📤 Kontak Supplier", callback_data="show_suppliers"),
+                 InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")],
                 [InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="show_saved")],
                 [InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")],
                 community_button,
@@ -1571,12 +1572,83 @@ class CommandHandler:
                     except Exception as e:
                         logging.error(f"Error showing credits: {str(e)}")
                         await query.message.reply_text(Messages.ERROR_MESSAGE)
+                elif query.data == "show_suppliers":
+                    keyboard = []
+                    for cat, data in Messages.SUPPLIER_CATEGORIES.items():
+                        keyboard.append([InlineKeyboardButton(
+                            f"{data['emoji']} {cat}",
+                            callback_data=f"supplier_{cat.lower().replace(' ', '_')}"
+                        )])
+                    keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+                    
+                    await query.message.edit_text(
+                        "📤 *Kontak Supplier Indonesia*\n\nPilih kategori produk:",
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
+                elif query.data == "show_buyers":
+                    keyboard = []
+                    for cat, data in Messages.BUYER_CATEGORIES.items():
+                        keyboard.append([InlineKeyboardButton(
+                            f"{data['emoji']} {cat}",
+                            callback_data=f"buyer_{cat.lower().replace(' ', '_')}"
+                        )])
+                    keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+                    
+                    await query.message.edit_text(
+                        "📥 *Kontak Buyer*\n\nPilih kategori buyer:",
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+
+                elif query.data.startswith("supplier_") or query.data.startswith("buyer_"):
+                    category = query.data.split('_')[1]
+                    if query.data.startswith("supplier_"):
+                        categories = Messages.SUPPLIER_CATEGORIES
+                    else:
+                        categories = Messages.BUYER_CATEGORIES
+
+                    # Handle category navigation and search
+                    await self.handle_category_navigation(query, category, categories)
+
                 else:
                     logging.warning(f"Unknown callback query data: {query.data}")
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
             await update.callback_query.message.reply_text(Messages.ERROR_MESSAGE)
+
+    async def handle_category_navigation(self, query, category, categories):
+        """Helper method to handle category navigation"""
+        try:
+            cat_data = categories.get(category)
+            if not cat_data:
+                return
+
+            keyboard = []
+            if 'subcategories' in cat_data:
+                for sub, sub_data in cat_data['subcategories'].items():
+                    keyboard.append([InlineKeyboardButton(
+                        f"{sub_data['emoji']} {sub}",
+                        callback_data=f"search_{sub_data['search'].replace(' ', '_')}"
+                    )])
+            elif 'search' in cat_data:
+                # Trigger search directly
+                await self.handle_search(query, cat_data['search'])
+                return
+
+            keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+            
+            await query.message.edit_text(
+                f"📂 *{category}*\n\nPilih sub-kategori:",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+
+        except Exception as e:
+            logging.error(f"Error in category navigation: {str(e)}")
+            await query.message.reply_text(Messages.ERROR_MESSAGE)
 
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""

@@ -88,10 +88,10 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 *Fitur Terbaru:* Gabung Kancil Global Network! 🌟
 
 *Menu Utama:*
-• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
+• 📤 *Kontak Supplier* - Eksportir Indonesia
+• 📥 *Kontak Buyer* - Importir Lokal & Global
 • 📁 *Kontak Tersimpan* - Akses kontak yang sudah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit
-• 💰 *Beli Kredit* - Tambah saldo kredit
+• 💳 *Kredit Saya* - Cek saldo kredit dan beli kredit
 • ❓ *Bantuan* - Panduan lengkap
 
 *Sistem Kredit:*
@@ -130,8 +130,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 *Fitur Utama:*
 • 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
 • 📁 *Kontak Tersimpan* - Akses kontak yang telah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit
-• 💰 *Beli Kredit* - Tambah saldo kredit
+• 💳 *Kredit Saya* - Cek saldo kredit dan beli kredit
 
 *Catatan Penting:*
 • Kontak yang belum disimpan akan disensor
@@ -178,6 +177,78 @@ Setiap pengguna baru mendapat 10 kredit gratis!
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
     NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
+
+    # Add new category mappings
+    SUPPLIER_CATEGORIES = {
+        'Anchovy': {'emoji': '🐟', 'search': 'ID Anchovy'},
+        'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'},
+        'Briquette': {'emoji': '🪵', 'search': 'ID Briquette'},
+        'Coffee': {'emoji': '☕', 'search': 'ID Coffee'},
+        'Spices': {
+            'emoji': '🌶️',
+            'subcategories': {
+                'Cinnamon': {'emoji': '🌿', 'search': 'ID Cinnamon'},
+                'Clove': {'emoji': '🌺', 'search': 'ID Clove'},
+            }
+        },
+        'Nuts': {
+            'emoji': '🥜',
+            'subcategories': {
+                'Betel Nut': {'emoji': '🌰', 'search': 'ID Betel Nut'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
+            }
+        },
+        'Industrial': {
+            'emoji': '🏭',
+            'subcategories': {
+                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
+                'Palm Kernel Shell': {'emoji': '🌴', 'search': 'ID Palm Kernel Shell'},
+            }
+        },
+    }
+
+    BUYER_CATEGORIES = {
+        'Local Buyers': {
+            'emoji': '🇮🇩',
+            'subcategories': {
+                'Palm Oil': {'emoji': '🌴', 'search': 'ID 1511'},
+                'Furniture': {'emoji': '🪑', 'search': 'ID 94035'},
+                'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
+                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
+                'Manggis': {'emoji': '🫐', 'search': 'Mangosteen'},
+            }
+        },
+        'Global Buyers': {
+            'emoji': '🌏',
+            'subcategories': {
+                'Seafood': {
+                    'emoji': '🐟',
+                    'items': {
+                        'Fresh Fish': {'emoji': '🐠', 'search': 'WW 0302'},
+                        'Frozen Fish': {'emoji': '❄️', 'search': 'WW 0303'},
+                        'Fish Fillet': {'emoji': '🍣', 'search': 'WW 0304'},
+                        'Anchovy': {'emoji': '🐟', 'search': 'WW Anchovy'},
+                    }
+                },
+                'Agriculture': {
+                    'emoji': '🌾',
+                    'items': {
+                        'Coffee': {'emoji': '☕', 'search': 'WW 0901'},
+                        'Coconut Oil': {'emoji': '🥥', 'search': 'WW Coconut Oil'},
+                        'Candle Nut': {'emoji': '🌰', 'search': 'WW Candle Nut'},
+                        'Banana Leaves': {'emoji': '🍌', 'search': 'WW Banana Leaves'},
+                    }
+                },
+                'Industrial': {
+                    'emoji': '🏭',
+                    'items': {
+                        'Briquette': {'emoji': '🪵', 'search': 'WW 44029010'},
+                    }
+                }
+            }
+        }
+    }
 
     @staticmethod
     def _escape_markdown(text: str) -> str:
