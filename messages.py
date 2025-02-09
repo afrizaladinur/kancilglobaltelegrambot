@@ -180,70 +180,77 @@ Setiap pengguna baru mendapat 10 kredit gratis!
 
     # Add new category mappings
     SUPPLIER_CATEGORIES = {
-        'Anchovy': {'emoji': '🐟', 'search': 'ID Anchovy'},
-        'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'},
-        'Briquette': {'emoji': '🪵', 'search': 'ID Briquette'},
-        'Coffee': {'emoji': '☕', 'search': 'ID Coffee'},
+        'Marine': {
+            'emoji': '🌊',
+            'subcategories': {
+                'Fresh Fish': {'emoji': '🐟', 'search': 'Exporter 0302'},
+                'Frozen Fish': {'emoji': '❄️', 'search': 'Exporter 0303'},
+                'Fish Fillet': {'emoji': '🍣', 'search': 'Exporter 0304'},
+                'Anchovy': {'emoji': '🐟', 'search': 'Exporter Anchovy'}
+            }
+        },
+        'Agriculture': {
+            'emoji': '🌾',
+            'subcategories': {
+                'Coffee': {'emoji': '☕', 'search': 'Exporter Coffee'},
+                'Coconut Oil': {'emoji': '🥥', 'search': 'Exporter Coconut Oil'},
+                'Manggis': {'emoji': '🫐', 'search': 'Exporter Mangosteen'}
+            }
+        },
         'Spices': {
             'emoji': '🌶️',
             'subcategories': {
-                'Cinnamon': {'emoji': '🌿', 'search': 'ID Cinnamon'},
-                'Clove': {'emoji': '🌺', 'search': 'ID Clove'},
+                'Cinnamon': {'emoji': '🌿', 'search': 'Exporter Cinnamon'},
+                'Clove': {'emoji': '🌺', 'search': 'Exporter Clove'}
             }
         },
         'Nuts': {
             'emoji': '🥜',
             'subcategories': {
-                'Betel Nut': {'emoji': '🌰', 'search': 'ID Betel Nut'},
-                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
+                'Betel Nut': {'emoji': '🌰', 'search': 'Exporter Betel Nut'},
+                'Cashew': {'emoji': '🥜', 'search': 'Exporter Cashew'}
             }
         },
         'Industrial': {
             'emoji': '🏭',
             'subcategories': {
-                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
-                'Palm Kernel Shell': {'emoji': '🌴', 'search': 'ID Palm Kernel Shell'},
+                'Briquette': {'emoji': '🪵', 'search': 'Exporter Briquette'},
+                'Damar': {'emoji': '💎', 'search': 'Exporter Damar'},
+                'Palm Kernel Shell': {'emoji': '🌴', 'search': 'Exporter Palm Kernel Shell'}
             }
-        },
+        }
     }
 
     BUYER_CATEGORIES = {
-        'Local Buyers': {
+        'Local': {
             'emoji': '🇮🇩',
             'subcategories': {
-                'Palm Oil': {'emoji': '🌴', 'search': 'ID 1511'},
-                'Furniture': {'emoji': '🪑', 'search': 'ID 94035'},
-                'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'},
-                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
-                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
-                'Manggis': {'emoji': '🫐', 'search': 'Mangosteen'},
+                'Palm Oil': {'emoji': '🌴', 'search': 'Importer 1511'},
+                'Furniture': {'emoji': '🪑', 'search': 'Importer 94035'},
+                'Birdnest': {'emoji': '🪺', 'search': 'Importer Birdnest'},
+                'Cashew': {'emoji': '🥜', 'search': 'Importer Cashew'},
+                'Damar': {'emoji': '💎', 'search': 'Importer Damar'}
             }
         },
-        'Global Buyers': {
+        'Global': {
             'emoji': '🌏',
             'subcategories': {
                 'Seafood': {
                     'emoji': '🐟',
                     'items': {
-                        'Fresh Fish': {'emoji': '🐠', 'search': 'WW 0302'},
-                        'Frozen Fish': {'emoji': '❄️', 'search': 'WW 0303'},
-                        'Fish Fillet': {'emoji': '🍣', 'search': 'WW 0304'},
-                        'Anchovy': {'emoji': '🐟', 'search': 'WW Anchovy'},
+                        'Fresh Fish': {'emoji': '🐠', 'search': 'Importer 0302'},
+                        'Frozen Fish': {'emoji': '❄️', 'search': 'Importer 0303'},
+                        'Fish Fillet': {'emoji': '🍣', 'search': 'Importer 0304'},
+                        'Anchovy': {'emoji': '🐟', 'search': 'Importer Anchovy'}
                     }
                 },
                 'Agriculture': {
                     'emoji': '🌾',
                     'items': {
-                        'Coffee': {'emoji': '☕', 'search': 'WW 0901'},
-                        'Coconut Oil': {'emoji': '🥥', 'search': 'WW Coconut Oil'},
-                        'Candle Nut': {'emoji': '🌰', 'search': 'WW Candle Nut'},
-                        'Banana Leaves': {'emoji': '🍌', 'search': 'WW Banana Leaves'},
-                    }
-                },
-                'Industrial': {
-                    'emoji': '🏭',
-                    'items': {
-                        'Briquette': {'emoji': '🪵', 'search': 'WW 44029010'},
+                        'Coffee': {'emoji': '☕', 'search': 'Importer 0901'},
+                        'Coconut Oil': {'emoji': '🥥', 'search': 'Importer Coconut Oil'},
+                        'Candle Nut': {'emoji': '🌰', 'search': 'Importer Candle Nut'},
+                        'Banana Leaves': {'emoji': '🍌', 'search': 'Importer Banana Leaves'}
                     }
                 }
             }
