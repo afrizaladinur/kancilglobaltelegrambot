@@ -226,7 +226,7 @@ class DataStore:
         try:
             # Remove any role prefix from search term
             clean_query = query.replace('Exporter ', '').replace('Importer ', '')
-            
+
             with self.engine.connect() as conn:
                 results = conn.execute(text("""
                     SELECT * FROM importers 
@@ -404,3 +404,178 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error getting user stats: {str(e)}", exc_info=True)
             return {'total_commands': 0, 'commands': {}}
+
+    def get_contacts_by_category(self, category_type: str, specific_category: str = None) -> tuple[List[Dict], int]:
+        """Get contacts and count for a specific category"""
+        try:
+            # Base SQL query for counting
+            count_sql = """
+            SELECT COUNT(*) 
+            FROM importers 
+            WHERE 1=1
+            """
+
+            # Base SQL query for fetching contacts
+            contact_sql = """
+            SELECT name, country, phone as contact, website, 
+                   email as email, wa_available as wa_availability, product,
+                   role as product_description
+            FROM importers 
+            WHERE 1=1
+            """
+
+            params = {}
+
+            # Add role filter based on category type
+            if category_type == "supplier":
+                count_sql += " AND role = 'Exporter'"
+                contact_sql += " AND role = 'Exporter'"
+
+                # Add specific category filter for suppliers if provided
+                if specific_category:
+                    if specific_category == 'marine':
+                        product_pattern = '%(0301|0302|0303|0304|0305|seafood|fish|marine)%'
+                    elif specific_category == 'agriculture':
+                        product_pattern = '%(0901|1513|agriculture|farming|crops)%'
+                    elif specific_category == 'spices':
+                        product_pattern = '%(0904|0908|spices|herbs)%'
+                    elif specific_category == 'nuts':
+                        product_pattern = '%(0801|0802|nuts|peanuts|cashews)%'
+                    elif specific_category == 'industrial':
+                        product_pattern = '%(44029010|industrial|manufacturing)%'
+                    else:
+                        product_pattern = f'%{specific_category}%'
+
+                    count_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                    contact_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                    params['pattern'] = product_pattern
+
+            elif category_type == "buyer":
+                count_sql += " AND role = 'Importer'"
+                contact_sql += " AND role = 'Importer'"
+
+                if specific_category:
+                    # Handle ID/WW prefix for buyers
+                    category_parts = specific_category.split("_", 1)
+                    if len(category_parts) == 2:
+                        location, product = category_parts
+                        count_sql += " AND country_type = :country_type"
+                        contact_sql += " AND country_type = :country_type"
+
+                        # Add product category filter
+                        if product == 'marine':
+                            product_pattern = '%(0301|0302|0303|0304|0305|seafood|fish|marine)%'
+                        elif product == 'agriculture':
+                            product_pattern = '%(0901|1513|agriculture|farming|crops)%'
+                        elif product == 'spices':
+                            product_pattern = '%(0904|0908|spices|herbs)%'
+                        else:
+                            product_pattern = f'%{product}%'
+
+                        count_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                        contact_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+
+                        params['country_type'] = location
+                        params['pattern'] = product_pattern
+
+            # Add ordering and limit for contact query
+            contact_sql += " ORDER BY RANDOM() LIMIT 10"
+
+            logging.info(f"Executing category query with params: {params}")
+
+            with self.engine.connect() as conn:
+                # Get total count
+                total_count = conn.execute(text(count_sql), params).scalar() or 0
+                logging.info(f"Found {total_count} total contacts for category")
+
+                # Get contacts
+                results = conn.execute(text(contact_sql), params).fetchall()
+                contacts = []
+                for row in results:
+                    contact = {
+                        'name': row.name,
+                        'country': row.country,
+                        'contact': row.contact,
+                        'website': row.website,
+                        'email': row.email,
+                        'wa_available': row.wa_availability,
+                        'product': row.product,
+                        'product_description': row.product_description
+                    }
+                    contacts.append(contact)
+
+                logging.info(f"Returning {len(contacts)} contacts")
+                return contacts, total_count
+
+        except Exception as e:
+            logging.error(f"Error in get_contacts_by_category: {str(e)}", exc_info=True)
+            return [], 0
+    
+    def search_importers_by_pattern(self, pattern: str, page: int = 0, per_page: int = 2) -> tuple[List[Dict], int]:
+        """Search importers by specific pattern (e.g., 'ID 1511')"""
+        try:
+            offset = page * per_page
+
+            # Extract the search type and value
+            pattern_parts = pattern.split(' ')
+            if len(pattern_parts) != 2:
+                return [], 0
+
+            search_type, search_value = pattern_parts
+
+            # Build the query based on the search type
+            base_query = """
+                SELECT * FROM importers 
+                WHERE 1=1
+            """
+
+            if search_type == 'ID':
+                base_query += " AND country_type = :search_value"
+            elif search_type == 'WW':
+                base_query += " AND country_type != 'ID'"
+
+            # Count total results
+            count_query = f"SELECT COUNT(*) FROM ({base_query}) as count_query"
+
+            # Add pagination to the main query
+            main_query = base_query + """
+                ORDER BY name
+                LIMIT :limit OFFSET :offset
+            """
+
+            with self.engine.connect() as conn:
+                # Get total count
+                total_count = conn.execute(
+                    text(count_query),
+                    {"search_value": search_value}
+                ).scalar() or 0
+
+                # Get paginated results
+                results = conn.execute(
+                    text(main_query),
+                    {
+                        "search_value": search_value,
+                        "limit": per_page,
+                        "offset": offset
+                    }
+                ).fetchall()
+
+                # Convert to list of dicts and censor sensitive data
+                contacts = []
+                for row in results:
+                    contact = dict(row)
+                    # Censor sensitive data
+                    if 'email' in contact:
+                        email = contact['email']
+                        contact['email'] = f"{email[:3]}...@{email.split('@')[1]}" if '@' in email else "***@***.com"
+                    if 'contact' in contact:
+                        phone = contact['contact']
+                        contact['contact'] = f"{phone[:4]}..." if phone else "***"
+                    contacts.append(contact)
+
+                logging.info(f"Found {total_count} results for pattern {pattern}, returning page {page + 1}")
+                return contacts, total_count
+
+        except Exception as e:
+            logging.error(f"Error searching importers by pattern: {str(e)}", exc_info=True)
+            return [], 0
