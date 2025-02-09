@@ -224,16 +224,17 @@ class DataStore:
     def search_importers_by_role(self, query: str, role: str) -> List[Dict]:
         """Search importers by query and role"""
         try:
+            # Remove any role prefix from search term
+            clean_query = query.replace('Exporter ', '').replace('Importer ', '')
+            
             with self.engine.connect() as conn:
                 results = conn.execute(text("""
                     SELECT * FROM importers 
-                    WHERE (LOWER(product) LIKE :query
-                    OR LOWER(name) LIKE :query
-                    OR LOWER(country) LIKE :query)
+                    WHERE LOWER(product) LIKE :query
                     AND role = :role
                     LIMIT 100
                 """), {
-                    "query": f"%{query.lower()}%",
+                    "query": f"%{clean_query.lower()}%",
                     "role": role
                 }).fetchall()
                 return [dict(row) for row in results]
