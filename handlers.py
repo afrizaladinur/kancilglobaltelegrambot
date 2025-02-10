@@ -94,7 +94,7 @@ class CommandHandler:
 
             # Show first page
             items_per_page = 2
-            total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
+            total_pages = (len(saved_contacts) + items_per_page - 1) // total_pages
             current_contacts = saved_contacts[:items_per_page]
 
             for contact in current_contacts:
@@ -181,25 +181,19 @@ class CommandHandler:
                         with self.engine.connect() as conn:
                             for sub_name, sub_data in cat_data['subcategories'].items():
                                 search_term = sub_data['search']
-
-                                # Get count of matching records
-                                count_result = conn.execute(text("""
-                                    SELECT COUNT(*) 
-                                    FROM importers 
+                                count = conn.execute(text("""
+                                    SELECT COUNT(*) FROM importers 
                                     WHERE product = :search_term
                                 """), {
                                     "search_term": search_term
                                 }).scalar()
 
                                 keyboard.append([InlineKeyboardButton(
-                                    f"{sub_data['emoji']} {sub_name} ({count_result} kontak)",
+                                    f"{sub_data['emoji']} {sub_name} ({count} kontak)",
                                     callback_data=f"show_results_{search_term}"
                                 )])
 
-                    keyboard.append([InlineKeyboardButton(
-                        "🔙 Kembali", 
-                        callback_data="show_suppliers" if category_type == "supplier" else "show_buyers"
-                    )])
+                    keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
 
                     await query.message.edit_text(
                         f"📂 *{category.replace('_', ' ').title()}*\n\nPilih kategori produk:",
@@ -222,34 +216,30 @@ class CommandHandler:
                             SELECT *
                             FROM importers 
                             WHERE product = :search_term
+                            ORDER BY id  -- Ensure consistent ordering
                             LIMIT 10
                         """), {
                             "search_term": search_pattern
                         }).fetchall()
 
-                        # Convert results to list of dicts properly
+                        # Convert results to list of dicts
                         results = [dict(row._mapping) for row in results]
 
-                        total_count = len(results)
                         if not results:
                             await query.message.reply_text("Tidak ada hasil yang ditemukan.")
                             return
 
-                        # Store results in context
+                        # Store results and initialize page
                         context.user_data['search_results'] = results
                         context.user_data['search_page'] = 0
 
                         # Show first page (2 results)
                         items_per_page = 2
-                        total_pages = (total_count + items_per_page - 1) // items_per_page
-                        current_page_results = results[:items_per_page]
+                        total_pages = (len(results) + items_per_page - 1) // items_per_page
+                        current_results = results[:items_per_page]
 
-                        # Store the last search results for potential save operations
-                        context.user_data['last_search_results'] = results
-
-                        # Display results with censored data
-                        for result in current_page_results:
-                            # Format and send message
+                        # Display results
+                        for result in current_results:
                             message_text, _, callback_data = Messages.format_importer(result)
                             save_button = [[InlineKeyboardButton(
                                 "💾 Simpan Kontak",
@@ -265,20 +255,114 @@ class CommandHandler:
                         # Add pagination buttons
                         navigation_buttons = []
                         if total_pages > 1:
-                            navigation_buttons.append([
-                                InlineKeyboardButton(f"1/{total_pages}", callback_data="page_info"),
-                                InlineKeyboardButton("Next ➡️", callback_data="next_page")
-                            ])
+                            pagination_buttons = [InlineKeyboardButton("Next ➡️", callback_data="next_page")]
+                            navigation_buttons.append(pagination_buttons)
+
                         navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
 
                         await query.message.reply_text(
-                            f"Menampilkan hasil 1-{min(items_per_page, total_count)} dari {total_count} kontak",
+                            f"Halaman 1 dari {total_pages}",
                             reply_markup=InlineKeyboardMarkup(navigation_buttons)
                         )
 
                 except Exception as e:
                     logging.error(f"Error showing results: {str(e)}", exc_info=True)
                     await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+
+            elif query.data == "next_page" or query.data == "prev_page":
+                try:
+                    logging.info(f"Handling pagination: {query.data}")
+                    user_id = query.from_user.id
+                    results = context.user_data.get('search_results', [])
+                    current_page = context.user_data.get('search_page', 0)
+
+                    logging.info(f"Current state - Results: {len(results)}, Current page: {current_page}")
+
+                    if not results:
+                        logging.warning("No search results found in context")
+                        await query.message.reply_text("Tidak ada hasil pencarian.")
+                        return
+
+                    items_per_page = 2
+                    total_pages = (len(results) + items_per_page - 1) // total_pages
+
+                    # Delete current messages
+                    try:
+                        # Delete message with pagination buttons
+                        await context.bot.delete_message(
+                            chat_id=query.message.chat_id,
+                            message_id=query.message.message_id
+                        )
+                        # Delete the previous results (up to 2 messages)
+                        for i in range(items_per_page):
+                            try:
+                                await context.bot.delete_message(
+                                    chat_id=query.message.chat_id,
+                                    message_id=query.message.message_id - (i + 1)
+                                )
+                            except Exception as e:
+                                logging.warning(f"Could not delete message {i}: {str(e)}")
+                    except Exception as e:
+                        logging.error(f"Error deleting messages: {str(e)}")
+                        # Continue even if deletion fails
+                        pass
+
+                    # Update page number
+                    if query.data == "prev_page":
+                        current_page = max(0, current_page - 1)
+                    else:  # next_page
+                        current_page = min(total_pages - 1, current_page + 1)
+
+                    logging.info(f"Moving to page {current_page + 1} of {total_pages}")
+                    context.user_data['search_page'] = current_page
+
+                    # Get current page results
+                    start_idx = current_page * items_per_page
+                    end_idx = min(start_idx + items_per_page, len(results))
+                    current_results = results[start_idx:end_idx]
+
+                    # Send new results
+                    for result in current_results:
+                        message_text, _, callback_data = Messages.format_importer(result)
+                        save_button = [[InlineKeyboardButton(
+                            "💾 Simpan Kontak",
+                            callback_data=callback_data
+                        )]] if callback_data else []
+
+                        await query.message.reply_text(
+                            message_text,
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(save_button) if save_button else None
+                        )
+
+                    # Create navigation buttons
+                    navigation_buttons = []
+                    pagination_buttons = []
+
+                    if current_page > 0:
+                        pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="prev_page"))
+                    pagination_buttons.append(InlineKeyboardButton(
+                        f"{current_page + 1}/{total_pages}",
+                        callback_data="page_info"
+                    ))
+                    if current_page < total_pages - 1:
+                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="next_page"))
+
+                    if pagination_buttons:
+                        navigation_buttons.append(pagination_buttons)
+                    navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+
+                    await query.message.reply_text(
+                        f"Halaman {current_page + 1} dari {total_pages}",
+                        reply_markup=InlineKeyboardMarkup(navigation_buttons)
+                    )
+
+                except Exception as e:
+                    logging.error(f"Error in pagination: {str(e)}", exc_info=True)
+                    await query.message.reply_text("Maaf, terjadi kesalahan saat menampilkan halaman. Silakan coba lagi.")
+
+            elif query.data == "page_info":
+                await query.answer("Halaman saat ini", show_alert=False)
 
             elif query.data == "back_to_main":
                 # Handle back to main menu
@@ -409,15 +493,52 @@ class CommandHandler:
                 )
             elif query.data == "show_saved_page_info":
                 await query.answer("Halaman saat ini", show_alert=False)
+            elif query.data == "back_to_categories":
+                # Handle going back to category selection
+                try:
+                    search_context = context.user_data.get('last_search_context', {})
+                    category_type = search_context.get('category_type', 'buyer')  # Default to buyer if not found
+
+                    if category_type == 'supplier':
+                        # Go back to supplier categories
+                        keyboard = []
+                        for cat, data in Messages.SUPPLIER_CATEGORIES.items():
+                            keyboard.append([InlineKeyboardButton(
+                                f"{data['emoji']} {cat}",
+                                callback_data=f"supplier_{cat.lower().replace(' ', '_')}"
+                            )])
+                        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+
+                        await query.message.edit_text(
+                            "📤 *Kontak Supplier Indonesia*\n\nPilih kategori produk:",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    else:
+                        # Go back to buyer categories
+                        keyboard = []
+                        for cat, data in Messages.BUYER_CATEGORIES.items():
+                            keyboard.append([InlineKeyboardButton(
+                                f"{data['emoji']} {cat}",
+                                callback_data=f"buyer_{cat.lower().replace(' ', '_')}"
+                            )])
+                        keyboard.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")])
+
+                        await query.message.edit_text(
+                            "📥 *Kontak Buyer*\n\nPilih kategori buyer:",
+                            parse_mode='Markdown',
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                except Exception as e:
+                    logging.error(f"Error returning to categories: {str(e)}")
+                    await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+
             elif query.data.startswith('save_'):
                 try:
                     user_id = query.from_user.id
-                    importer_name = query.data[5:]  # Remove 'save_' prefix
+                    importer_id = int(query.data[5:])  # Remove 'save_' prefix and convert to int
 
                     with app.app_context():
-                        # Track the save action
-                        self.data_store.track_user_command(user_id, 'save_contact')
-
                         # Get current credits first
                         current_credits = self.data_store.get_user_credits(user_id)
                         if current_credits is None or current_credits <= 0:
@@ -426,49 +547,81 @@ class CommandHandler:
                             )
                             return
 
-                        # Get the full importer data from last search results
-                        results = context.user_data.get('last_search_results', [])
-                        # More flexible matching to handle truncated names
-                        importer = next(
-                            (r for r in results if importer_name.lower() in r['name'].lower()),
-                            None
-                        )
+                        # Get the full importer data from database
+                        with self.engine.connect() as conn:
+                            result = conn.execute(text("""
+                                SELECT * FROM importers WHERE id = :importer_id
+                            """), {"importer_id": importer_id}).first()
 
-                        if not importer:
-                            logging.error(f"Importer {importer_name} not found in search results")
-                            await query.message.reply_text(
-                                "⚠️ Kontak tidak ditemukan. Silakan coba cari kembali."
-                            )
-                            return
+                            if not result:
+                                await query.message.reply_text(
+                                    "⚠️ Kontak tidak ditemukan. Silakan coba cari kembali."
+                                )
+                                return
+
+                            importer = dict(result._mapping)
 
                         # Calculate credit cost
-                        credit_cost = self.data_store.calculate_credit_cost(importer)
+                        has_whatsapp = importer.get('wa_available', False)
+                        has_website = bool(importer.get('website'))
+                        has_email = bool(importer.get('email'))
+                        has_phone = bool(importer.get('contact'))
+
+                        if has_whatsapp:
+                            credit_cost = 3.0
+                        elif has_website and has_email and has_phone:
+                            credit_cost = 2.0
+                        else:
+                            credit_cost = 1.0
+
                         if current_credits < credit_cost:
                             await query.message.reply_text(
                                 f"⚠️ Kredit tidak mencukupi. Dibutuhkan: {credit_cost} kredit."
                             )
                             return
 
-                        # Try to save the contact
-                        save_result = await self.data_store.save_contact(user_id, importer)
-                        if save_result:
+                        # Save the contact and deduct credits
+                        try:
+                            with self.engine.begin() as conn:
+                                # Save contact
+                                conn.execute(text("""
+                                    INSERT INTO saved_contacts (user_id, importer_id, saved_at)
+                                    VALUES (:user_id, :importer_id, NOW())
+                                    ON CONFLICT (user_id, importer_id) DO NOTHING
+                                """), {
+                                    "user_id": user_id,
+                                    "importer_id": importer_id
+                                })
+
+                                # Deduct credits
+                                conn.execute(text("""
+                                    UPDATE user_credits
+                                    SET credits = credits - :cost
+                                    WHERE user_id = :user_id
+                                """), {
+                                    "user_id": user_id,
+                                    "cost": credit_cost
+                                })
+
+                            # Get updated credit balance
                             remaining_credits = self.data_store.get_user_credits(user_id)
                             keyboard = [
                                 [InlineKeyboardButton("📁 Lihat Kontak Tersimpan", callback_data="show_saved")],
-                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                             ]
                             await query.message.reply_text(
                                 f"✅ Kontak berhasil disimpan!\n"
                                 f"Sisa kredit Anda: {remaining_credits} kredit",
                                 reply_markup=InlineKeyboardMarkup(keyboard)
                             )
-                        else:
+                        except Exception as e:
+                            logging.error(f"Database error while saving contact: {str(e)}")
                             await query.message.reply_text(
                                 "⚠️ Terjadi kesalahan saat menyimpan kontak. Silakan coba lagi."
                             )
 
                 except Exception as e:
-                    logging.error(f"Error saving contact: {str(e)}", exc_info=True)
+                    logging.error(f"Error saving contact: {str(e)}")
                     await query.message.reply_text(
                         "⚠️ Terjadi kesalahan. Silakan coba lagi."
                     )
@@ -601,7 +754,7 @@ class CommandHandler:
 
                     keyboard = []
                     if 'subcategories' in cat_data:
-                        with self.engine.connect() as conn:
+                        withself.engine.connect() as conn:
                             for sub_name, sub_data in cat_data['subcategories'].items():
                                 search_term = sub_data['search']
                                 count = conn.execute(text("""
@@ -654,15 +807,15 @@ class CommandHandler:
 
                     keyboard = [
                         [InlineKeyboardButton(f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak", 
-                                             callback_data="search_0301")],
+                                                callback_data="search_0301")],
                         [InlineKeyboardButton(f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                             callback_data="search_0302")],
+                                                callback_data="search_0302")],
                         [InlineKeyboardButton(f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                             callback_data="search_0303")],
+                                                callback_data="search_0303")],
                         [InlineKeyboardButton(f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                             callback_data="search_0304")],
+                                                callbackdata="search_0304")],
                         [InlineKeyboardButton(f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                             callback_data="search_anchovy")],
+                                                callback_data="search_anchovy")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
 
@@ -691,9 +844,9 @@ class CommandHandler:
 
                     keyboard = [
                         [InlineKeyboardButton(f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                             callback_data="search_0901")],
+                                                callback_data="search_0901")],
                         [InlineKeyboardButton(f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                             callback_data="search_coconut_oil")],
+                                                callback_data="search_coconut_oil")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                     ]
 
@@ -716,7 +869,7 @@ class CommandHandler:
 
                         keyboard = [
                             [InlineKeyboardButton(f"🪵 Briket Batok (44029010) - {count} kontak",
-                                                 callback_data="search_briket")],
+                                                    callback_data="search_briket")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="show_hs_codes")]
                         ]
 
@@ -889,7 +1042,7 @@ class CommandHandler:
                 total_orders = conn.execute(text("""
                     SELECT COUNT(*) FROM credit_orders
                 """)).scalar()
-                total_pages = (total_orders + items_per_page - 1) // items_per_page  # Fixed calculation
+                total_pages = (total_orders + items_per_page - 1) // total_pages  # Fixed calculation
                 orders = conn.execute(text("""
                     SELECT order_id, user_id, credits, amount, status, created_at
                     FROM credit_orders
@@ -935,3 +1088,19 @@ class CommandHandler:
         except Exception as e:
             logging.error(f"Error in orders command: {str(e)}")
             await update.message.reply_text("Error retrieving orders. Please try again.")
+
+    async def export_saved_contacts(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        saved_contacts = self.data_store.get_saved_contacts(user_id)
+        if not saved_contacts:
+            await update.message.reply_text("No saved contacts to export")
+            return
+        csv_data = self.data_store.format_saved_contacts_to_csv(saved_contacts)
+        await context.bot.send_document(update.effective_chat.id, document=csv_data, filename='saved_contacts.csv')
+
+    async def export_orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_user.id not in [6422072438]:
+            await update.message.reply_text("Unauthorized")
+            return
+        csv_data = self.data_store.format_orders_to_csv()
+        await context.bot.send_document(update.effective_chat.id, document=csv_data, filename='credit_orders.csv')

@@ -368,8 +368,8 @@ Setiap pengguna baru mendapat 10 kredit gratis!
 
             callback_data = None
             if not saved:
-                safe_name = importer['name'].strip()[:30]
-                callback_data = f"save_{safe_name}"
+                # Make sure to use the ID instead of the name for more reliable saving
+                callback_data = f"save_{importer['id']}"
 
             return message_text, whatsapp_number, callback_data
 
