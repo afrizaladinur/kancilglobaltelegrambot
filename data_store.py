@@ -261,7 +261,7 @@ class DataStore:
                         logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
                         return False
 
-                    # Check if contact already exists
+                    # Check if contact already exists using importer_name
                     existing = conn.execute(
                         text("""
                         SELECT id FROM saved_contacts 
@@ -579,3 +579,85 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error searching importers by pattern: {str(e)}", exc_info=True)
             return [], 0
+
+    def format_saved_contacts_to_csv(self, user_id: int) -> str:
+        """Format saved contacts into CSV string"""
+        try:
+            # Get saved contacts
+            contacts = self.get_saved_contacts(user_id)
+            if not contacts:
+                return "No saved contacts found"
+
+            # Define CSV header
+            header = ["Name", "Country", "Phone", "Email", "Website", "WhatsApp Available", "Saved Date", "HS Code", "Product Description"]
+
+            # Format rows
+            rows = [header]
+            for contact in contacts:
+                row = [
+                    contact['name'],
+                    contact['country'],
+                    contact['contact'],
+                    contact['email'],
+                    contact['website'],
+                    'Yes' if contact['wa_available'] else 'No',
+                    contact['saved_at'],
+                    contact['hs_code'],
+                    contact['product_description']
+                ]
+                rows.append(row)
+
+            # Convert to CSV string
+            import csv
+            from io import StringIO
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerows(rows)
+            return output.getvalue()
+
+        except Exception as e:
+            logging.error(f"Error formatting contacts to CSV: {str(e)}")
+            return "Error generating CSV"
+
+    def format_orders_to_csv(self, user_id: int) -> str:
+        """Format credit orders into CSV string"""
+        try:
+            # Get orders from database
+            with self.engine.connect() as conn:
+                orders = conn.execute(text("""
+                    SELECT order_id, credits, amount, status, created_at, fulfilled_at
+                    FROM credit_orders
+                    WHERE user_id = :user_id
+                    ORDER BY created_at DESC
+                """), {"user_id": user_id}).fetchall()
+
+            if not orders:
+                return "No orders found"
+
+            # Define CSV header
+            header = ["Order ID", "Credits", "Amount", "Status", "Created At", "Fulfilled At"]
+
+            # Format rows
+            rows = [header]
+            for order in orders:
+                row = [
+                    order.order_id,
+                    order.credits,
+                    f"Rp {order.amount:,}",
+                    order.status,
+                    order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    order.fulfilled_at.strftime("%Y-%m-%d %H:%M:%S") if order.fulfilled_at else "Not fulfilled"
+                ]
+                rows.append(row)
+
+            # Convert to CSV string
+            import csv
+            from io import StringIO
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerows(rows)
+            return output.getvalue()
+
+        except Exception as e:
+            logging.error(f"Error formatting orders to CSV: {str(e)}")
+            return "Error generating CSV"

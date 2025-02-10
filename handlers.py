@@ -94,7 +94,7 @@ class CommandHandler:
 
             # Show first page
             items_per_page = 2
-            total_pages = (len(saved_contacts) + items_per_page - 1) // total_pages
+            total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page #Corrected Calculation
             current_contacts = saved_contacts[:items_per_page]
 
             for contact in current_contacts:
@@ -232,11 +232,16 @@ class CommandHandler:
                         # Store results and initialize page
                         context.user_data['search_results'] = results
                         context.user_data['search_page'] = 0
+                        context.user_data['current_message_ids'] = []  # Initialize message tracking
+                        context.user_data['last_search_context'] = {'pattern': search_pattern} #Store last search context
 
                         # Show first page (2 results)
                         items_per_page = 2
                         total_pages = (len(results) + items_per_page - 1) // items_per_page
                         current_results = results[:items_per_page]
+
+                        # Store message IDs for later cleanup
+                        message_ids = []
 
                         # Display results
                         for result in current_results:
@@ -246,24 +251,32 @@ class CommandHandler:
                                 callback_data=callback_data
                             )]] if callback_data else []
 
-                            await query.message.reply_text(
+                            sent_msg = await query.message.reply_text(
                                 message_text,
                                 parse_mode='Markdown',
                                 reply_markup=InlineKeyboardMarkup(save_button) if save_button else None
                             )
+                            message_ids.append(sent_msg.message_id)
 
                         # Add pagination buttons
-                        navigation_buttons = []
+                        navigation_row = []
                         if total_pages > 1:
-                            pagination_buttons = [InlineKeyboardButton("Next ➡️", callback_data="next_page")]
-                            navigation_buttons.append(pagination_buttons)
+                            navigation_row.append(InlineKeyboardButton("Next ➡️", callback_data="next_page"))
+                        navigation_row.append(InlineKeyboardButton(f"1/{total_pages}", callback_data="page_info"))
 
-                        navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+                        bottom_buttons = [
+                            [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                            [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
+                        ]
 
-                        await query.message.reply_text(
+                        nav_msg = await query.message.reply_text(
                             f"Halaman 1 dari {total_pages}",
-                            reply_markup=InlineKeyboardMarkup(navigation_buttons)
+                            reply_markup=InlineKeyboardMarkup([navigation_row] + bottom_buttons)
                         )
+                        message_ids.append(nav_msg.message_id)
+
+                        # Store message IDs in context
+                        context.user_data['current_message_ids'] = message_ids
 
                 except Exception as e:
                     logging.error(f"Error showing results: {str(e)}", exc_info=True)
@@ -271,95 +284,127 @@ class CommandHandler:
 
             elif query.data == "next_page" or query.data == "prev_page":
                 try:
-                    logging.info(f"Handling pagination: {query.data}")
                     user_id = query.from_user.id
                     results = context.user_data.get('search_results', [])
                     current_page = context.user_data.get('search_page', 0)
 
-                    logging.info(f"Current state - Results: {len(results)}, Current page: {current_page}")
-
                     if not results:
-                        logging.warning("No search results found in context")
-                        await query.message.reply_text("Tidak ada hasil pencarian.")
+                        await query.message.reply_text("Tidak ada hasil pencarian yang tersedia.")
                         return
 
-                    items_per_page = 2
-                    total_pages = (len(results) + items_per_page - 1) // total_pages
+                    # Delete previous messages
+                    message_ids = context.user_data.get('current_message_ids', [])
+                    chat_id = query.message.chat_id
 
-                    # Delete current messages
+                    # Also delete the current query message
                     try:
-                        # Delete message with pagination buttons
-                        await context.bot.delete_message(
-                            chat_id=query.message.chat_id,
-                            message_id=query.message.message_id
-                        )
-                        # Delete the previous results (up to 2 messages)
-                        for i in range(items_per_page):
-                            try:
-                                await context.bot.delete_message(
-                                    chat_id=query.message.chat_id,
-                                    message_id=query.message.message_id - (i + 1)
-                                )
-                            except Exception as e:
-                                logging.warning(f"Could not delete message {i}: {str(e)}")
+                        await query.message.delete()
                     except Exception as e:
-                        logging.error(f"Error deleting messages: {str(e)}")
-                        # Continue even if deletion fails
-                        pass
+                        logging.error(f"Error deleting query message: {str(e)}")
+
+                    for msg_id in message_ids:
+                        try:
+                            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                        except Exception as e:
+                            logging.error(f"Error deleting message {msg_id}: {str(e)}")
 
                     # Update page number
+                    items_per_page = 2
+                    total_pages = (len(results) + items_per_page - 1) // items_per_page
                     if query.data == "prev_page":
                         current_page = max(0, current_page - 1)
                     else:  # next_page
                         current_page = min(total_pages - 1, current_page + 1)
 
-                    logging.info(f"Moving to page {current_page + 1} of {total_pages}")
                     context.user_data['search_page'] = current_page
-
-                    # Get current page results
                     start_idx = current_page * items_per_page
                     end_idx = min(start_idx + items_per_page, len(results))
                     current_results = results[start_idx:end_idx]
 
-                    # Send new results
+                    # Store new message IDs
+                    new_message_ids = []
+
+                    # Display new results
                     for result in current_results:
                         message_text, _, callback_data = Messages.format_importer(result)
                         save_button = [[InlineKeyboardButton(
                             "💾 Simpan Kontak",
-                            callback_data=callback_data
+                            callback_data=f"save_{result['id']}"  # Using ID for consistency
                         )]] if callback_data else []
 
-                        await query.message.reply_text(
+                        sent_msg = await query.message.reply_text(
                             message_text,
                             parse_mode='Markdown',
                             reply_markup=InlineKeyboardMarkup(save_button) if save_button else None
                         )
+                        new_message_ids.append(sent_msg.message_id)
 
-                    # Create navigation buttons
-                    navigation_buttons = []
-                    pagination_buttons = []
-
+                    # Add pagination buttons
+                    navigation_row = []
                     if current_page > 0:
-                        pagination_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data="prev_page"))
-                    pagination_buttons.append(InlineKeyboardButton(
-                        f"{current_page + 1}/{total_pages}",
-                        callback_data="page_info"
-                    ))
+                        navigation_row.append(InlineKeyboardButton("⬅️ Prev", callback_data="prev_page"))
+                    navigation_row.append(InlineKeyboardButton(f"{current_page + 1}/{total_pages}", callback_data="page_info"))
                     if current_page < total_pages - 1:
-                        pagination_buttons.append(InlineKeyboardButton("Next ➡️", callback_data="next_page"))
+                        navigation_row.append(InlineKeyboardButton("Next ➡️", callback_data="next_page"))
 
-                    if pagination_buttons:
-                        navigation_buttons.append(pagination_buttons)
-                    navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+                    bottom_buttons = [
+                        [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                        [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
+                    ]
 
-                    await query.message.reply_text(
-                        f"Halaman {current_page + 1} dari {total_pages}",
-                        reply_markup=InlineKeyboardMarkup(navigation_buttons)
+                    # Delete the current navigation message if it exists
+                    try:
+                        await query.message.delete()
+                    except Exception as e:
+                        logging.error(f"Error deleting navigation message: {str(e)}")
+
+                    nav_msg = await context.bot.send_message(
+                        chat_id=query.message.chat_id,
+                        text=f"Halaman {current_page + 1} dari {total_pages}",
+                        reply_markup=InlineKeyboardMarkup([navigation_row] + bottom_buttons)
                     )
+                    new_message_ids.append(nav_msg.message_id)
+
+                    # Update stored message IDs
+                    context.user_data['current_message_ids'] = new_message_ids
 
                 except Exception as e:
                     logging.error(f"Error in pagination: {str(e)}", exc_info=True)
-                    await query.message.reply_text("Maaf, terjadi kesalahan saat menampilkan halaman. Silakan coba lagi.")
+                    await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+
+            elif query.data == "search_again":
+                try:
+                    # Get the last search parameters
+                    last_search = context.user_data.get('last_search_context', {})
+                    if not last_search:
+                        await query.message.reply_text("Tidak ada riwayat pencarian sebelumnya.")
+                        return
+
+                    # Delete all current messages
+                    message_ids = context.user_data.get('current_message_ids', [])
+                    chat_id = query.message.chat_id
+
+                    try:
+                        await query.message.delete()
+                    except Exception as e:
+                        logging.error(f"Error deleting query message: {str(e)}")
+
+                    for msg_id in message_ids:
+                        try:
+                            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                        except Exception as e:
+                            logging.error(f"Error deleting message {msg_id}: {str(e)}")
+
+                    # Re-execute the search with the same parameters
+                    search_pattern = last_search.get('pattern')
+                    if search_pattern:
+                        await self.show_results(update, context, search_pattern)
+                    else:
+                        await query.message.reply_text("Tidak dapat mengulang pencarian sebelumnya.")
+
+                except Exception as e:
+                    logging.error(f"Error in search again: {str(e)}")
+                    await query.message.reply_text("Maaf, terjadi kesalahan saat mengulang pencarian.")
 
             elif query.data == "page_info":
                 await query.answer("Halaman saat ini", show_alert=False)
@@ -561,6 +606,22 @@ class CommandHandler:
 
                             importer = dict(result._mapping)
 
+                        # Check if contact is already saved using importer name
+                        with self.engine.connect() as conn:
+                            existing = conn.execute(text("""
+                                SELECT 1 FROM saved_contacts 
+                                WHERE user_id = :user_id AND importer_name = :name
+                            """), {
+                                "user_id": user_id,
+                                "name": importer['name']
+                            }).first()
+
+                            if existing:
+                                await query.message.reply_text(
+                                    "⚠️ Kontak ini sudah tersimpan sebelumnya."
+                                )
+                                return
+
                         # Calculate credit cost
                         has_whatsapp = importer.get('wa_available', False)
                         has_website = bool(importer.get('website'))
@@ -580,40 +641,55 @@ class CommandHandler:
                             )
                             return
 
-                        # Save the contact and deduct credits
+                        # Save contact and deduct credits in a single transaction
                         try:
                             with self.engine.begin() as conn:
                                 # Save contact
                                 conn.execute(text("""
-                                    INSERT INTO saved_contacts (user_id, importer_id, saved_at)
-                                    VALUES (:user_id, :importer_id, NOW())
-                                    ON CONFLICT (user_id, importer_id) DO NOTHING
+                                    INSERT INTO saved_contacts (
+                                        user_id, importer_name, country, phone, email,
+                                        website, wa_availability, hs_code, product_description
+                                    ) VALUES (
+                                        :user_id, :name, :country, :phone, :email,
+                                        :website, :wa_available, :hs_code, :product
+                                    )
                                 """), {
                                     "user_id": user_id,
-                                    "importer_id": importer_id
+                                    "name": importer['name'],
+                                    "country": importer['country'],
+                                    "phone": importer['contact'],
+                                    "email": importer['email'],
+                                    "website": importer['website'],
+                                    "wa_available": importer['wa_available'],
+                                    "hs_code": importer.get('hs_code', ''),
+                                    "product": importer.get('product', '')
                                 })
 
                                 # Deduct credits
                                 conn.execute(text("""
                                     UPDATE user_credits
-                                    SET credits = credits - :cost
+                                    SET credits = ROUND(CAST(credits - :cost AS NUMERIC), 1)
                                     WHERE user_id = :user_id
                                 """), {
                                     "user_id": user_id,
                                     "cost": credit_cost
                                 })
 
-                            # Get updated credit balance
-                            remaining_credits = self.data_store.get_user_credits(user_id)
-                            keyboard = [
-                                [InlineKeyboardButton("📁 Lihat Kontak Tersimpan", callback_data="show_saved")],
-                                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
-                            ]
-                            await query.message.reply_text(
-                                f"✅ Kontak berhasil disimpan!\n"
-                                f"Sisa kredit Anda: {remaining_credits} kredit",
-                                reply_markup=InlineKeyboardMarkup(keyboard)
-                            )
+                                # Get updated credit balance
+                                remaining_credits = conn.execute(text("""
+                                    SELECT credits FROM user_credits WHERE user_id = :user_id
+                                """), {"user_id": user_id}).scalar()
+
+                                keyboard = [
+                                    [InlineKeyboardButton("📁 Lihat Kontak Tersimpan", callback_data="show_saved")],
+                                    [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
+                                ]
+                                await query.message.reply_text(
+                                    f"✅ Kontak berhasil disimpan!\n"
+                                    f"Sisa kredit Anda: {remaining_credits} kredit",
+                                    reply_markup=InlineKeyboardMarkup(keyboard)
+                                )
+
                         except Exception as e:
                             logging.error(f"Database error while saving contact: {str(e)}")
                             await query.message.reply_text(
@@ -621,9 +697,9 @@ class CommandHandler:
                             )
 
                 except Exception as e:
-                    logging.error(f"Error saving contact: {str(e)}")
+                    logging.error(f"Error in save contact: {str(e)}")
                     await query.message.reply_text(
-                        "⚠️ Terjadi kesalahan. Silakan coba lagi."
+                        "⚠️ Terjadi kesalahan saat menyimpan kontak. Silakan coba lagi."
                     )
 
             elif query.data == "redeem_free_credits":
@@ -681,20 +757,20 @@ class CommandHandler:
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 except Exception as e:
-                    logging.error(f"Error showing help: {str(e)}")
+                    logging.error(f"Errorshowing help: {str(e)}")
                     await query.message.reply_text(Messages.ERROR_MESSAGE)
             elif query.data == "show_credits":
                 try:
                     user_id = query.from_user.id
                     with app.app_context():
                         self.data_store.track_user_command(user_id, 'credits')
-                        credits = self.data_store.get_user_credits(user_id)
+                        credits = self.data_store.get_user_credits(user_id)  # Fixed typo here
 
                     keyboard = [
                         [InlineKeyboardButton("🎁 Klaim 10 Kredit Gratis", callback_data="redeem_free_credits")],
-                        [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="pay_75_150000")],
-                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="pay_150_300000")],
-                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="pay_250_399000")],
+                        [InlineKeyboardButton("🛒 Beli 75 Kredit - Rp 150.000", callback_data="order_75")],
+                        [InlineKeyboardButton("🛒 Beli 150 Kredit - Rp 300.000", callback_data="order_150")],
+                        [InlineKeyboardButton("🛒 Beli 250 Kredit - Rp 399.000", callback_data="order_250")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
                     ]
 
@@ -704,7 +780,8 @@ class CommandHandler:
                     )
                 except Exception as e:
                     logging.error(f"Error showing credits: {str(e)}")
-                    await query.message.reply_text(Messages.ERROR_MESSAGE)
+                    await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+
             elif query.data == "show_suppliers":
                 keyboard = []
                 for cat, data in Messages.SUPPLIER_CATEGORIES.items():
@@ -740,21 +817,19 @@ class CommandHandler:
                     category_type, category = query.data.split('_', 1)
                     categories = Messages.SUPPLIER_CATEGORIES if category_type == "supplier" else Messages.BUYER_CATEGORIES
 
-
                     cat_data = {}
                     # Handle nested categories
                     for key, data in categories.items():
                         if key.lower().replace(' ', '_') == category:
                             cat_data = data
                             break
-
                     if not cat_data:
                         await query.message.reply_text("Category not found")
                         return
 
                     keyboard = []
                     if 'subcategories' in cat_data:
-                        withself.engine.connect() as conn:
+                        with self.engine.connect() as conn:
                             for sub_name, sub_data in cat_data['subcategories'].items():
                                 search_term = sub_data['search']
                                 count = conn.execute(text("""
@@ -907,6 +982,7 @@ class CommandHandler:
                         # Store results in context
                         context.user_data['search_results'] = results
                         context.user_data['search_page'] = 0
+                        context.user_data['last_search_context'] = {'pattern': search_term} #Store last search context
 
                         # Show first page (2 results)
                         items_per_page = 2
@@ -939,10 +1015,13 @@ class CommandHandler:
                                 InlineKeyboardButton("Next ➡️", callback_data="next_page")
                             ])
                         navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+                        bottom_buttons = [
+                            [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                        ]
 
                         await query.message.reply_text(
                             f"Menampilkan hasil 1-{min(items_per_page, total_count)} dari {total_count} kontak",
-                            reply_markup=InlineKeyboardMarkup(navigation_buttons)
+                            reply_markup=InlineKeyboardMarkup([navigation_buttons] + bottom_buttons)
                         )
 
                 except Exception as e:
@@ -1042,7 +1121,7 @@ class CommandHandler:
                 total_orders = conn.execute(text("""
                     SELECT COUNT(*) FROM credit_orders
                 """)).scalar()
-                total_pages = (total_orders + items_per_page - 1) // total_pages  # Fixed calculation
+                total_pages = (total_orders + items_per_page - 1) // items_per_page #Corrected Calculation
                 orders = conn.execute(text("""
                     SELECT order_id, user_id, credits, amount, status, created_at
                     FROM credit_orders
@@ -1104,3 +1183,77 @@ class CommandHandler:
             return
         csv_data = self.data_store.format_orders_to_csv()
         await context.bot.send_document(update.effective_chat.id, document=csv_data, filename='credit_orders.csv')
+
+    async def show_results(self, update: Update, context: ContextTypes.DEFAULT_TYPE, search_pattern: str):
+        try:
+            with self.engine.connect() as conn:
+                results = conn.execute(text("""
+                    SELECT *
+                    FROM importers 
+                    WHERE product LIKE :search_term
+                    ORDER BY id  -- Ensure consistent ordering
+                    LIMIT 10
+                """), {
+                    "search_term": f"%{search_pattern}%"
+                }).fetchall()
+
+                # Convert results to list of dicts
+                results = [dict(row._mapping) for row in results]
+
+                if not results:
+                    await update.message.reply_text("Tidak ada hasil yang ditemukan.")
+                    return
+
+                # Store results and initialize page
+                context.user_data['search_results'] = results
+                context.user_data['search_page'] = 0
+                context.user_data['current_message_ids'] = []  # Initialize message tracking
+                context.user_data['last_search_context'] = {'pattern': search_pattern} #Store last search context
+
+                # Show first page (2 results)
+                items_per_page = 2
+                total_pages = (len(results) + items_per_page - 1) // items_per_page
+                current_results = results[:items_per_page]
+
+                # Store message IDs for later cleanup
+                message_ids = []
+
+                # Display results
+                for result in current_results:
+                    message_text, _, callback_data = Messages.format_importer(result)
+                    save_button = [[InlineKeyboardButton(
+                        "💾 Simpan Kontak",
+                        callback_data=callback_data
+                    )]] if callback_data else []
+
+                    sent_msg = await update.message.reply_text(
+                        message_text,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(save_button) if save_button else None
+                    )
+                    message_ids.append(sent_msg.message_id)
+
+                # Add pagination buttons
+                navigation_buttons = []
+                if total_pages > 1:
+                    navigation_buttons.append([
+                        InlineKeyboardButton("Next ➡️", callback_data="next_page")
+                    ])
+
+                navigation_buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")])
+                bottom_buttons = [
+                    [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                ]
+
+                nav_msg = await update.message.reply_text(
+                    f"Halaman 1 dari {total_pages}",
+                    reply_markup=InlineKeyboardMarkup([navigation_buttons] + bottom_buttons)
+                )
+                message_ids.append(nav_msg.message_id)
+
+                # Store message IDs in context
+                context.user_data['current_message_ids'] = message_ids
+
+        except Exception as e:
+            logging.error(f"Error showing results: {str(e)}", exc_info=True)
+            await update.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
