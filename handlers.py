@@ -93,7 +93,7 @@ class CommandHandler:
             context.user_data['saved_page'] = 0
 
             # Show first page
-            items_per_page = 2
+            items_per_page = 5
             total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
             current_contacts = saved_contacts[:items_per_page]
 
@@ -386,7 +386,7 @@ class CommandHandler:
                     await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
             elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                 user_id = query.from_user.id
-                items_per_page = 2
+                items_per_page = 5
 
                 # Delete current page messages
                 try:
@@ -800,15 +800,18 @@ class CommandHandler:
                         # Store message IDs for later cleanup
                         message_ids = []
 
+                        # Get the appropriate message object for replies
+                        reply_to = update.callback_query.message if hasattr(update, 'callback_query') else update.message
+
                         # Display results
                         for result in current_results:
                             message_text, _, _ = Messages.format_importer(result)
                             save_button = [[InlineKeyboardButton(
                                 "💾 Simpan Kontak",
-                                callback_data=f"save_{result['name']}"  # Using name instead of id
+                                callback_data=f"save_{result['name']}"  # Use name instead of id
                             )]]
 
-                            sent_msg = await query.message.reply_text(
+                            sent_msg = await reply_to.reply_text(
                                 message_text,
                                 parse_mode='Markdown',
                                 reply_markup=InlineKeyboardMarkup(save_button)
@@ -824,12 +827,13 @@ class CommandHandler:
                             callback_data="page_info"
                         ))
 
+                        # Add bottom navigation buttons
                         bottom_buttons = [
                             [InlineKeyboardButton("🔄 Cari Kembali", callback_data="regenerate_search")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
 
-                        nav_msg = await query.message.reply_text(
+                        nav_msg = await reply_to.reply_text(
                             f"Halaman 1 dari {total_pages}",
                             reply_markup=InlineKeyboardMarkup([navigation_row] + bottom_buttons)
                         )
@@ -1093,7 +1097,7 @@ class CommandHandler:
         """Save contact to user's saved list"""
         try:
             logging.info(f"Starting save contact process for user {user_id}")
-            
+
             # Get current credits
             current_credits = self.data_store.get_user_credits(user_id)
             if current_credits is None or current_credits <= 0:
@@ -1133,7 +1137,7 @@ class CommandHandler:
                 try:
                     # Deduct credit first
                     self.data_store.use_credit(user_id, 1)
-                    
+
                     # Then save contact
                     success = await self.data_store.save_contact(
                         user_id=user_id,

@@ -361,7 +361,7 @@ class DataStore:
                         'saved_at': row.saved_at.strftime("%Y-%m-%d %H:%M"),
                         'hs_code': row.hs_code,
                         'product_description': row.product_description,
-                        'role': row.role
+                        'role': row.role if row.role else row.product_description
                     }
                     for row in result
                 ]
