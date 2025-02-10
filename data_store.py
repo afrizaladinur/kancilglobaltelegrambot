@@ -20,9 +20,8 @@ class DataStore:
     def _init_tables(self):
         """Initialize required tables"""
         try:
-            # Don't drop tables on init
+            # Don't drop tables on init, only create if not exists
             create_saved_contacts_sql = """
-            DROP TABLE IF EXISTS saved_contacts;
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -40,7 +39,6 @@ class DataStore:
             """
 
             create_user_stats_sql = """
-            DROP TABLE IF EXISTS user_stats;
             CREATE TABLE IF NOT EXISTS user_stats (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,

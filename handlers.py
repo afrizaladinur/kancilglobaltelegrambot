@@ -10,7 +10,6 @@ from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
 
-
 class CommandHandler:
 
     def __init__(self):
@@ -177,22 +176,22 @@ class CommandHandler:
                                  callback_data="show_suppliers"),
             InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")
         ],
-                    [
-                        InlineKeyboardButton("📁 Kontak Tersimpan",
-                                             callback_data="show_saved")
-                    ],
-                    [
-                        InlineKeyboardButton("💳 Kredit Saya",
-                                             callback_data="show_credits")
-                    ], community_button,
-                    [
-                        InlineKeyboardButton("❓ Bantuan",
-                                             callback_data="show_help")
-                    ],
-                    [
-                        InlineKeyboardButton("👨‍💼 Hubungi Admin",
-                                             url="https://t.me/afrizaladinur")
-                    ]]
+                   [
+                       InlineKeyboardButton("📁 Kontak Tersimpan",
+                                           callback_data="show_saved")
+                   ],
+                   [
+                       InlineKeyboardButton("💳 Kredit Saya",
+                                           callback_data="show_credits")
+                   ], community_button,
+                   [
+                       InlineKeyboardButton("❓ Bantuan",
+                                           callback_data="show_help")
+                   ],
+                   [
+                       InlineKeyboardButton("👨‍💼 Hubungi Admin",
+                                           url="https://t.me/afrizaladinur")
+                   ]]
 
         message_text = f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}"
         return message_text, InlineKeyboardMarkup(keyboard)
@@ -701,26 +700,26 @@ class CommandHandler:
                             "🎁 Klaim 10 KreditGratis",
                             callback_data="redeem_free_credits")
                     ],
-                                [
-                                    InlineKeyboardButton(
-                                        "🛒 Beli 75 Kredit - Rp 150.000",
-                                        callback_data="order_75")
-                                ],
-                                [
-                                    InlineKeyboardButton(
-                                        "🛒 Beli 150 Kredit - Rp 300.000",
-                                        callback_data="order_150")
-                                ],
-                                [
-                                    InlineKeyboardButton(
-                                        "🛒 Beli 250 Kredit - Rp 399.000",
-                                        callback_data="order_250")
-                                ],
-                                [
-                                    InlineKeyboardButton(
-                                        "🔙 Kembali",
-                                        callback_data="back_to_main")
-                                ]]
+                               [
+                                   InlineKeyboardButton(
+                                       "🛒 Beli 75 Kredit - Rp 150.000",
+                                       callback_data="order_75")
+                               ],
+                               [
+                                   InlineKeyboardButton(
+                                       "🛒 Beli 150 Kredit - Rp 300.000",
+                                       callback_data="order_150")
+                               ],
+                               [
+                                   InlineKeyboardButton(
+                                       "🛒 Beli 250 Kredit - Rp 399.000",
+                                       callback_data="order_250")
+                               ],
+                               [
+                                   InlineKeyboardButton(
+                                       "🔙 Kembali",
+                                       callback_data="back_to_main")
+                               ]]
 
                     await query.message.edit_text(
                         f"{Messages.CREDITS_REMAINING.format(credits)}\n\n{Messages.BUY_CREDITS_INFO}",
@@ -844,7 +843,7 @@ class CommandHandler:
                         WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
                         GROUP BY hs_code
                         ORDER BY hs_code;
-                    """)).fetchall()
+                        """)).fetchall()
 
                     counts_dict = {row[0]: row[1] for row in hs_counts}
 
@@ -1450,3 +1449,38 @@ class CommandHandler:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
             await update.callback_query.message.reply_text(
                 "Maaf, terjadi kesalahan saat menyimpan kontak.")
+
+    elif query.data == "export_saved_contacts":
+                try:
+                    user_id = query.from_user.id
+                    with app.app_context():
+                        csv_data = self.data_store.format_saved_contacts_to_csv(user_id)
+
+                    if csv_data == "No saved contacts found":
+                        await query.message.reply_text("Tidak ada kontak tersimpan untuk diekspor.")
+                        return
+
+                    # Create temporary file with CSV data
+                    import tempfile
+                    import os
+                    with tempfile.NamedTemporaryFile(mode='w+', suffix='.csv', delete=False, encoding='utf-8') as temp_file:
+                        temp_file.write(csv_data)
+                        temp_file.flush()
+
+                        # Send the CSV file
+                        with open(temp_file.name, 'rb') as f:
+                            await context.bot.send_document(
+                                chat_id=query.message.chat_id,
+                                document=f,
+                                filename=f'saved_contacts_{user_id}.csv',
+                                caption="📥 Daftar kontak tersimpan Anda"
+                            )
+
+                        # Clean up temp file
+                        os.unlink(temp_file.name)
+
+                    await query.message.reply_text("✅ File CSV berhasil dikirim!")
+
+                except Exception as e:
+                    logging.error(f"Error exporting contacts to CSV: {str(e)}", exc_info=True)
+                    await query.message.reply_text("Maaf, terjadi kesalahan saat mengekspor kontak.")
