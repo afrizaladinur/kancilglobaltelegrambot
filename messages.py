@@ -302,77 +302,66 @@ Setiap pengguna baru mendapat 10 kredit gratis!
 
     @staticmethod
     def format_importer(importer: dict, saved: bool = False):
-        """Format importer information for display"""
         try:
-            wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
-
-            # Determine if they have imported from Indonesia before
-            role = importer.get('role', '')
-            product = importer.get('product', '')
-            has_imported = None
-            if role == 'Importer':
-                if product.startswith('ID '):
-                    has_imported = True
-                elif product.startswith('WW '):
-                    has_imported = False
-
+            # Basic info formatting
             name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
             email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
-
-            message_parts = []
-            message_parts.append(f"🏢 {Messages._escape_markdown(name)}")
-            message_parts.append(f"Peran: {role}")
-
-            if role == 'Importer':
-                import_status = "Ya" if has_imported else "Tidak"
-                message_parts.append(f"Pernah Impor dari Indonesia?: {import_status}")
-
+            role = importer.get('role', '')
+            product = importer.get('product', '')
             country = importer.get('country', '')
+            wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
+    
+            # Build message without formatting tags
+            message_parts = []
+            message_parts.append(f"🏢 {name}")
+            message_parts.append(f"Peran: {role}")
+    
+            if role == 'Importer':
+                import_status = "Ya" if product.startswith('ID ') else "Tidak"
+                message_parts.append(f"Pernah Impor dari Indonesia?: {import_status}")
+    
             country_emoji = Messages.get_country_emoji(country)
-            message_parts.append(f"🌏 Negara: {country_emoji} {Messages._escape_markdown(country)}")
-
-            # Extract HS code/product
+            message_parts.append(f"🌏 Negara: {country_emoji} {country}")
+    
             hs_code = product.replace('ID ', '').replace('WW ', '') if product else ''
             if hs_code:
-                message_parts.append(f"📦 Kode HS/Product: {Messages._escape_markdown(hs_code)}")
-
+                message_parts.append(f"📦 Kode HS/Product: {hs_code}")
+    
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
             if email:
                 message_parts.append(f"📧 Email: {email}")
             if website:
-                message_parts.append(f"🌐 Website: {website}")
-
+                clean_url = website.strip()
+                if '//' in clean_url:
+                    base_url = clean_url.split('/')[0] + '//' + clean_url.split('/')[2]
+                    message_parts.append(f"🌐 Website: {base_url}")
+                else:
+                    message_parts.append(f"🌐 Website: {clean_url}")
+    
             message_parts.append(f"📱 WhatsApp: {wa_status}")
-
+            whatsapp_number = None
+            callback_data = None
+            
             if not saved:
                 credit_cost = Messages._calculate_credit_cost(importer)
                 message_parts.append("\n💳 Biaya kredit yang diperlukan:")
-                if credit_cost == 3.0:
-                    message_parts.append("3 kredit - Kontak lengkap dengan WhatsApp")
-                elif credit_cost == 2.0:
-                    message_parts.append("2 kredit - Kontak lengkap tanpa WhatsApp")
-                else:
-                    message_parts.append("1 kredit - Kontak tidak lengkap tanpa WhatsApp")
+                cost_text = {
+                    3.0: "3 kredit - Kontak lengkap dengan WhatsApp",
+                    2.0: "2 kredit - Kontak lengkap tanpa WhatsApp",
+                    1.0: "1 kredit - Kontak tidak lengkap tanpa WhatsApp"
+                }.get(credit_cost, "1 kredit - Kontak tidak lengkap tanpa WhatsApp")
+                message_parts.append(cost_text)
                 message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
             else:
-                message_parts.append(f"📅 Disimpan pada: {importer.get('saved_at', '')}")
-
+                saved_at = importer.get('saved_at', '')
+                message_parts.append(f"📅 Disimpan pada: {saved_at}")
+    
             message_text = '\n'.join(message_parts)
-
-            whatsapp_number = None
-            if saved and importer.get('wa_available') and importer.get('contact'):
-                whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
-
-            callback_data = None
-            if not saved:
-                # Make sure to use the ID instead of the name for more reliable saving
-                callback_data = f"save_{importer['id']}"
-
             return message_text, whatsapp_number, callback_data
-
+    
         except Exception as e:
             logging.error(f"Error formatting importer: {str(e)}", exc_info=True)
             raise

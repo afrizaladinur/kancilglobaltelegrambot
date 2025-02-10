@@ -9,6 +9,8 @@ from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
 from app import app
+import csv
+import tempfile
 
 class CommandHandler:
 
@@ -94,71 +96,109 @@ class CommandHandler:
             await update.message.reply_text(
                 "Maaf, terjadi kesalahan. Silakan coba lagi.")
 
-    async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /saved command"""
+    async def saved(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reply_to=None):
+        """Show saved contacts with pagination"""
         try:
             user_id = update.effective_user.id
-            with app.app_context():
-                self.data_store.track_user_command(user_id, 'saved')
-                saved_contacts = self.data_store.get_saved_contacts(user_id)
+            message = reply_to or update.message
+            
+            with self.engine.connect() as conn:
+                saved_contacts = conn.execute(text("""
+                    SELECT 
+                        sc.id,
+                        sc.importer_name as name,
+                        sc.phone as contact,
+                        sc.email,
+                        sc.website,
+                        sc.hs_code as product,
+                        sc.product_description as role,
+                        sc.country,
+                        sc.wa_availability as wa_available,
+                        sc.saved_at
+                    FROM saved_contacts sc
+                    WHERE sc.user_id = :user_id 
+                    ORDER BY sc.saved_at DESC
+                """), {"user_id": user_id}).fetchall()
+                
+                saved_contacts = [{
+                    'id': row.id,
+                    'name': row.name,
+                    'contact': row.contact,
+                    'email': row.email,
+                    'website': row.website,
+                    'product': row.product,
+                    'role': row.role or 'Importer',  # Default role
+                    'country': row.country,
+                    'wa_available': row.wa_available,
+                    'saved_at': row.saved_at
+                } for row in saved_contacts]
 
             if not saved_contacts:
-                keyboard = [[
-                    InlineKeyboardButton("🔙 Kembali",
-                                         callback_data="back_to_main")
-                ]]
-                await update.message.reply_text(
-                    Messages.NO_SAVED_CONTACTS,
-                    reply_markup=InlineKeyboardMarkup(keyboard))
+                await message.reply_text("❌ Anda belum memiliki kontak tersimpan.")
                 return
 
+            # Store for pagination
             context.user_data['saved_contacts'] = saved_contacts
             context.user_data['saved_page'] = 0
+            context.user_data['current_message_ids'] = []
 
             # Show first page
-            items_per_page = 5
-            total_pages = (len(saved_contacts) + items_per_page -
-                           1) // items_per_page
+            items_per_page = 2
+            total_pages = (len(saved_contacts) + items_per_page - 1) // items_per_page
             current_contacts = saved_contacts[:items_per_page]
 
+            message_ids = []
+            
+            # Display contacts
             for contact in current_contacts:
-                message_text, whatsapp_number, _ = Messages.format_importer(
-                    contact, saved=True)
-                keyboard = []
+                message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
+                buttons = []
+                
                 if whatsapp_number:
-                    keyboard.append([
-                        InlineKeyboardButton(
-                            "💬 Chat di WhatsApp",
-                            url=f"https://wa.me/{whatsapp_number}")
+                    buttons.append([
+                        InlineKeyboardButton("💬 Chat WhatsApp", url=whatsapp_number)
                     ])
-                await update.message.reply_text(
+                    
+                sent_msg = await message.reply_text(
                     message_text,
                     parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                    if keyboard else None)
+                    reply_markup=InlineKeyboardMarkup(buttons) if buttons else None
+                )
+                message_ids.append(sent_msg.message_id)
 
-            # Add pagination buttons
-            pagination_buttons = []
+            # Navigation buttons
+            # Fix navigation buttons construction
+            keyboard = []
+            navigation_row = []
+            bottom_buttons = []
+            # Navigation buttons
             if total_pages > 1:
-                pagination_buttons.append(
-                    InlineKeyboardButton("Next ➡️",
-                                         callback_data="show_saved_next"))
+                navigation_row.append(InlineKeyboardButton(f"1/{total_pages}", callback_data="page_info")),
+                navigation_row.append(InlineKeyboardButton("Next ➡️", callback_data="show_saved_next"))
 
-            navigation_buttons = [[
-                InlineKeyboardButton("📥 Simpan ke CSV",
-                                     callback_data="export_saved_contacts")
-            ], [
-                InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")
-            ]]
+            # Bottom buttons
+            bottom_buttons.extend([
+                [InlineKeyboardButton("📥 Export to CSV", callback_data="export_saved_contacts")],
+                [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_main")]
+            ])
+            
+            # Combine all buttons
+            keyboard = [navigation_row] + bottom_buttons
 
-            await update.message.reply_text(
+            nav_msg = await message.reply_text(
                 f"Halaman 1 dari {total_pages}",
-                reply_markup=InlineKeyboardMarkup([pagination_buttons] +
-                                                  navigation_buttons))
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            message_ids.append(nav_msg.message_id)
+
+            context.user_data['current_message_ids'] = message_ids
+
         except Exception as e:
             logging.error(f"Error in saved command: {str(e)}")
-            await update.message.reply_text(
-                "Maaf, terjadi kesalahan. Silakan coba lagi.")
+            if reply_to:
+                await reply_to.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+            elif update.message:
+                await update.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
     def get_main_menu_markup(self, user_id: int, credits: float,
                              is_member: bool):
@@ -178,7 +218,7 @@ class CommandHandler:
         ],
                    [
                        InlineKeyboardButton("📁 Kontak Tersimpan",
-                                           callback_data="show_saved")
+                                           callback_data="saved")
                    ],
                    [
                        InlineKeyboardButton("💳 Kredit Saya",
@@ -234,13 +274,13 @@ class CommandHandler:
                                 count = conn.execute(
                                     text("""
                                     SELECT COUNT(*) FROM importers 
-                                    WHERE Role = :role AND LOWER(Product) LIKE LOWER(:search)
+                                    WHERE Role = :role 
+                                    AND LOWER(Product) LIKE LOWER(:search)
+                                    AND phone IS NOT NULL 
+                                    AND phone != ''
                                     """), {
-                                        "role":
-                                        "Exporter" if category_type
-                                        == "supplier" else "Importer",
-                                        "search":
-                                        f"%{search_term}%"
+                                        "role": "Exporter" if category_type == "supplier" else "Importer",
+                                        "search": f"%{search_term}%"
                                     }).scalar()
 
                                 keyboard.append([
@@ -274,6 +314,73 @@ class CommandHandler:
                 
             elif query.data == "export_saved_contacts":
                 await self.export_saved_contacts(update, context)
+
+            elif query.data == "export_orders":
+                await self.export_orders(update, context)
+
+            elif query.data == "orders_prev" or query.data == "orders_next":
+                try:
+                    page = context.user_data.get('order_page', 0)
+                    pending_orders = context.user_data.get('pending_orders', [])
+
+                    if not pending_orders:
+                        await query.message.reply_text("No pending orders found.")
+                        return
+
+                    # Update page
+                    total_pages = len(pending_orders)
+                    if query.data == "orders_prev":
+                        page = max(0, page - 1)
+                    else:
+                        page = min(total_pages - 1, page + 1)
+
+                    context.user_data['order_page'] = page
+                    current_order = pending_orders[page]
+
+                    # Format message
+                    message_text = (
+                        f"📦 Pending Order {page + 1}/{total_pages}\n\n"
+                        f"🔖 Order ID: `{current_order['order_id']}`\n"
+                        f"👤 User ID: `{current_order['user_id']}`\n"
+                    )
+
+                    user = await context.bot.get_chat(current_order['user_id'])
+                    username = f"@{user.username}" if user.username else "No username"
+                    message_text += f"Username: {username}\n"
+                    message_text += (
+                        f"💳 Credits: {current_order['credits']}\n"
+                        f"💰 Amount: Rp {current_order['amount']:,}\n"
+                        f"⏱️ Waiting since: {current_order['created_at'].strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+
+                    # Build keyboard
+                    keyboard = []
+                    nav_row = []
+                    if page > 0:
+                        nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data="orders_prev"))
+                    if page < total_pages - 1:
+                        nav_row.append(InlineKeyboardButton("Next ➡️", callback_data="orders_next"))
+                    if nav_row:
+                        keyboard.append(nav_row)
+
+                    keyboard.append([
+                        InlineKeyboardButton("✅ Fulfill Order", 
+                            callback_data=f"give_{current_order['user_id']}_{current_order['credits']}")
+                    ])
+                    keyboard.append([
+                        InlineKeyboardButton("📥 Export to CSV", callback_data="export_orders")
+                    ])
+
+                    await query.message.edit_text(
+                        message_text,
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    await query.answer()
+
+                except Exception as e:
+                    logging.error(f"Error in orders pagination: {str(e)}")
+                    await query.message.reply_text("Error navigating orders. Please try again.")
 
             elif query.data == "next_page" or query.data == "prev_page":
                 try:
@@ -443,46 +550,114 @@ class CommandHandler:
 
             elif query.data.startswith('order_'):
                 try:
-                    credit_amount = query.data.split('_')[1]
+                    # Define valid credit packages
+                    credit_prices = {
+                        '75': 150000,
+                        '150': 300000,
+                        '250': 399000
+                    }
+                    
+                    # Parse credit amount
+                    _, credits = query.data.split('_')
+                    
+                    # Validate credit amount
+                    if credits not in credit_prices:
+                        await query.message.reply_text(
+                            "Paket kredit tidak valid. Silakan pilih paket yang tersedia."
+                        )
+                        return
+                        
+                    amount = credit_prices[credits]
                     user_id = query.from_user.id
-                    username = query.from_user.username or "NoUsername"
-                    order_id = f"ORD{user_id}{int(time.time())}"
+                    username = query.from_user.username or str(user_id)
+                    order_id = f"BOT_{user_id}_{int(time.time())}"
 
+                    # Insert order
+                    with self.engine.begin() as conn:
+                        conn.execute(text("""
+                            INSERT INTO credit_orders (order_id, user_id, credits, amount, status)
+                            VALUES (:order_id, :user_id, :credits, :amount, 'pending')
+                        """), {
+                            "order_id": order_id,
+                            "user_id": user_id,
+                            "credits": int(credits),
+                            "amount": int(amount)
+                        })
+            
+                    # Payment instructions
+                    payment_message = (
+                        f"💳 *Detail Pembayaran*\n\n"
+                        f"Order ID: `{order_id}`\n"
+                        f"Jumlah Kredit: {credits}\n"
+                        f"Total: Rp {int(amount):,}\n\n"
+                        f"*Cara Pembayaran:*\n\n"
+                        f"1. Pilih salah satu metode pembayaran:\n\n"
+                        f"   *Transfer BCA*\n"
+                        f"   • Nama: Nanda Amalia\n"
+                        f"   • No. Rek: `4452385892`\n"
+                        f"   • Kode Bank: 014\n\n"
+                        f"   *Transfer Jenius/SMBC*\n" 
+                        f"   • Nama: Nanda Amalia\n"
+                        f"   • No. Rek: `90020380969`\n"
+                        f"   • $cashtag: `$kancilglobalbot`\n\n"
+                        f"2. Transfer tepat sejumlah Rp {int(amount):,}\n"
+                        f"3. Simpan bukti transfer\n"
+                        f"4. Kirim bukti transfer ke admin dengan menyertakan Order ID\n"
+                        f"5. Kredit akan ditambahkan setelah verifikasi"
+                    )
+            
+                    keyboard = [
+                        [InlineKeyboardButton(
+                            "📎 Kirim Bukti Transfer",
+                            url="https://t.me/afrizaladinur"
+                        )],
+                        [InlineKeyboardButton(
+                            "🔙 Kembali",
+                            callback_data="back_to_main"
+                        )]
+                    ]
+            
+                    await query.message.reply_text(
+                        payment_message,
+                        parse_mode='Markdown',
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+            
                     # Notify admin
-                    admin_message = (f"🔔 Pesanan Kredit Baru!\n\n"
-                                     f"Order ID: `{order_id}`\n"
-                                     f"User ID: `{user_id}`\n"
-                                     f"Username: @{username}\n"
-                                     f"Jumlah Kredit: {credit_amount}")
-
-                    admin_keyboard = [[
-                        InlineKeyboardButton(
-                            f"✅ Berikan {credit_amount} Kredit",
-                            callback_data=f"give_{user_id}_{credit_amount}")
-                    ]]
-
-                    admin_ids = [6422072438]  # Your admin ID
+                    admin_message = (
+                        f"🔔 *Pesanan Kredit Baru!*\n\n"
+                        f"Order ID: `{order_id}`\n"
+                        f"User ID: `{user_id}`\n"
+                        f"Username: @{username}\n"
+                        f"Jumlah Kredit: {credits}\n"
+                        f"Total: Rp {int(amount):,}\n\n"
+                        f"Status: ⏳ Menunggu Pembayaran"
+                    )
+            
+                    admin_keyboard = [[InlineKeyboardButton(
+                        f"✅ Verifikasi & Berikan {credits} Kredit",
+                        callback_data=f"give_{user_id}_{credits}"
+                    )]]
+            
+                    admin_ids = [6422072438]
                     for admin_id in admin_ids:
                         await context.bot.send_message(
                             chat_id=admin_id,
                             text=admin_message,
                             parse_mode='Markdown',
-                            reply_markup=InlineKeyboardMarkup(admin_keyboard))
-
-                    # Notify user
-                    await query.message.reply_text(
-                        f"✅ Pesanan dibuat!\n\n"
-                        f"ID Pesanan: `{order_id}`\n"
-                        f"Jumlah Kredit: {credit_amount}\n\n"
-                        "Admin akan segera menghubungi Anda.",
-                        parse_mode='Markdown')
+                            reply_markup=InlineKeyboardMarkup(admin_keyboard)
+                        )
+            
+                    logging.info(f"Payment order created: {order_id}")
+            
                 except Exception as e:
-                    logging.error(f"Error processing order: {str(e)}")
+                    logging.error(f"Error processing payment: {str(e)}", exc_info=True)
                     await query.message.reply_text(
-                        "Maaf, terjadi kesalahan. Silakan coba lagi nanti.")
+                        "Pesanan tetap diproses! Admin akan segera menghubungi Anda."
+                    )
             elif query.data == "show_saved_prev" or query.data == "show_saved_next":
                 user_id = query.from_user.id
-                items_per_page = 5
+                items_per_page = 2
 
                 # Delete current page messages
                 try:
@@ -568,6 +743,11 @@ class CommandHandler:
                                                       export_buttons))
             elif query.data == "show_saved_page_info":
                 await query.answer("Halaman saat ini", show_alert=False)
+
+            elif query.data == "saved":
+                await self.saved(update, context, reply_to=query.message)
+                await query.answer()
+                
             elif query.data == "back_to_categories":
                 # Handle going back to category selection
                 try:
@@ -797,13 +977,13 @@ class CommandHandler:
                                 count = conn.execute(
                                     text("""
                                     SELECT COUNT(*) FROM importers 
-                                    WHERE Role = :role AND LOWER(Product) LIKE LOWER(:search)
+                                    WHERE Role = :role 
+                                    AND LOWER(Product) LIKE LOWER(:search)
+                                    AND phone IS NOT NULL 
+                                    AND phone != ''
                                     """), {
-                                        "role":
-                                        "Exporter" if category_type
-                                        == "supplier" else "Importer",
-                                        "search":
-                                        f"%{search_term}%"
+                                        "role": "Exporter" if category_type == "supplier" else "Importer",
+                                        "search": f"%{search_term}%"
                                     }).scalar()
 
                                 keyboard.append([
@@ -1143,7 +1323,7 @@ class CommandHandler:
                         ],
                         [
                             InlineKeyboardButton("📁 Kontak Tersimpan",
-                                                 callback_data="show_saved")
+                                                 callback_data="saved")
                         ],
                         [
                             InlineKeyboardButton("💳 Kredit Saya",
@@ -1176,78 +1356,76 @@ class CommandHandler:
             logging.error(f"Error checking member status: {str(e)}")
             return False
 
-    async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reply_to=None):
+        """Show pending orders with pagination"""
         try:
+            message = reply_to or update.message
             if update.effective_user.id not in [6422072438]:
-                await update.message.reply_text("Unauthorized")
+                await message.reply_text("⛔️ Unauthorized")
                 return
 
-            page = context.user_data.get('orders_page', 0)
-            items_per_page = 10
+            # Get pending orders for display
             with self.engine.connect() as conn:
-                total_orders = conn.execute(
-                    text("""
-                    SELECT COUNT(*) FROM credit_orders
-                """)).scalar()
-                total_pages = (total_orders + items_per_page -
-                               1) // items_per_page
-                orders = conn.execute(
-                    text("""
-                    SELECT order_id, user_id, credits, amount, status, created_at
-                    FROM credit_orders
+                pending_orders = conn.execute(text("""
+                    SELECT * FROM credit_orders 
+                    WHERE status = 'pending'
                     ORDER BY created_at DESC
-                    LIMIT :limit OFFSET :offset
-                """), {
-                        "limit": items_per_page,
-                        "offset": page * items_per_page
-                    }).fetchall()
+                """)).fetchall()
 
-            if not orders:
-                await update.message.reply_text("No orders found")
-                return
+                if not pending_orders:
+                    await message.reply_text("No pending orders found.")
+                    return
 
-            message_text = "Daftar Pesanan Kredit:\n\n"
-            for order in orders:
-                try:
-                    user = await context.bot.get_chat(order.user_id)
-                    username = f"@{user.username}" if user.username else "No username"
-                except:
-                    username = "Unknown"
+                # Store for pagination
+                context.user_data['pending_orders'] = [dict(row._mapping) for row in pending_orders]
+                context.user_data['order_page'] = 0
 
-                message_text += f"Order ID: `{order.order_id}`\n" \
-                                f"User ID: `{order.user_id}`\n" \
-                                f"Username: {username}\n" \
-                                f"Credits: {order.credits}\n" \
-                                f"Amount: {order.amount}\n" \
-                                f"Status: {order.status}\n" \
-                                f"Created At: {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                # Show first order
+                current_order = pending_orders[0]
+                total_pages = len(pending_orders)
 
-            keyboard = []
-            if page > 0:
+                # Format message
+                message_text = (
+                    f"📦 Pending Order 1/{total_pages}\n\n"
+                    f"🔖 Order ID: `{current_order.order_id}`\n"
+                    f"👤 User ID: `{current_order.user_id}`\n"
+                )
+
+                user = await context.bot.get_chat(current_order.user_id)
+                username = f"@{user.username}" if user.username else "No username"
+                message_text += f"Username: {username}\n"
+                message_text += (
+                    f"💳 Credits: {current_order.credits}\n"
+                    f"💰 Amount: Rp {current_order.amount:,}\n"
+                    f"⏱️ Waiting since: {current_order.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+
+                # Build keyboard
+                keyboard = []
+                nav_row = []
+                if total_pages > 1:
+                    nav_row.append(InlineKeyboardButton("Next ➡️", callback_data="orders_next"))
+                if nav_row:
+                    keyboard.append(nav_row)
+
                 keyboard.append([
-                    InlineKeyboardButton("⬅️ Prev",
-                                         callback_data="orders_prev")
+                    InlineKeyboardButton("✅ Fulfill Order", 
+                        callback_data=f"give_{current_order.user_id}_{current_order.credits}")
                 ])
-            if page < total_pages - 1:
                 keyboard.append([
-                    InlineKeyboardButton("Next ➡️",
-                                         callback_data="orders_next")
+                    InlineKeyboardButton("📥 Export to CSV", callback_data="export_orders")
                 ])
-            keyboard.append([
-                InlineKeyboardButton("📥 Export to CSV",
-                                     callback_data="export_orders")
-            ])
 
-            await update.message.reply_text(
-                message_text,
-                parse_mode='Markdown',
-                reply_markup=InlineKeyboardMarkup(keyboard)
-                if keyboard else None)
+                await message.reply_text(
+                    message_text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='Markdown'
+                )
+
         except Exception as e:
             logging.error(f"Error in orders command: {str(e)}")
-            await update.message.reply_text(
-                "Error retrieving orders. Please try again.")
-
+            if message:
+                await message.reply_text("Error retrieving orders. Please try again.")
     async def export_saved_contacts(self, update: Update,
                                     context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
@@ -1262,20 +1440,52 @@ class CommandHandler:
 
     async def export_orders(self, update: Update,
                             context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
         if update.effective_user.id not in [6422072438]:
             await update.message.reply_text("Unauthorized")
             return
-        csv_data = self.data_store.format_orders_to_csv()
-        await context.bot.send_document(update.effective_chat.id,
-                                        document=csv_data,
-                                        filename='credit_orders.csv')
+        try:
+            user_id = query.from_user.id
+            csv_data = self.data_store.format_orders_to_csv(user_id)
+            
+            if csv_data == "No orders found":
+                await query.message.reply_text("Tidak ada pesanan untuk diekspor.")
+                return
+            
+            # Create temp file
+            with tempfile.NamedTemporaryFile(
+                mode='w+', 
+                suffix='.csv',
+                delete=False,
+                encoding='utf-8'
+            ) as tmp:
+                tmp.write(csv_data)
+                tmp.flush()
+                tmp_path = tmp.name
+
+            # Send file
+            with open(tmp_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=query.message.chat_id,
+                    document=file,
+                    filename=f'orders_{user_id}.csv',
+                    caption="📥 Daftar pesanan kredit"
+                )
+
+            # Cleanup
+            os.unlink(tmp_path)
+            await query.answer("CSV berhasil diekspor!")
+
+        except Exception as e:
+            logging.error(f"Error exporting orders: {str(e)}")
+            await query.message.reply_text("Maaf, terjadi kesalahan saat ekspor.")
 
     async def show_results(self, update: Update,
-                           context: ContextTypes.DEFAULT_TYPE,
-                           search_pattern: str):
-        """Show search results with pagination"""
+                        context: ContextTypes.DEFAULT_TYPE,
+                        search_pattern: str):
+        """Show randomized search results with pagination"""
         try:
-            # Get results from database
+            # Get random results from database
             with self.engine.connect() as conn:
                 results = conn.execute(
                     text("""
@@ -1283,13 +1493,12 @@ class CommandHandler:
                     WHERE LOWER(product) SIMILAR TO :pattern
                     OR LOWER(name) SIMILAR TO :pattern
                     OR LOWER(country) SIMILAR TO :pattern
-                    ORDER BY name
+                    ORDER BY RANDOM()  -- Randomize results
                     LIMIT 100
-                """), {
+                    """), {
                         "pattern": f"%{search_pattern.lower()}%"
                     }).fetchall()
 
-                # Convert results to list of dicts
                 results = [dict(row._mapping) for row in results]
 
             if not results:
@@ -1298,24 +1507,20 @@ class CommandHandler:
                 await reply_to.reply_text("Tidak ada hasil yang ditemukan.")
                 return
 
-            # Store results and initialize page
+            # Store randomized results
             context.user_data['search_results'] = results
             context.user_data['search_page'] = 0
-            context.user_data['current_message_ids'] = [
-            ]  # Initialize message tracking
+            context.user_data['current_message_ids'] = []
             context.user_data['last_search_context'] = {
                 'pattern': search_pattern
             }
 
-            # Show first page (2 results)
+            # Show first page
             items_per_page = 2
             total_pages = (len(results) + items_per_page - 1) // items_per_page
             current_results = results[:items_per_page]
 
-            # Store message IDs for later cleanup
             message_ids = []
-
-            # Get the appropriate message object for replies
             reply_to = update.callback_query.message if hasattr(
                 update, 'callback_query') else update.message
 
@@ -1325,8 +1530,7 @@ class CommandHandler:
                 save_button = [[
                     InlineKeyboardButton(
                         "💾 Simpan Kontak",
-                        callback_data=
-                        f"save_{result['name']}"  # Use name instead of id
+                        callback_data=f"save_{result['name']}"
                     )
                 ]]
 
@@ -1336,33 +1540,27 @@ class CommandHandler:
                     reply_markup=InlineKeyboardMarkup(save_button))
                 message_ids.append(sent_msg.message_id)
 
-            # Add pagination buttons in a single row
+            # Navigation buttons
             navigation_row = []
             if total_pages > 1:
                 navigation_row.append(
                     InlineKeyboardButton("Next ➡️", callback_data="next_page"))
             navigation_row.append(
-                InlineKeyboardButton(f"1/{total_pages}",
-                                     callback_data="page_info"))
+                InlineKeyboardButton(f"1/{total_pages}", callback_data="page_info"))
 
-            # Add bottom navigation buttons
             bottom_buttons = [[
                 InlineKeyboardButton("🔄 Cari Kembali",
-                                     callback_data="regenerate_search")
-            ],
-                              [
-                                  InlineKeyboardButton(
-                                      "🔙 Kembali",
-                                      callback_data="back_to_categories")
-                              ]]
+                                    callback_data="regenerate_search")
+            ], [
+                InlineKeyboardButton("🔙 Kembali",
+                                    callback_data="back_to_categories")
+            ]]
 
             nav_msg = await reply_to.reply_text(
                 f"Halaman 1 dari {total_pages}",
-                reply_markup=InlineKeyboardMarkup([navigation_row] +
-                                                  bottom_buttons))
+                reply_markup=InlineKeyboardMarkup([navigation_row] + bottom_buttons))
             message_ids.append(nav_msg.message_id)
 
-            # Store message IDs in context
             context.user_data['current_message_ids'] = message_ids
 
         except Exception as e:
@@ -1375,7 +1573,7 @@ class CommandHandler:
                 )
             except Exception as inner_e:
                 logging.error(f"Error sending error message: {str(inner_e)}",
-                              exc_info=True)
+                            exc_info=True)
 
     async def save_contact(self, user_id: int, contact_name: str,
                            update: Update):
@@ -1468,8 +1666,7 @@ class CommandHandler:
                 return
 
             # Create temporary file with CSV data
-            import tempfile
-            import os
+            
             with tempfile.NamedTemporaryFile(mode='w+', suffix='.csv', delete=False, encoding='utf-8') as temp_file:
                 temp_file.write(csv_data)
                 temp_file.flush()
