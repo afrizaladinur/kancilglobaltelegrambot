@@ -4,7 +4,7 @@ import time
 import asyncio
 from sqlalchemy import text
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram.ext import ContextTypes, CallbackQueryHandler, CallbackContext
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
@@ -271,6 +271,9 @@ class CommandHandler:
                 await self.show_results(
                     update, context,
                     query.data.replace('search_', '').replace('_', ' '))
+                
+            elif query.data == "export_saved_contacts":
+                await self.export_saved_contacts(update, context)
 
             elif query.data == "next_page" or query.data == "prev_page":
                 try:
@@ -1450,37 +1453,42 @@ class CommandHandler:
             await update.callback_query.message.reply_text(
                 "Maaf, terjadi kesalahan saat menyimpan kontak.")
 
-    elif query.data == "export_saved_contacts":
-                try:
-                    user_id = query.from_user.id
-                    with app.app_context():
-                        csv_data = self.data_store.format_saved_contacts_to_csv(user_id)
+    async def export_saved_contacts(self, update: Update, context: CallbackContext) -> None:
+        """Export saved contacts to CSV"""
+        query = update.callback_query
+        try:
+            user_id = query.from_user.id
+            
+            # Get CSV data
+            with app.app_context():
+                csv_data = self.data_store.format_saved_contacts_to_csv(user_id)
 
-                    if csv_data == "No saved contacts found":
-                        await query.message.reply_text("Tidak ada kontak tersimpan untuk diekspor.")
-                        return
+            if csv_data == "No saved contacts found":
+                await query.message.reply_text("Tidak ada kontak tersimpan untuk diekspor.")
+                return
 
-                    # Create temporary file with CSV data
-                    import tempfile
-                    import os
-                    with tempfile.NamedTemporaryFile(mode='w+', suffix='.csv', delete=False, encoding='utf-8') as temp_file:
-                        temp_file.write(csv_data)
-                        temp_file.flush()
+            # Create temporary file with CSV data
+            import tempfile
+            import os
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.csv', delete=False, encoding='utf-8') as temp_file:
+                temp_file.write(csv_data)
+                temp_file.flush()
 
-                        # Send the CSV file
-                        with open(temp_file.name, 'rb') as f:
-                            await context.bot.send_document(
-                                chat_id=query.message.chat_id,
-                                document=f,
-                                filename=f'saved_contacts_{user_id}.csv',
-                                caption="📥 Daftar kontak tersimpan Anda"
-                            )
+                # Send the CSV file
+                with open(temp_file.name, 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=query.message.chat_id,
+                        document=f,
+                        filename=f'saved_contacts_{user_id}.csv',
+                        caption="📥 Daftar kontak tersimpan Anda"
+                    )
 
-                        # Clean up temp file
-                        os.unlink(temp_file.name)
+                # Clean up temp file
+                os.unlink(temp_file.name)
 
-                    await query.message.reply_text("✅ File CSV berhasil dikirim!")
+            await query.message.reply_text("✅ File CSV berhasil dikirim!")
+            await query.answer()
 
-                except Exception as e:
-                    logging.error(f"Error exporting contacts to CSV: {str(e)}", exc_info=True)
-                    await query.message.reply_text("Maaf, terjadi kesalahan saat mengekspor kontak.")
+        except Exception as e:
+            logging.error(f"Error exporting contacts to CSV: {str(e)}", exc_info=True)
+            await query.message.reply_text("Maaf, terjadi kesalahan saat mengekspor kontak.")
