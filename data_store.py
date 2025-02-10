@@ -33,6 +33,7 @@ class DataStore:
                 wa_availability BOOLEAN,
                 hs_code VARCHAR(255),
                 product_description TEXT,
+                role VARCHAR(50),
                 saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """
@@ -279,10 +280,10 @@ class DataStore:
                         text("""
                         INSERT INTO saved_contacts (
                             user_id, importer_name, country, phone, email, 
-                            website, wa_availability, hs_code, product_description
+                            website, wa_availability, hs_code, product_description, role
                         ) VALUES (
                             :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
+                            :website, :wa_available, :hs_code, :product_description, :role
                         )
                         RETURNING id;
                         """),
@@ -293,9 +294,10 @@ class DataStore:
                             "phone": importer['phone'],
                             "email": importer['email'],
                             "website": importer['website'],
-                            "wa_available": importer['wa_available'].lower() == 'available' ,
+                            "wa_available": importer['wa_available'].lower() == 'available',
                             "hs_code": importer.get('hs_code', ''),
-                            "product_description": importer.get('product_description', '')
+                            "product_description": importer.get('product_description', ''),
+                            "role": importer.get('role', '')
                         }
                     )
 
@@ -336,7 +338,7 @@ class DataStore:
         try:
             get_saved_sql = """
             SELECT importer_name, country, phone, email, website, 
-                   wa_availability, saved_at, hs_code, product_description
+                   wa_availability, saved_at, hs_code, product_description, role
             FROM saved_contacts
             WHERE user_id = :user_id
             ORDER BY saved_at DESC;
