@@ -267,7 +267,7 @@ class DataStore:
                         SELECT id FROM saved_contacts 
                         WHERE user_id = :user_id AND importer_name = :name
                         """),
-                        {"user_id": user_id, "name": importer['name']}
+                        {"user_id": user_id, "name": importer['importer_name']}
                     ).first()
 
                     if existing:
@@ -288,12 +288,12 @@ class DataStore:
                         """),
                         {
                             "user_id": user_id,
-                            "name": importer['name'],
+                            "name": importer['importer_name'],
                             "country": importer['country'],
-                            "phone": importer['contact'],
+                            "phone": importer['phone'],
                             "email": importer['email'],
                             "website": importer['website'],
-                            "wa_available": importer['wa_available'],
+                            "wa_available": importer['wa_available'].lower() == 'available' ,
                             "hs_code": importer.get('hs_code', ''),
                             "product_description": importer.get('product_description', '')
                         }

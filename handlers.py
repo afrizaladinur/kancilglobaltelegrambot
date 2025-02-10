@@ -272,7 +272,7 @@ class CommandHandler:
                         navigation_row.append(InlineKeyboardButton("Next ➡️", callback_data="next_page"))
 
                     bottom_buttons = [
-                        [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                        [InlineKeyboardButton("🔄 Cari Kembali", callback_data="regenerate_search")],
                         [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                     ]
 
@@ -289,7 +289,7 @@ class CommandHandler:
                     logging.error(f"Error in pagination: {str(e)}", exc_info=True)
                     await query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
-            elif query.data == "search_again":
+            elif query.data == "regenerate_search":
                 try:
                     # Get the last search parameters
                     last_search = context.user_data.get('last_search_context', {})
@@ -320,7 +320,7 @@ class CommandHandler:
                         await query.message.reply_text("Tidak dapat mengulang pencarian sebelumnya.")
 
                 except Exception as e:
-                    logging.error(f"Error in search again: {str(e)}")
+                    logging.error(f"Error in regenerate search: {str(e)}")
                     await query.message.reply_text("Maaf, terjadi kesalahan saat mengulang pencarian.")
 
             elif query.data == "page_info":
@@ -825,7 +825,7 @@ class CommandHandler:
                         ))
 
                         bottom_buttons = [
-                            [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                            [InlineKeyboardButton("🔄 Cari Kembali", callback_data="regenerate_search")],
                             [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
                         ]
 
@@ -911,9 +911,9 @@ class CommandHandler:
                 else:
                     await query.message.reply_text("Error using credit. Please try again later.")
 
-            except Exception as e:
-                logging.error(f"Error in button callback: {str(e)}", exc_info=True)
-                await update.callback_query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
+        except Exception as e:
+            logging.error(f"Error in button callback: {str(e)}", exc_info=True)
+            await update.callback_query.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
     async def _check_member_status(self, context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
         """Check if user is a member of the channel"""
@@ -1066,7 +1066,7 @@ class CommandHandler:
 
             # Add bottom navigation buttons
             bottom_buttons = [
-                [InlineKeyboardButton("🔄 Cari Kembali", callback_data="search_again")],
+                [InlineKeyboardButton("🔄 Cari Kembali", callback_data="regenerate_search")],
                 [InlineKeyboardButton("🔙 Kembali", callback_data="back_to_categories")]
             ]
 
@@ -1092,40 +1092,72 @@ class CommandHandler:
     async def save_contact(self, user_id: int, contact_name: str, update: Update):
         """Save contact to user's saved list"""
         try:
-            with app.app_context():
-                # Get current credits first
-                current_credits = self.data_store.get_user_credits(user_id)
-                if current_credits is None or current_credits <= 0:
+            logging.info(f"Starting save contact process for user {user_id}")
+            
+            # Get current credits
+            current_credits = self.data_store.get_user_credits(user_id)
+            if current_credits is None or current_credits <= 0:
+                await update.callback_query.message.reply_text(
+                    "⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini."
+                )
+                return
+
+            # Get importer data
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT 
+                        id,
+                        name as importer_name,
+                        phone,                      
+                        website,
+                        email_1 as email,
+                        product as hs_code,
+                        country,
+                        wa_availability as wa_available,
+                        role as product_description,
+                        CURRENT_TIMESTAMP as saved_at
+                    FROM importers 
+                    WHERE name = :name
+                """), {"name": contact_name}).first()
+
+                if not result:
                     await update.callback_query.message.reply_text(
-                        "⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini."
+                        "⚠️ Kontak tidak ditemukan. Silakan coba cari kembali."
                     )
                     return
 
-                # Get the full importer data
-                with self.engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT * FROM importers WHERE name = :name
-                    """), {"name": contact_name}).first()
+                importer = dict(result._mapping)
+                logging.debug(f"Found importer data: {importer}")
 
-                    if not result:
-                        await update.callback_query.message.reply_text(
-                            "⚠️ Kontak tidak ditemukan. Silakan coba cari kembali."
-                        )
-                        return
-
-                    importer = dict(result._mapping)
-
-                    # Save contact and deduct credits using the DataStore method
-                    success = await self.data_store.save_contact(user_id, importer)
+                # Save contact with transaction
+                try:
+                    # Deduct credit first
+                    self.data_store.use_credit(user_id, 1)
+                    
+                    # Then save contact
+                    success = await self.data_store.save_contact(
+                        user_id=user_id,
+                        importer=importer
+                    )
 
                     if success:
+                        new_balance = self.data_store.get_user_credits(user_id)
                         await update.callback_query.message.reply_text(
-                            "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat kontak tersimpan."
+                            f"✅ Kontak berhasil disimpan!\n\n"
+                            f"💳 Sisa kredit: {new_balance} kredit\n\n"
+                            f"Gunakan /saved untuk melihat kontak tersimpan."
                         )
                     else:
+                        # Rollback credit deduction if save fails
+                        self.data_store.add_credits(user_id, 1)
                         await update.callback_query.message.reply_text(
                             "⚠️ Gagal menyimpan kontak. Silakan coba lagi atau hubungi admin jika masalah berlanjut."
                         )
+
+                except Exception as e:
+                    logging.error(f"Transaction error: {str(e)}")
+                    conn.rollback()
+                    raise
 
         except Exception as e:
             logging.error(f"Error saving contact: {str(e)}", exc_info=True)
