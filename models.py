@@ -42,6 +42,7 @@ class SavedContact(db.Model):
     wa_availability = db.Column(db.Boolean)
     hs_code = db.Column(db.String(10))
     product_description = db.Column(db.Text)
+    role = db.Column(db.String(50))
     saved_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (

@@ -22,6 +22,7 @@ class DataStore:
         try:
             # Don't drop tables on init
             create_saved_contacts_sql = """
+            DROP TABLE IF EXISTS saved_contacts;
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -359,7 +360,8 @@ class DataStore:
                         'wa_available': row.wa_availability,
                         'saved_at': row.saved_at.strftime("%Y-%m-%d %H:%M"),
                         'hs_code': row.hs_code,
-                        'product_description': row.product_description
+                        'product_description': row.product_description,
+                        'role': row.role
                     }
                     for row in result
                 ]
@@ -512,7 +514,7 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error in get_contacts_by_category: {str(e)}", exc_info=True)
             return [], 0
-    
+
     def search_importers_by_pattern(self, pattern: str, page: int = 0, per_page: int = 2) -> tuple[List[Dict], int]:
         """Search importers by specific pattern (e.g., 'ID 1511')"""
         try:
@@ -591,7 +593,7 @@ class DataStore:
                 return "No saved contacts found"
 
             # Define CSV header
-            header = ["Name", "Country", "Phone", "Email", "Website", "WhatsApp Available", "Saved Date", "HS Code", "Product Description"]
+            header = ["Name", "Country", "Phone", "Email", "Website", "WhatsApp Available", "Saved Date", "HS Code", "Product Description", "Role"]
 
             # Format rows
             rows = [header]
@@ -605,7 +607,8 @@ class DataStore:
                     'Yes' if contact['wa_available'] else 'No',
                     contact['saved_at'],
                     contact['hs_code'],
-                    contact['product_description']
+                    contact['product_description'],
+                    contact['role']
                 ]
                 rows.append(row)
 
