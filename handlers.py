@@ -586,23 +586,38 @@ class CommandHandler:
                 await query.answer("Halaman saat ini", show_alert=False)
 
             elif query.data == "back_to_main":
-                # Handle back to main menu
                 try:
                     user_id = query.from_user.id
                     with app.app_context():
                         credits = self.data_store.get_user_credits(user_id)
-                        is_member = await self.check_community_membership(
-                            context, user_id)
+                        is_member = await self.check_community_membership(context, user_id)
                         message_text, reply_markup = await self.get_main_menu_markup(
-                            user_id, credits, is_member)
-                        await query.message.edit_text(
-                            text=message_text,
-                            parse_mode='Markdown',
-                            reply_markup=reply_markup)
+                            user_id=user_id,
+                            credits=credits,
+                            is_member=is_member
+                        )
+                        
+                        try:
+                            await query.message.edit_text(
+                                text=message_text,
+                                parse_mode='Markdown',
+                                reply_markup=reply_markup
+                            )
+                        except telegram.error.BadRequest as e:
+                            if "message is not modified" in str(e).lower():
+                                # Just answer the callback if content hasn't changed
+                                await query.answer()
+                                return
+                            raise  # Re-raise other BadRequest errors
+                            
+                        await query.answer()
+                        
                 except Exception as e:
                     logging.error(f"Error returning to main menu: {str(e)}")
-                    await query.message.reply_text(
-                        "Maaf, terjadi kesalahan. Silakan coba lagi.")
+                    if "message is not modified" not in str(e).lower():
+                        await query.message.reply_text(
+                            "Maaf, terjadi kesalahan. Silakan coba lagi."
+                        )
 
             elif query.data.startswith('order_'):
                 try:

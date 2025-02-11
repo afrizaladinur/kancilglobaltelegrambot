@@ -6,7 +6,7 @@ class Messages:
     COMMUNITY_INFO = """
 *Kancil Global Network* 🌟
 
-Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda. 
+Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda.
 
 *Apa yang Anda dapatkan:*
 • 📊 Berbagi informasi dan peluang bisnis
@@ -25,6 +25,9 @@ Join sekarang dan mulai ekspansi bisnis Anda! 🚀
 
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
+Kami merupakan layanan data ekspor-impor *terlengkap* di Indonesia. 
+Dapatkan kontak importir dan eksportir dengan mudah melalui bot ini.
+
 *Sistem Kredit:*
 • Kredit adalah mata uang dalam bot ini
 • Digunakan untuk menyimpan kontak & akses fitur
@@ -33,6 +36,9 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 *👋 Khusus untuk user baru, kamu bisa mendapatkan 10 Kredit GRATIS!*
 1. Klik menu '💳 Kredit Saya'
 2. Kemudian pilih '🎁 Klaim 20 Kredit Gratis'
+
+💡 *Butuh data ekspor - impor lainnya? Hubungi Admin!*
+
 """
     HELP = """
 *Panduan Penggunaan Bot Kancil Global* 🇮🇩
@@ -61,16 +67,7 @@ Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 • Gabung Kancil Global Network (5 kredit)
 • Hubungi admin untuk informasi lebih lanjut
 """
-    SEARCH_NO_QUERY = """*Panduan Pencarian Kontak* 📦
 
-Silakan pilih kategori produk melalui menu "Kontak Tersedia" untuk melihat daftar kontak importir yang tersedia.
-
-Kategori yang tersedia:
-• 🌊 Produk Laut (ikan segar, beku, dll)
-• 🌿 Produk Agrikultur (kopi, manggis, dll)
-• 🌳 Produk Olahan (briket, minyak kelapa)
-
-Pilih kategori untuk melihat daftar kontak:"""
     SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
     RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
     ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
@@ -96,7 +93,7 @@ Biaya kredit per kontak:
 • 2 kredit - Kontak lengkap tanpa WhatsApp 
 • 1 kredit - Kontak tidak lengkap
 
-Setiap pengguna baru mendapat 10 kredit gratis!
+Setiap pengguna baru mendapat 20 kredit gratis!
 """
     CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
     CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
@@ -104,75 +101,64 @@ Setiap pengguna baru mendapat 10 kredit gratis!
 
 
     SUPPLIER_CATEGORIES = {
-        'Marine': {
-            'emoji': '🌊',
+        'Hasil Laut': {
+            'emoji': '🐟',
             'subcategories': {
                 'Anchovy': {'emoji': '🐟', 'search': 'ID Anchovy'}
             }
         },
-        'Agriculture': {
-            'emoji': '🌾',
+        'Agrikultur': {
+            'emoji': '🌱',
             'subcategories': {
                 'Coffee': {'emoji': '☕', 'search': 'ID Coffee'},
-                'Betel Nut': {'emoji': '🌰', 'search': 'ID Betel Nut'},
-                'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'}
+                'Betel Nut': {'emoji': '🥥', 'search': 'ID Betel Nut'},
+                'Kayu Manis': {'emoji': '🍂', 'search': 'ID Cinnamon'},
+                'Cengkeh': {'emoji': '🌸', 'search': 'ID Clove'}
             }
         },
-        'Industrial': {
+        'Industri': {
             'emoji': '🏭',
             'subcategories': {
-                'Briquette': {'emoji': '🪵', 'search': 'ID Briquette'},
-                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
-                'Palm Kernel Shell': {'emoji': '🌴', 'search': 'ID Palm Kernel Shell'},
-                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'}
-            }
-        },
-        'Spices': {
-            'emoji': '🌶️',
-            'subcategories': {
-                'Cinnamon': {'emoji': '🌿', 'search': 'ID Cinnamon'},
-                'Clove': {'emoji': '🌺', 'search': 'ID Clove'}
+                'Briket Batok Kelapa': {'emoji': '🔥', 'search': 'ID Briquette'},
+                'Damar Batu': {'emoji': '🪨', 'search': 'ID Damar'},
+                'Cangkang Sawit': {'emoji': '🌴', 'search': 'ID Palm Kernel Shell'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
+                'Birdnest': {'emoji': '🕊️', 'search': 'ID Birdnest'}
             }
         }
     }
 
     BUYER_CATEGORIES = {
-        'Palm & Furniture': {
+        'Industri': {
             'emoji': '🏭',
             'subcategories': {
-                'Palm Oil': {'emoji': '🌴', 'search': 'ID 1511'},
-                'Furniture': {'emoji': '🪑', 'search': 'ID 94035'}
+                'Minyak Sawit': {'emoji': '🌴', 'search': 'ID 1511'},
+                'Furniture': {'emoji': '🛋️', 'search': 'ID 94035'},
+                'Briket Batok Kelapa': {'emoji': '🔥', 'search': 'WW 44029010'},
+                'Damar': {'emoji': '🪨', 'search': 'ID Damar'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'}
             }
         },
-        'Marine Products': {
-            'emoji': '🌊',
+        'Hasil Laut': {
+            'emoji': '🐠',
             'subcategories': {
-                'Fresh Fish': {'emoji': '🐟', 'search': 'WW 0302'},
-                'Frozen Fish': {'emoji': '❄️', 'search': 'WW 0303'},
-                'Fish Fillet': {'emoji': '🍣', 'search': 'WW 0304'},
+                'Fresh Fish (HS 0302)': {'emoji': '🐟', 'search': 'WW 0302'},
+                'Frozen Fish (HS 0303)': {'emoji': '❄️', 'search': 'WW 0303'},
+                'Fish Fillet (HS 0304)': {'emoji': '🍣', 'search': 'WW 0304'},
                 'Anchovy': {'emoji': '🐟', 'search': 'WW Anchovy'}
             }
         },
-        'Agriculture': {
+        'Agrikultur': {
             'emoji': '🌾',
             'subcategories': {
-                'Coffee': {'emoji': '☕', 'search': 'WW 0901'},
-                'Banana Leaves': {'emoji': '🍌', 'search': 'WW Banana Leaves'},
-                'Candle Nut': {'emoji': '🌰', 'search': 'WW Candle Nut'},
-                'Coconut Oil': {'emoji': '🥥', 'search': 'WW Coconut Oil'},
-                'Birdnest': {'emoji': '🪺', 'search': 'ID Birdnest'}
-            }
-        },
-        'Industrial': {
-            'emoji': '🏭',
-            'subcategories': {
-                'Briquette': {'emoji': '🪵', 'search': 'WW 44029010'},
-                'Damar': {'emoji': '💎', 'search': 'ID Damar'},
-                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'}
+                'Kopi': {'emoji': '☕', 'search': 'WW 0901'},
+                'Daun Pisang': {'emoji': '🍌', 'search': 'WW Banana Leaves'},
+                'Kemiri': {'emoji': '🥥', 'search': 'WW Candle Nut'},
+                'Minyak Kelapa': {'emoji': '🥥', 'search': 'WW Coconut Oil'},
+                'Sarang Burung Wallet': {'emoji': '🕊️', 'search': 'ID Birdnest'}
             }
         }
     }
-
     @staticmethod
     def get_country_emoji(country: str) -> str:
         """Get emoji for a country"""
@@ -244,10 +230,10 @@ Setiap pengguna baru mendapat 10 kredit gratis!
             'email': lambda t: prefix_with_censor(t[:6]),
             'phone': lambda t: prefix_with_censor("+1 65") if '+' not in t else \
                     prefix_with_censor(t.split()[0] + " " + (t.split()[1][:2] if len(t.split()) > 1 else "65")),
-            'website': lambda t: prefix_with_censor("www.")
+            'website': lambda _: prefix_with_censor("www.")
         }
 
-        return censor_rules.get(field_type, lambda t: CENSOR)(text)
+        return censor_rules.get(field_type, lambda _: CENSOR)(text)
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
