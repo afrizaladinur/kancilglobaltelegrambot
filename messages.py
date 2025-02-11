@@ -21,59 +21,45 @@ Join sekarang dan mulai ekspansi bisnis Anda! 🚀
 """
 
     START = """
+*Permudah Bisnis Ekspor Impor dengan Teknologi* 🚀
+
 Selamat datang di Bot Eksportir Indonesia! 🇮🇩
-
-*Fitur Terbaru:* Gabung Kancil Global Network! 🌟
-
-*Menu Utama:*
-• 📤 *Kontak Supplier* - Eksportir Indonesia
-• 📥 *Kontak Buyer* - Importir Lokal & Global
-• 📁 *Kontak Tersimpan* - Akses kontak yang sudah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit dan beli kredit
-• ❓ *Bantuan* - Panduan lengkap
 
 *Sistem Kredit:*
 • Kredit adalah mata uang dalam bot ini
 • Digunakan untuk menyimpan kontak & akses fitur
-• Setiap pengguna baru dapat 10 kredit gratis
-
-*Biaya per Kontak:*
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap
-
-*Tips Pencarian:*
-• Gunakan kode HS untuk hasil lebih spesifik
-• Kombinasikan negara + kode HS untuk filter terbaik
-• Simpan kontak penting agar bisa diakses kapan saja
+• Setiap pengguna baru dapat 20 kredit gratis
 
 *👋 Khusus untuk user baru, kamu bisa mendapatkan 10 Kredit GRATIS!*
 1. Klik menu '💳 Kredit Saya'
-2. Kemudian pilih '🎁 Klaim 10 Kredit Gratis'
+2. Kemudian pilih '🎁 Klaim 20 Kredit Gratis'
 """
     HELP = """
-*Panduan Penggunaan Bot Eksportir Indonesia* 🇮🇩
+*Panduan Penggunaan Bot Kancil Global* 🇮🇩
 
-*Cara Mencari Kontak Importir:*
-1. Pilih menu "📦 Kontak Tersedia"
-2. Pilih kategori produk yang sesuai
-3. Pilih jenis produk spesifik
-4. Simpan kontak yang diinginkan
+*Cara Mendapatkan Kontak:*
+1. Pilih menu "📤 Kontak Supplier" atau "📥 Kontak Buyer"
+2. Pilih kontak yang diinginkan
+3. Tekan tombol simpan untuk menyimpan kontak
+4. Akses kembali lewat menu "📁 Kontak Tersimpan"
 
 *Sistem Kredit:*
 • 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp  
 • 1 kredit - Kontak tidak lengkap
 
-*Fitur Utama:*
-• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
-• 📁 *Kontak Tersimpan* - Akses kontak yang telah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit dan beli kredit
+*Menu Utama:*
+• 📤 *Kontak Supplier* - Cari kontak supplier
+• 📥 *Kontak Buyer* - Cari kontak buyer
+• 📁 *Kontak Tersimpan* - Akses kontak tersimpan
+• 💳 *Kredit Saya* - Cek sisa kredit
+• 🌟 *Kancil Global Network* - Komunitas eksportir
 
-*Catatan Penting:*
+*Catatan:*
 • Kontak yang belum disimpan akan disensor
-• Kredit gratis: 10 kredit untuk pengguna baru
-• Kontak bisa diekspor ke CSV untuk pencatatan
+• Member baru dapat 20 kredit gratis
+• Gabung Kancil Global Network (5 kredit)
+• Hubungi admin untuk informasi lebih lanjut
 """
     SEARCH_NO_QUERY = """*Panduan Pencarian Kontak* 📦
 

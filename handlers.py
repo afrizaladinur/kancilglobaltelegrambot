@@ -5,6 +5,7 @@ import asyncio
 from sqlalchemy import text
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, CallbackContext
+from telegram.error import BadRequest  # Add this import
 from data_store import DataStore
 from rate_limiter import RateLimiter
 from messages import Messages
@@ -20,41 +21,73 @@ class CommandHandler:
         self.engine = self.data_store.engine
         logging.info("CommandHandler initialized")
 
+    async def check_admin_status(self, user_id: int) -> bool:
+        """Check if user is admin"""
+        admin_ids = [6422072438]
+        return user_id in admin_ids
+
+    async def initialize_credits(self, user_id: int, is_admin: bool) -> float:
+        """Initialize or get user credits"""
+        with app.app_context():
+            credits = self.data_store.get_user_credits(user_id)
+            if credits is None:
+                initial_credits = 999999.0 if is_admin else 10.0
+                self.data_store.initialize_user_credits(user_id, initial_credits)
+                credits = initial_credits
+            self.data_store.track_user_command(user_id, 'start')
+        return credits
+
+    async def check_community_membership(self, context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+        """Check if user is community member"""
+        try:
+            # Use numeric ID instead of username
+            group_id = -1002349486618  
+            
+            # Verify group exists
+            try:
+                chat = await context.bot.get_chat(chat_id=group_id)
+                logging.info(f"Checking membership for group: {chat.title}")
+            except Exception as e:
+                logging.error(f"Group not found: {e}")
+                return False
+                
+            # Check member status
+            member = await context.bot.get_chat_member(
+                chat_id=group_id,
+                user_id=user_id
+            )
+            return member.status in ['member', 'administrator', 'creator']
+            
+        except Exception as e:
+            logging.error(f"Membership check failed: {e}")
+            return False
+
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         try:
             user_id = update.effective_user.id
-            admin_ids = [6422072438]
-            is_admin = user_id in admin_ids
+            is_admin = await self.check_admin_status(user_id)
+            credits = await self.initialize_credits(user_id, is_admin)
+            is_member = await self.check_community_membership(context, user_id)
 
-            with app.app_context():
-                credits = self.data_store.get_user_credits(user_id)
-                if credits is None:
-                    self.data_store.initialize_user_credits(
-                        user_id, 10.0 if not is_admin else 999999.0)
-                    credits = 10.0 if not is_admin else 999999.0
-                self.data_store.track_user_command(user_id, 'start')
+            # Get message and markup as tuple
+            message_text, keyboard_markup = await self.get_main_menu_markup(
+                user_id=user_id,
+                credits=credits,
+                is_member=is_member
+            )
 
-            # Check if user is already in community
-            try:
-                chat_member = await context.bot.get_chat_member(
-                    chat_id="@kancilglobalnetwork", user_id=user_id)
-                is_member = chat_member.status in [
-                    'member', 'administrator', 'creator'
-                ]
-            except Exception as e:
-                logging.error(f"Error checking member status: {str(e)}")
-                is_member = False
-
-            message_text, reply_markup = self.get_main_menu_markup(
-                user_id, credits, is_member)
-            await update.message.reply_text(message_text,
-                                            parse_mode='Markdown',
-                                            reply_markup=reply_markup)
-        except Exception as e:
-            logging.error(f"Error in start command: {str(e)}")
             await update.message.reply_text(
-                "Maaf, terjadi kesalahan. Silakan coba lagi.")
+                text=message_text,
+                parse_mode='Markdown',
+                reply_markup=keyboard_markup  # Pass InlineKeyboardMarkup directly
+            )
+
+        except Exception as e:
+            logging.error(f"Start command error: {e}")
+            await update.message.reply_text(
+                "Maaf, terjadi kesalahan. Silakan coba lagi."
+            )
 
     async def credits(self, update: Update,
                       context: ContextTypes.DEFAULT_TYPE):
@@ -67,7 +100,7 @@ class CommandHandler:
 
             keyboard = [
                 [
-                    InlineKeyboardButton("🎁 Klaim 10 Kredit Gratis",
+                    InlineKeyboardButton("🎁 Klaim 20 Kredit Gratis",
                                          callback_data="redeem_free_credits")
                 ],
                 [
@@ -200,42 +233,65 @@ class CommandHandler:
             elif update.message:
                 await update.message.reply_text("Maaf, terjadi kesalahan. Silakan coba lagi.")
 
-    def get_main_menu_markup(self, user_id: int, credits: float,
-                             is_member: bool):
-        """Generate main menu markup and message"""
-        community_button = [
-            InlineKeyboardButton(
-                "🔓 Buka Kancil Global Network"
-                if is_member else "🌟 Gabung Kancil Global Network",
-                **{"url": "https://t.me/+kuNU6lDtYoNlMTc1"}
-                if is_member else {"callback_data": "join_community"})
-        ]
+    async def get_main_menu_markup(self, user_id: int, credits: int = 0, is_member: bool = False) -> tuple[str, InlineKeyboardMarkup]:
+        """Generate main menu keyboard markup based on user status"""
+        try:
+            # Get user credits
+            with app.app_context():
+                credits = self.data_store.get_user_credits(user_id)
+            
+            # Check member status
+            group_id = -1002349486618
+            try:
+                member = await self.bot.get_chat_member(
+                    chat_id=group_id,
+                    user_id=user_id
+                )
+                is_member = member.status not in ['left', 'kicked']
+            except Exception:
+                is_member = False
+            
+            if is_member:
+                community_button = [
+                    InlineKeyboardButton(
+                        "🔓 Buka Kancil Global Network",
+                        url="https://t.me/+kuNU6lDtYoNlMTc1"
+                    )
+                ]
+            else:
+                community_button = [
+                    InlineKeyboardButton(
+                        "🌟 Gabung Kancil Global Network",
+                        callback_data="join_community"
+                    )
+                ]
 
-        keyboard = [[
-            InlineKeyboardButton("📤 Kontak Supplier",
-                                 callback_data="show_suppliers"),
-            InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")
-        ],
-                   [
-                       InlineKeyboardButton("📁 Kontak Tersimpan",
-                                           callback_data="saved")
-                   ],
-                   [
-                       InlineKeyboardButton("💳 Kredit Saya",
-                                           callback_data="show_credits")
-                   ], community_button,
-                   [
-                       InlineKeyboardButton("❓ Bantuan",
-                                           callback_data="show_help")
-                   ],
-                   [
-                       InlineKeyboardButton("👨‍💼 Hubungi Admin",
-                                           url="https://t.me/afrizaladinur")
-                   ]]
+            keyboard = [[
+                InlineKeyboardButton("📤 Kontak Supplier", callback_data="show_suppliers"),
+                InlineKeyboardButton("📥 Kontak Buyer", callback_data="show_buyers")
+            ],
+                    [
+                        InlineKeyboardButton("📁 Kontak Tersimpan", callback_data="saved")
+                    ],
+                    [
+                        InlineKeyboardButton("💳 Kredit Saya", callback_data="show_credits")
+                    ], community_button,
+                    [
+                        InlineKeyboardButton("❓ Bantuan", callback_data="show_help")
+                    ],
+                    [
+                        InlineKeyboardButton("👨‍💼 Hubungi Admin", url="https://t.me/afrizaladinur")
+                    ]]
 
-        message_text = f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}"
-        return message_text, InlineKeyboardMarkup(keyboard)
-
+            message_text = f"{Messages.START}\n{Messages.CREDITS_REMAINING.format(credits)}"
+            return message_text, InlineKeyboardMarkup(keyboard)
+            
+        except Exception as e:
+            logging.error(f"Error generating main menu: {str(e)}")
+            # Return basic menu on error
+            return Messages.START, InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔄 Refresh", callback_data="start")
+            ]])
     async def button_callback(self, update: Update,
                               context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
@@ -276,8 +332,8 @@ class CommandHandler:
                                     SELECT COUNT(*) FROM importers 
                                     WHERE Role = :role 
                                     AND LOWER(Product) LIKE LOWER(:search)
-                                    AND phone IS NOT NULL 
-                                    AND phone != ''
+                                    AND Phone IS NOT NULL 
+                                    AND Phone != ''
                                     """), {
                                         "role": "Exporter" if category_type == "supplier" else "Importer",
                                         "search": f"%{search_term}%"
@@ -535,9 +591,9 @@ class CommandHandler:
                     user_id = query.from_user.id
                     with app.app_context():
                         credits = self.data_store.get_user_credits(user_id)
-                        is_member = await self._check_member_status(
+                        is_member = await self.check_community_membership(
                             context, user_id)
-                        message_text, reply_markup = self.get_main_menu_markup(
+                        message_text, reply_markup = await self.get_main_menu_markup(
                             user_id, credits, is_member)
                         await query.message.edit_text(
                             text=message_text,
@@ -824,9 +880,9 @@ class CommandHandler:
                             conn.execute(
                                 text("""
                                 INSERT INTO user_credits (user_id, credits, has_redeemed_free_credits)
-                                VALUES (:user_id, 10, true)
+                                VALUES (:user_id, 20, true)
                             """), {"user_id": user_id})
-                            new_balance = 10.0
+                            new_balance = 20.0
                         else:
                             has_redeemed, current_credits = result
 
@@ -880,7 +936,7 @@ class CommandHandler:
 
                     keyboard = [[
                         InlineKeyboardButton(
-                            "🎁 Klaim 10 KreditGratis",
+                            "🎁 Klaim 20 KreditGratis",
                             callback_data="redeem_free_credits")
                     ],
                                [
@@ -979,8 +1035,8 @@ class CommandHandler:
                                     SELECT COUNT(*) FROM importers 
                                     WHERE Role = :role 
                                     AND LOWER(Product) LIKE LOWER(:search)
-                                    AND phone IS NOT NULL 
-                                    AND phone != ''
+                                    AND Phone IS NOT NULL 
+                                    AND Phone != ''
                                     """), {
                                         "role": "Exporter" if category_type == "supplier" else "Importer",
                                         "search": f"%{search_term}%"
@@ -1010,133 +1066,7 @@ class CommandHandler:
                     await query.message.reply_text(
                         "Maaf, terjadi kesalahan. Silakan coba lagi.")
 
-            elif query.data == "menu_seafood":
-                with self.engine.connect() as conn:
-                    hs_counts = conn.execute(
-                        text("""
-                        SELECT 
-                            CASE 
-                                WHEN LOWER(product) LIKE '%0301%' THEN '0301'
-                                WHEN LOWER(product) LIKE '%0302%' THEN '0302'
-                                WHEN LOWER(product) LIKE '%0303%' THEN '0303'
-                                WHEN LOWER(product) LIKE '%0304%' THEN '0304'
-                                WHEN LOWER(product) LIKE '%0305%' OR LOWER(product) LIKE '%anchovy%' THEN '0305'
-                            END as hs_code,
-                            COUNT(*) as count                        FROM importers
-                        WHERE LOWER(product) SIMILAR TO '%(0301|0302|0303|0304|0305|anchovy)%'
-                        GROUP BY hs_code
-                        ORDER BY hs_code;
-                        """)).fetchall()
-
-                    counts_dict = {row[0]: row[1] for row in hs_counts}
-
-                    keyboard = [
-                        [
-                            InlineKeyboardButton(
-                                f"🐟 Ikan Hidup (0301) - {counts_dict.get('0301', 0)} kontak",
-                                callback_data="search_0301")
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                f"🐠 Ikan Segar (0302) - {counts_dict.get('0302', 0)} kontak",
-                                callback_data="search_0302")
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                f"❄️ Ikan Beku (0303) - {counts_dict.get('0303', 0)} kontak",
-                                callback_data="search_0303")
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                f"🍣 Fillet Ikan (0304) - {counts_dict.get('0304', 0)} kontak",
-                                callback_data="search_0304")
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                f"🐟 Anchovy - {counts_dict.get('0305', 0)} kontak",
-                                callback_data="search_anchovy")
-                        ],
-                        [
-                            InlineKeyboardButton("🔙 Kembali",
-                                                 callback_data="show_hs_codes")
-                        ]
-                    ]
-
-                    await query.message.reply_text(
-                        "🌊 *Produk Laut*",
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard))
-
-            elif query.data == "menu_agriculture":
-                with self.engine.connect() as conn:
-                    hs_counts = conn.execute(
-                        text("""
-                        SELECT 
-                            CASE 
-                                WHEN LOWER(product) LIKE '%0901%' THEN '0901'
-                                WHEN LOWER(product) LIKE '%1513%' OR LOWER(product) LIKE '%coconut oil%' THEN '1513'END as hs_code,
-                            COUNT(*) as count
-                        FROM importers
-                        WHERE LOWER(product) SIMILAR TO '%(0901|1513|coconut oil)%'
-                        GROUP BY hs_code;
-                        ORDER BY hscode;
-                    """)).fetchall()
-
-                    counts_dict = {row[0]: row[1] for row in hs_counts}
-
-                    keyboard = [
-                        [
-                            InlineKeyboardButton(
-                                f"☕ Kopi (0901) - {counts_dict.get('0901', 0)} kontak",
-                                callback_data="search_0901")
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                f"🥥 Minyak Kelapa - {counts_dict.get('1513', 0)} kontak",
-                                callback_data="search_coconut_oil")
-                        ],
-                        [
-                            InlineKeyboardButton("🔙 Kembali",
-                                                 callback_data="show_hs_codes")
-                        ]
-                    ]
-
-                    await query.message.reply_text(
-                        "🌿 *Produk Agrikultur*",
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard))
-
-            elif query.data == "menu_processed":
-                try:
-                    with self.engine.connect() as conn:
-                        hs_counts = conn.execute(
-                            text("""
-                            SELECT COUNT(*) as count
-                            FROM importers
-                            WHERE LOWER(product) LIKE '%44029010%';
-                        """)).fetchall()
-
-                        count = hs_counts[0][0] if hs_counts else 0
-
-                        keyboard = [[
-                            InlineKeyboardButton(
-                                f"🪵 Briket Batok (44029010) - {count} kontak",
-                                callback_data="search_briket")
-                        ],
-                                    [
-                                        InlineKeyboardButton(
-                                            "🔙 Kembali",
-                                            callback_data="show_hs_codes")
-                                    ]]
-
-                        await query.message.reply_text(
-                            "🌳 *Produk Olahan*",
-                            parse_mode='Markdown',
-                            reply_markup=InlineKeyboardMarkup(keyboard))
-                except Exception as e:
-                    logging.error(f"Error getting HS code counts: {str(e)}")
-                    await query.message.reply_text(
-                        "Maaf, terjadi kesalahan saat mengambil data.")
+            
             elif query.data.startswith('search_'):
                 try:
                     search_pattern = query.data.replace('search_',
@@ -1291,71 +1221,137 @@ class CommandHandler:
                     await query.message.reply_text("Gagal menambahkan kredit.")
 
             elif query.data == "join_community":
-                user_id = query.from_user.id
-                with app.app_context():
-                    credits = self.data_store.get_user_credits(user_id)
-
-                if credits < 5:
-                    await query.message.reply_text(
-                        "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
-                        "Dibutuhkan: 5 kredit\n"
-                        "Sisa kredit Anda: " + str(credits))
-                    return
-
-                if self.data_store.use_credit(user_id, 5):
+                try:
+                    user_id = query.from_user.id
+                    group_id = -1002349486618
+                    
+                    # Verify membership
+                    try:
+                        member = await context.bot.get_chat_member(
+                            chat_id=group_id,
+                            user_id=user_id
+                        )
+                        if member.status not in ['left', 'kicked']:
+                            await query.message.reply_text(
+                                "✅ Anda sudah menjadi anggota komunitas!"
+                            )
+                            return
+                    except BadRequest as e:
+                        if "Chat not found" in str(e):
+                            logging.error(f"Group not found: {group_id}")
+                            await query.message.reply_text(
+                                "Maaf, grup tidak ditemukan. Silakan hubungi admin."
+                            )
+                            return
+                    
+                    # Check credits
+                    with app.app_context():
+                        credits = self.data_store.get_user_credits(user_id)
+            
+                    if credits < 5:
+                        await query.message.reply_text(
+                            "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
+                            "Dibutuhkan: 5 kredit\n"
+                            "Sisa kredit Anda: " + str(credits)
+                        )
+                        return
+            
+                    # Show join info
                     keyboard = [[
                         InlineKeyboardButton(
-                            "🚀 Gabung Sekarang",
-                            url="https://t.me/+kuNU6lDtYoNlMTc1")
+                            "🚀 Gabung Sekarang", 
+                            callback_data="join_now"
+                        )
                     ]]
+                    
                     sent_message = await query.message.reply_text(
                         Messages.COMMUNITY_INFO,
                         parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard))
-                    # Delete the message after 1 second
-                    await asyncio.sleep(1)
-                    await sent_message.delete()
-                    # Update the original keyboard
-                    keyboard = [
-                        [
-                            InlineKeyboardButton("📦 Kontak Tersedia",
-                                                 callback_data="show_hs_codes")
-                        ],
-                        [
-                            InlineKeyboardButton("📁 Kontak Tersimpan",
-                                                 callback_data="saved")
-                        ],
-                        [
-                            InlineKeyboardButton("💳 Kredit Saya",
-                                                 callback_data="show_credits"),
-                            InlineKeyboardButton("💰 Beli Kredit",
-                                                 callback_data="buy_credits")
-                        ]
-                    ]
-                    await query.message.edit_text(
-                        text=Messages.MAIN_MENU.format(credits),
-                        parse_mode='Markdown',
-                        reply_markup=InlineKeyboardMarkup(keyboard))
-                else:
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                    context.user_data['join_message_id'] = sent_message.message_id
+            
+                except Exception as e:
+                    pass
+            
+            elif query.data == "join_now":
+                try:
+                    user_id = query.from_user.id
+                    
+                    # Check credits
+                    with app.app_context():
+                        credits = self.data_store.get_user_credits(user_id)
+                        
+                    if credits < 5:
+                        await query.message.reply_text(
+                            "⚠️ Kredit tidak mencukupi untuk bergabung dengan komunitas.\n"
+                            "Dibutuhkan: 5 kredit\n"
+                            f"Sisa kredit Anda: {credits}"
+                        )
+                        return
+
+                    # Deduct credits and join
+                    with app.app_context():
+                        if self.data_store.use_credit(user_id, 5):
+                            group_id = -1002349486618
+                            try:
+                                invite_link = await context.bot.create_chat_invite_link(
+                                    chat_id=group_id,
+                                    member_limit=1
+                                )
+                                # Automatically open invite link
+                                await context.bot.send_message(
+                                    chat_id=user_id,
+                                    text=f"🔓 Anda telah bergabung dengan komunitas Kancil Global Network! Klik [di sini]({invite_link.invite_link}) untuk membuka grup.",
+                                    parse_mode='Markdown'
+                                )
+                            except Exception as e:
+                                logging.error(f"Error adding user to group: {str(e)}")
+                                await query.message.reply_text(
+                                    "Gagal menambahkan Anda ke grup. Silakan coba lagi."
+                                )
+                        else:
+                            await query.message.reply_text(
+                                "Gagal menggunakan kredit. Silakan coba lagi."
+                            )
+                except Exception as e:
+                    logging.error(f"Error in join community: {str(e)}")
                     await query.message.reply_text(
-                        "Error using credit. Please try again later.")
+                        "Maaf, terjadi kesalahan. Silakan coba lagi."
+                    )
+
+                # Update main menu
+                message_text, keyboard = await self.get_main_menu_markup(user_id)
+                await query.message.edit_text(
+                    text=message_text,
+                    parse_mode='Markdown',
+                    reply_markup=keyboard
+                )
 
         except Exception as e:
             logging.error(f"Error in button callback: {str(e)}", exc_info=True)
             await update.callback_query.message.reply_text(
                 "Maaf, terjadi kesalahan. Silakan coba lagi.")
 
-    async def _check_member_status(self, context: ContextTypes.DEFAULT_TYPE,
-                                   user_id: int) -> bool:
-        """Check if user is a member of the channel"""
+    async def check_member_status(self, context, user_id):
         try:
-            chat_member = await context.bot.get_chat_member(
-                chat_id="@kancilglobalnetwork", user_id=user_id)
-            return chat_member.status in ['member', 'administrator', 'creator']
+            group_id = -1002349486618  # Community group ID
+            
+            member = await context.bot.get_chat_member(
+                chat_id=group_id,
+                user_id=user_id
+            )
+            return member.status not in ['left', 'kicked']
+            
+        except telegram.error.BadRequest as e:
+            if "Chat not found" in str(e):
+                logging.error(f"Community group not found or bot not added to group. ID: {group_id}")
+                return False
         except Exception as e:
             logging.error(f"Error checking member status: {str(e)}")
             return False
-
+            
+        return False
     async def orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reply_to=None):
         """Show pending orders with pagination"""
         try:
@@ -1530,7 +1526,7 @@ class CommandHandler:
                 save_button = [[
                     InlineKeyboardButton(
                         "💾 Simpan Kontak",
-                        callback_data=f"save_{result['name']}"
+                        callback_data=f"save_{result['id']}"
                     )
                 ]]
 
@@ -1575,7 +1571,7 @@ class CommandHandler:
                 logging.error(f"Error sending error message: {str(inner_e)}",
                             exc_info=True)
 
-    async def save_contact(self, user_id: int, contact_name: str,
+    async def save_contact(self, user_id: int, contact_id: str,
                            update: Update):
         """Save contact to user's saved list"""
         try:
@@ -1605,9 +1601,9 @@ class CommandHandler:
                         role as product_description,
                         CURRENT_TIMESTAMP as saved_at
                     FROM importers 
-                    WHERE name = :name
+                    WHERE id = :id
                 """), {
-                        "name": contact_name
+                        "id": contact_id
                     }).first()
 
                 if not result:
