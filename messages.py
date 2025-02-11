@@ -6,7 +6,7 @@ class Messages:
     COMMUNITY_INFO = """
 *Kancil Global Network* 🌟
 
-Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda. 
+Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda.
 
 *Apa yang Anda dapatkan:*
 • 📊 Berbagi informasi dan peluang bisnis
@@ -20,24 +20,145 @@ Biaya: 5 kredit
 Join sekarang dan mulai ekspansi bisnis Anda! 🚀
 """
 
-    COMMUNITY_INFO = """
-*Kancil Global Network* 🌟
+    START = """
+*Permudah Bisnis Ekspor Impor dengan Teknologi* 🚀
 
-Komunitas eksklusif untuk pelaku ekspor impor Indonesia yang berbasis teknologi dan pemuda. 
+Selamat datang di Bot Eksportir Indonesia! 🇮🇩
 
-*Apa yang Anda dapatkan:*
-• 📊 Berbagi informasi dan peluang bisnis
-• 🤝 Networking dengan pelaku ekspor impor
-• 📱 Updates teknologi terbaru
-• 👥 Kolaborasi antar anggota
-• 💡 Sharing knowledge dan pengalaman
+Kami merupakan layanan data ekspor-impor *terlengkap* di Indonesia. 
+Dapatkan kontak importir dan eksportir dengan mudah melalui bot ini.
 
-Biaya: 5 kredit
+*Sistem Kredit:*
+• Kredit adalah mata uang dalam bot ini
+• Digunakan untuk menyimpan kontak & akses fitur
+• Setiap pengguna baru dapat 20 kredit gratis
 
-Join sekarang dan mulai ekspansi bisnis Anda! 🚀
+*👋 Khusus untuk user baru, kamu bisa mendapatkan 10 Kredit GRATIS!*
+1. Klik menu '💳 Kredit Saya'
+2. Kemudian pilih '🎁 Klaim 20 Kredit Gratis'
+
+💡 *Butuh data ekspor - impor lainnya? Hubungi Admin!*
+
+"""
+    HELP = """
+*Panduan Penggunaan Bot Kancil Global* 🇮🇩
+
+*Cara Mendapatkan Kontak:*
+1. Pilih menu "📤 Kontak Supplier" atau "📥 Kontak Buyer"
+2. Pilih kontak yang diinginkan
+3. Tekan tombol simpan untuk menyimpan kontak
+4. Akses kembali lewat menu "📁 Kontak Tersimpan"
+
+*Sistem Kredit:*
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp  
+• 1 kredit - Kontak tidak lengkap
+
+*Menu Utama:*
+• 📤 *Kontak Supplier* - Cari kontak supplier
+• 📥 *Kontak Buyer* - Cari kontak buyer
+• 📁 *Kontak Tersimpan* - Akses kontak tersimpan
+• 💳 *Kredit Saya* - Cek sisa kredit
+• 🌟 *Kancil Global Network* - Komunitas eksportir
+
+*Catatan:*
+• Kontak yang belum disimpan akan disensor
+• Member baru dapat 20 kredit gratis
+• Gabung Kancil Global Network (5 kredit)
+• Hubungi admin untuk informasi lebih lanjut
 """
 
+    SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
+    RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
+    ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
+    SEARCH_ERROR = "Kontak importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
+    NO_CREDITS = """⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini.
 
+Biaya kredit untuk kontak ini:
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp
+• 1 kredit - Kontak tidak lengkap tanpa WhatsApp
+
+Silakan beli kredit tambahan dengan mengetik /credits"""
+    CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
+    BUY_CREDITS_INFO = """
+💡 Sistem Kredit:
+
+Kredit digunakan untuk:
+• Menyimpan kontak importir (1-3 kredit)
+• Mengakses komunitas (5 kredit)
+
+Biaya kredit per kontak:
+• 3 kredit - Kontak lengkap dengan WhatsApp
+• 2 kredit - Kontak lengkap tanpa WhatsApp 
+• 1 kredit - Kontak tidak lengkap
+
+Setiap pengguna baru mendapat 20 kredit gratis!
+"""
+    CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
+    CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
+    NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
+
+
+    SUPPLIER_CATEGORIES = {
+        'Hasil Laut': {
+            'emoji': '🐟',
+            'subcategories': {
+                'Anchovy': {'emoji': '🐟', 'search': 'ID Anchovy'}
+            }
+        },
+        'Agrikultur': {
+            'emoji': '🌱',
+            'subcategories': {
+                'Coffee': {'emoji': '☕', 'search': 'ID Coffee'},
+                'Betel Nut': {'emoji': '🥥', 'search': 'ID Betel Nut'},
+                'Kayu Manis': {'emoji': '🍂', 'search': 'ID Cinnamon'},
+                'Cengkeh': {'emoji': '🌸', 'search': 'ID Clove'}
+            }
+        },
+        'Industri': {
+            'emoji': '🏭',
+            'subcategories': {
+                'Briket Batok Kelapa': {'emoji': '🔥', 'search': 'ID Briquette'},
+                'Damar Batu': {'emoji': '🪨', 'search': 'ID Damar'},
+                'Cangkang Sawit': {'emoji': '🌴', 'search': 'ID Palm Kernel Shell'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'},
+                'Birdnest': {'emoji': '🕊️', 'search': 'ID Birdnest'}
+            }
+        }
+    }
+
+    BUYER_CATEGORIES = {
+        'Industri': {
+            'emoji': '🏭',
+            'subcategories': {
+                'Minyak Sawit': {'emoji': '🌴', 'search': 'ID 1511'},
+                'Furniture': {'emoji': '🛋️', 'search': 'ID 94035'},
+                'Briket Batok Kelapa': {'emoji': '🔥', 'search': 'WW 44029010'},
+                'Damar': {'emoji': '🪨', 'search': 'ID Damar'},
+                'Cashew': {'emoji': '🥜', 'search': 'ID Cashew'}
+            }
+        },
+        'Hasil Laut': {
+            'emoji': '🐠',
+            'subcategories': {
+                'Fresh Fish (HS 0302)': {'emoji': '🐟', 'search': 'WW 0302'},
+                'Frozen Fish (HS 0303)': {'emoji': '❄️', 'search': 'WW 0303'},
+                'Fish Fillet (HS 0304)': {'emoji': '🍣', 'search': 'WW 0304'},
+                'Anchovy': {'emoji': '🐟', 'search': 'WW Anchovy'}
+            }
+        },
+        'Agrikultur': {
+            'emoji': '🌾',
+            'subcategories': {
+                'Kopi': {'emoji': '☕', 'search': 'WW 0901'},
+                'Daun Pisang': {'emoji': '🍌', 'search': 'WW Banana Leaves'},
+                'Kemiri': {'emoji': '🥥', 'search': 'WW Candle Nut'},
+                'Minyak Kelapa': {'emoji': '🥥', 'search': 'WW Coconut Oil'},
+                'Sarang Burung Wallet': {'emoji': '🕊️', 'search': 'ID Birdnest'}
+            }
+        }
+    }
     @staticmethod
     def get_country_emoji(country: str) -> str:
         """Get emoji for a country"""
@@ -82,103 +203,6 @@ Join sekarang dan mulai ekspansi bisnis Anda! 🚀
         return '🌐'
 
 
-    START = """
-Selamat datang di Bot Eksportir Indonesia! 🇮🇩
-
-*Fitur Terbaru:* Gabung Kancil Global Network! 🌟
-
-*Menu Utama:*
-• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
-• 📁 *Kontak Tersimpan* - Akses kontak yang sudah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit
-• 💰 *Beli Kredit* - Tambah saldo kredit
-• ❓ *Bantuan* - Panduan lengkap
-
-*Sistem Kredit:*
-• Kredit adalah mata uang dalam bot ini
-• Digunakan untuk menyimpan kontak & akses fitur
-• Setiap pengguna baru dapat 10 kredit gratis
-
-*Biaya per Kontak:*
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap
-
-*Tips Pencarian:*
-• Gunakan kode HS untuk hasil lebih spesifik
-• Kombinasikan negara + kode HS untuk filter terbaik
-• Simpan kontak penting agar bisa diakses kapan saja
-
-*👋 Khusus untuk user baru, kamu bisa mendapatkan 10 Kredit GRATIS!*
-1. Klik menu '💳 Kredit Saya'
-2. Kemudian pilih '🎁 Klaim 10 Kredit Gratis'
-"""
-    HELP = """
-*Panduan Penggunaan Bot Eksportir Indonesia* 🇮🇩
-
-*Cara Mencari Kontak Importir:*
-1. Pilih menu "📦 Kontak Tersedia"
-2. Pilih kategori produk yang sesuai
-3. Pilih jenis produk spesifik
-4. Simpan kontak yang diinginkan
-
-*Sistem Kredit:*
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap
-
-*Fitur Utama:*
-• 📦 *Kontak Tersedia* - Lihat daftar kontak per kategori
-• 📁 *Kontak Tersimpan* - Akses kontak yang telah disimpan
-• 💳 *Kredit Saya* - Cek saldo kredit
-• 💰 *Beli Kredit* - Tambah saldo kredit
-
-*Catatan Penting:*
-• Kontak yang belum disimpan akan disensor
-• Kredit gratis: 10 kredit untuk pengguna baru
-• Kontak bisa diekspor ke CSV untuk pencatatan
-"""
-    SEARCH_NO_QUERY = """*Panduan Pencarian Kontak* 📦
-
-Silakan pilih kategori produk melalui menu "Kontak Tersedia" untuk melihat daftar kontak importir yang tersedia.
-
-Kategori yang tersedia:
-• 🌊 Produk Laut (ikan segar, beku, dll)
-• 🌿 Produk Agrikultur (kopi, manggis, dll)
-• 🌳 Produk Olahan (briket, minyak kelapa)
-
-Pilih kategori untuk melihat daftar kontak:"""
-    SEARCH_NO_RESULTS = "Kontak importir tidak tersedia untuk pencarian '{}'. Silakan coba kata kunci lain atau hubungi admin untuk mendapatkan kontak terbaru."
-    RATE_LIMIT_EXCEEDED = "Mohon tunggu sebentar sebelum mengirim permintaan baru."
-    ERROR_MESSAGE = "Maaf, terjadi kesalahan teknis. Silakan coba lagi nanti."
-    SEARCH_ERROR = "Kontak importir tidak tersedia saat ini. Silakan coba beberapa saat lagi atau hubungi admin untuk bantuan."
-    NO_CREDITS = """⚠️ Kredit Anda tidak mencukupi untuk menyimpan kontak ini.
-
-Biaya kredit untuk kontak ini:
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp
-• 1 kredit - Kontak tidak lengkap tanpa WhatsApp
-
-Silakan beli kredit tambahan dengan mengetik /credits"""
-    CREDITS_REMAINING = "💳 Sisa kredit Anda: {} kredit"
-    BUY_CREDITS_INFO = """
-💡 Sistem Kredit:
-
-Kredit digunakan untuk:
-• Menyimpan kontak importir (1-3 kredit)
-• Mengakses komunitas (5 kredit)
-
-Biaya kredit per kontak:
-• 3 kredit - Kontak lengkap dengan WhatsApp
-• 2 kredit - Kontak lengkap tanpa WhatsApp 
-• 1 kredit - Kontak tidak lengkap
-
-Setiap pengguna baru mendapat 10 kredit gratis!
-"""
-    CONTACT_SAVED = "✅ Kontak berhasil disimpan! Gunakan /saved untuk melihat informasi lengkap.\n\n💳 Sisa kredit Anda: {} kredit"
-    CONTACT_SAVE_FAILED = "❌ Gagal menyimpan kontak. Kontak mungkin sudah tersimpan sebelumnya."
-    NO_SAVED_CONTACTS = "Anda belum memiliki kontak yang tersimpan. Gunakan perintah /search untuk mencari dan menyimpan kontak."
-
     @staticmethod
     def _escape_markdown(text: str) -> str:
         if not text:
@@ -206,10 +230,10 @@ Setiap pengguna baru mendapat 10 kredit gratis!
             'email': lambda t: prefix_with_censor(t[:6]),
             'phone': lambda t: prefix_with_censor("+1 65") if '+' not in t else \
                     prefix_with_censor(t.split()[0] + " " + (t.split()[1][:2] if len(t.split()) > 1 else "65")),
-            'website': lambda t: prefix_with_censor("www.")
+            'website': lambda _: prefix_with_censor("www.")
         }
 
-        return censor_rules.get(field_type, lambda t: CENSOR)(text)
+        return censor_rules.get(field_type, lambda _: CENSOR)(text)
 
     @staticmethod
     def _format_phone_for_whatsapp(phone: str) -> str:
@@ -241,82 +265,77 @@ Setiap pengguna baru mendapat 10 kredit gratis!
             return 1.0
 
     @staticmethod
-    def format_importer(importer: dict, saved: bool = False, user_id: Optional[int] = None):
-        try:
-            wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
-            
-            # Check if contact is already saved
-            if not saved and user_id:
-                try:
-                    from data_store import DataStore
-                    data_store = DataStore()
-                    saved_contacts = data_store.get_saved_contacts(user_id)
-                    is_saved = any(contact['name'] == importer['name'] for contact in saved_contacts)
-                    save_status = "📌 Sudah tersimpan" if is_saved else "💾 Belum tersimpan"
-                except Exception as e:
-                    logging.error(f"Error checking save status: {str(e)}")
-                    save_status = ""
-            else:
-                save_status = ""
+    def format_search_results(results, page, items_per_page=2):
+        """Format search results with pagination"""
+        total_pages = (len(results) + items_per_page - 1) // items_per_page
+        start_idx = page * items_per_page
+        end_idx = start_idx + items_per_page
+        return results[start_idx:end_idx], total_pages
 
+    @staticmethod
+    def format_importer(importer: dict, saved: bool = False):
+        try:
+            # Basic info formatting
             name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
             email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
-
-            product = importer.get('hs_code', '')
-            hs_code = product.strip() if 'mangosteen' in product.lower() else ''
-            if not hs_code and product and len(product) > 3:
-                hs_code = product[3:].strip()
-
-            message_parts = []
-            message_parts.append(f"🏢 {Messages._escape_markdown(name)}")
+            role = importer.get('role', '')
+            product = importer.get('product', '')
             country = importer.get('country', '')
+            wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
+    
+            # Build message without formatting tags
+            message_parts = []
+            message_parts.append(f"🏢 {name}")
+            message_parts.append(f"Peran: {role}")
+    
+            if role == 'Importer':
+                import_status = "Ya" if product.startswith('ID ') else "Tidak"
+                message_parts.append(f"Pernah Impor dari Indonesia?: {import_status}")
+    
             country_emoji = Messages.get_country_emoji(country)
-            message_parts.append(f"🌏 Negara: {country_emoji} {Messages._escape_markdown(country)}")
+            message_parts.append(f"🌏 Negara: {country_emoji} {country}")
+    
+            hs_code = product.replace('ID ', '').replace('WW ', '') if product else ''
             if hs_code:
-                message_parts.append(f"📦 Kode HS/Product: {Messages._escape_markdown(hs_code)}")
-
+                message_parts.append(f"📦 Kode HS/Product: {hs_code}")
+    
             if phone:
                 message_parts.append(f"📱 Kontak: {phone}")
             if email:
                 message_parts.append(f"📧 Email: {email}")
             if website:
-                message_parts.append(f"🌐 Website: {website}")
-
+                clean_url = website.strip()
+                if '//' in clean_url:
+                    base_url = clean_url.split('/')[0] + '//' + clean_url.split('/')[2]
+                    message_parts.append(f"🌐 Website: {base_url}")
+                else:
+                    message_parts.append(f"🌐 Website: {clean_url}")
+    
             message_parts.append(f"📱 WhatsApp: {wa_status}")
-
+            whatsapp_number = None
+            callback_data = None
+            
             if not saved:
-                if save_status:
-                    message_parts.append(f"\n{save_status}")
                 credit_cost = Messages._calculate_credit_cost(importer)
                 message_parts.append("\n💳 Biaya kredit yang diperlukan:")
-                if credit_cost == 3.0:
-                    message_parts.append("3 kredit - Kontak lengkap dengan WhatsApp")
-                elif credit_cost == 2.0:
-                    message_parts.append("2 kredit - Kontak lengkap tanpa WhatsApp")
-                else:
-                    message_parts.append("1 kredit - Kontak tidak lengkap tanpa WhatsApp")
+                cost_text = {
+                    3.0: "3 kredit - Kontak lengkap dengan WhatsApp",
+                    2.0: "2 kredit - Kontak lengkap tanpa WhatsApp",
+                    1.0: "1 kredit - Kontak tidak lengkap tanpa WhatsApp"
+                }.get(credit_cost, "1 kredit - Kontak tidak lengkap tanpa WhatsApp")
+                message_parts.append(cost_text)
                 message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
             else:
-                message_parts.append(f"📅 Disimpan pada: {importer.get('saved_at', '')}")
-
+                saved_at = importer.get('saved_at', '')
+                message_parts.append(f"📅 Disimpan pada: {saved_at}")
+    
             message_text = '\n'.join(message_parts)
-
-            whatsapp_number = None
-            if saved and importer.get('wa_available') and importer.get('contact'):
-                whatsapp_number = Messages._format_phone_for_whatsapp(importer['contact'])
-
-            callback_data = None
-            if not saved:
-                # Only truncate name to stay within Telegram limits
-                safe_name = importer['name'].strip()[:30]  # Truncate to 30 chars
-                callback_data = f"save_{safe_name}"
-
             return message_text, whatsapp_number, callback_data
-
+    
         except Exception as e:
-            logging.error(f"Kesalahan format kontak importir: {str(e)}", exc_info=True)
+            logging.error(f"Error formatting importer: {str(e)}", exc_info=True)
             raise
 
     @staticmethod

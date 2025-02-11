@@ -20,7 +20,7 @@ class DataStore:
     def _init_tables(self):
         """Initialize required tables"""
         try:
-            # Don't drop tables on init
+            # Don't drop tables on init, only create if not exists
             create_saved_contacts_sql = """
             CREATE TABLE IF NOT EXISTS saved_contacts (
                 id SERIAL PRIMARY KEY,
@@ -33,12 +33,12 @@ class DataStore:
                 wa_availability BOOLEAN,
                 hs_code VARCHAR(255),
                 product_description TEXT,
+                role VARCHAR(50),
                 saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """
 
             create_user_stats_sql = """
-            DROP TABLE IF EXISTS user_stats;
             CREATE TABLE IF NOT EXISTS user_stats (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT NOT NULL,
@@ -204,146 +204,42 @@ class DataStore:
             return False
 
     def search_importers(self, query: str) -> List[Dict]:
-        """Search importers by name, country, product/HS code"""
+        """Search importers by query"""
         try:
-            # Clean and prepare search terms
-            search_terms = query.strip().lower().split()
-            if not search_terms:
-                logging.error("Empty search query")
-                return []
+            with self.engine.connect() as conn:
+                results = conn.execute(text("""
+                    SELECT * FROM importers 
+                    WHERE LOWER(product) LIKE :query
+                    OR LOWER(name) LIKE :query
+                    OR LOWER(country) LIKE :query
+                    LIMIT 100
+                """), {
+                    "query": f"%{query.lower()}%"
+                }).fetchall()
+                return [dict(row) for row in results]
+        except Exception as e:
+            logging.error(f"Error searching importers: {str(e)}")
+            return []
 
-            logging.info(f"Starting search with terms: {search_terms}")
-
-            # Build the search conditions
-            conditions = []
-            params = {}
-
-            # Product name mappings - Easy to modify per product
-            product_mappings = {
-                # Fish Products (HS 0301-0305)
-                'ikan': ['fish', 'ikan', 'seafood'],
-                'teri': ['anchovy', 'teri', 'ikan teri', 'anchovies'],
-                'segar': ['fresh', 'segar', 'fresh fish'],
-                'beku': ['frozen', 'beku', 'frozen fish'],
-
-                # Coconut Products (HS 1513)
-                'kelapa': ['coconut', 'kelapa', 'cocos nucifera'],
-                'minyak': ['oil', 'minyak', 'virgin oil'],
-                'vco': ['virgin coconut oil', 'vco', 'virgin'],
-
-                # Charcoal/Briquette (HS 44029010)
-                'briket': ['briquette', 'briket', 'charcoal briquette'],
-                'arang': ['charcoal', 'arang', 'carbon'],
-                'batok': ['shell', 'batok', 'tempurung'],
-
-                # Fruits (HS 0810)
-                'manggis': ['0810', 'mangosteen', 'manggis', 'garcinia', 'mangis', 'manggistan', 'queen fruit', 'purple mangosteen'],
-                'kulit': ['peel', 'kulit', 'shell', 'skin', 'rind'],
-
-                # Coffee (HS 0901)
-                'kopi': ['coffee', 'kopi', 'arabica', 'robusta'],
-                'bubuk': ['powder', 'bubuk', 'ground']
-            }
-
-            for i, term in enumerate(search_terms):
-                term_conditions = []
-                term_lower = term.lower()
-
-                # Handle HS code search
-                if term_lower.isdigit():
-                    term_conditions.append(f"LOWER(product) LIKE :term_{i}")
-                    params[f'term_{i}'] = f'%{term_lower}%'
-                else:
-                    # Add original term
-                    search_terms_for_word = [term_lower]
-
-                    # Add mapped terms if they exist
-                    if term_lower in product_mappings:
-                        search_terms_for_word.extend(product_mappings[term_lower])
-
-                    # Build conditions for all terms
-                    for mapped_term in search_terms_for_word:
-                        param_key = f'term_{i}_{len(params)}'
-                        term_conditions.append(
-                            f"(LOWER(name) LIKE :{param_key} OR "
-                            f"LOWER(country) LIKE :{param_key} OR "
-                            f"LOWER(role) LIKE :{param_key} OR "
-                            f"LOWER(product) LIKE :{param_key})"
-                        )
-                        params[param_key] = f'%{mapped_term}%'
-
-                conditions.append("(" + " OR ".join(term_conditions) + ")")
-
-            # Default ranking based on first term
-            search_sql = f"""
-            WITH ranked_results AS (
-                SELECT 
-                    name, 
-                    country, 
-                    phone as contact, 
-                    website, 
-                    email_1 as email, 
-                    wa_availability,
-                    product,
-                    role as product_description,
-                    1 as match_type
-                FROM importers
-                WHERE phone IS NOT NULL 
-                AND phone != ''
-                AND ({' OR '.join(conditions)})
-            )
-            SELECT 
-                name, country, contact, website, email,
-                CASE 
-                    WHEN wa_availability = 'Available' THEN true
-                    ELSE false
-                END as wa_available,
-                product as hs_code,
-                product_description
-            FROM ranked_results
-            WHERE contact IS NOT NULL AND contact != ''
-            ORDER BY RANDOM()
-            LIMIT 10;
-            """
+    def search_importers_by_role(self, query: str, role: str) -> List[Dict]:
+        """Search importers by query and role"""
+        try:
+            # Remove any role prefix from search term
+            clean_query = query.replace('Exporter ', '').replace('Importer ', '')
 
             with self.engine.connect() as conn:
-                try:
-                    # Log the actual SQL query for debugging
-                    logging.info(f"Executing search SQL: {search_sql}")
-                    logging.info(f"With parameters: {params}")
-
-                    result = conn.execute(
-                        text(search_sql), 
-                        params
-                    ).fetchall()
-
-                    logging.info(f"Search found {len(result)} results for query: '{query}'")
-
-                    # Convert result to list of dicts
-                    formatted_results = []
-                    for row in result:
-                        importer_dict = {
-                            'name': row.name,
-                            'country': row.country,
-                            'contact': row.contact,
-                            'website': row.website or '',
-                            'email': row.email or '',
-                            'wa_available': row.wa_available,
-                            'hs_code': row.hs_code,
-                            'product_description': row.product_description or ''
-                        }
-                        logging.debug(f"Formatted result: {importer_dict}")
-                        formatted_results.append(importer_dict)
-
-                    return formatted_results
-
-                except Exception as e:
-                    logging.error(f"Database execution error: {str(e)}", exc_info=True)
-                    conn.rollback()
-                    raise
-
+                results = conn.execute(text("""
+                    SELECT * FROM importers 
+                    WHERE LOWER(product) LIKE :query
+                    AND role = :role
+                    LIMIT 100
+                """), {
+                    "query": f"%{clean_query.lower()}%",
+                    "role": role
+                }).fetchall()
+                return [dict(row) for row in results]
         except Exception as e:
-            logging.error(f"Error searching importers: {str(e)}", exc_info=True)
+            logging.error(f"Error searching importers by role: {str(e)}")
             return []
 
     async def save_contact(self, user_id: int, importer: Dict) -> bool:
@@ -365,13 +261,13 @@ class DataStore:
                         logging.error(f"Insufficient credits. Current: {current_credits}, Required: {credit_cost}")
                         return False
 
-                    # Check if contact already exists
+                    # Check if contact already exists using importer_name
                     existing = conn.execute(
                         text("""
                         SELECT id FROM saved_contacts 
                         WHERE user_id = :user_id AND importer_name = :name
                         """),
-                        {"user_id": user_id, "name": importer['name']}
+                        {"user_id": user_id, "name": importer['importer_name']}
                     ).first()
 
                     if existing:
@@ -383,23 +279,24 @@ class DataStore:
                         text("""
                         INSERT INTO saved_contacts (
                             user_id, importer_name, country, phone, email, 
-                            website, wa_availability, hs_code, product_description
+                            website, wa_availability, hs_code, product_description, role
                         ) VALUES (
                             :user_id, :name, :country, :phone, :email,
-                            :website, :wa_available, :hs_code, :product_description
+                            :website, :wa_available, :hs_code, :product_description, :role
                         )
                         RETURNING id;
                         """),
                         {
                             "user_id": user_id,
-                            "name": importer['name'],
+                            "name": importer['importer_name'],
                             "country": importer['country'],
-                            "phone": importer['contact'],
+                            "phone": importer['phone'],
                             "email": importer['email'],
                             "website": importer['website'],
-                            "wa_available": importer['wa_available'],
+                            "wa_available": importer['wa_available'].lower() == 'available',
                             "hs_code": importer.get('hs_code', ''),
-                            "product_description": importer.get('product_description', '')
+                            "product_description": importer.get('product_description', ''),
+                            "role": importer.get('role', '')
                         }
                     )
 
@@ -440,7 +337,7 @@ class DataStore:
         try:
             get_saved_sql = """
             SELECT importer_name, country, phone, email, website, 
-                   wa_availability, saved_at, hs_code, product_description
+                   wa_availability, saved_at, hs_code, product_description, role
             FROM saved_contacts
             WHERE user_id = :user_id
             ORDER BY saved_at DESC;
@@ -461,7 +358,8 @@ class DataStore:
                         'wa_available': row.wa_availability,
                         'saved_at': row.saved_at.strftime("%Y-%m-%d %H:%M"),
                         'hs_code': row.hs_code,
-                        'product_description': row.product_description
+                        'product_description': row.product_description,
+                        'role': row.role if row.role else row.product_description
                     }
                     for row in result
                 ]
@@ -508,3 +406,261 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error getting user stats: {str(e)}", exc_info=True)
             return {'total_commands': 0, 'commands': {}}
+
+    def get_contacts_by_category(self, category_type: str, specific_category: str = None) -> tuple[List[Dict], int]:
+        """Get contacts and count for a specific category"""
+        try:
+            # Base SQL query for counting
+            count_sql = """
+            SELECT COUNT(*) 
+            FROM importers 
+            WHERE 1=1
+            """
+
+            # Base SQL query for fetching contacts
+            contact_sql = """
+            SELECT name, country, phone as contact, website, 
+                   email as email, wa_available as wa_availability, product,
+                   role as product_description
+            FROM importers 
+            WHERE 1=1
+            """
+
+            params = {}
+
+            # Add role filter based on category type
+            if category_type == "supplier":
+                count_sql += " AND role = 'Exporter'"
+                contact_sql += " AND role = 'Exporter'"
+
+                # Add specific category filter for suppliers if provided
+                if specific_category:
+                    if specific_category == 'marine':
+                        product_pattern = '%(0301|0302|0303|0304|0305|seafood|fish|marine)%'
+                    elif specific_category == 'agriculture':
+                        product_pattern = '%(0901|1513|agriculture|farming|crops)%'
+                    elif specific_category == 'spices':
+                        product_pattern = '%(0904|0908|spices|herbs)%'
+                    elif specific_category == 'nuts':
+                        product_pattern = '%(0801|0802|nuts|peanuts|cashews)%'
+                    elif specific_category == 'industrial':
+                        product_pattern = '%(44029010|industrial|manufacturing)%'
+                    else:
+                        product_pattern = f'%{specific_category}%'
+
+                    count_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                    contact_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                    params['pattern'] = product_pattern
+
+            elif category_type == "buyer":
+                count_sql += " AND role = 'Importer'"
+                contact_sql += " AND role = 'Importer'"
+
+                if specific_category:
+                    # Handle ID/WW prefix for buyers
+                    category_parts = specific_category.split("_", 1)
+                    if len(category_parts) == 2:
+                        location, product = category_parts
+                        count_sql += " AND country_type = :country_type"
+                        contact_sql += " AND country_type = :country_type"
+
+                        # Add product category filter
+                        if product == 'marine':
+                            product_pattern = '%(0301|0302|0303|0304|0305|seafood|fish|marine)%'
+                        elif product == 'agriculture':
+                            product_pattern = '%(0901|1513|agriculture|farming|crops)%'
+                        elif product == 'spices':
+                            product_pattern = '%(0904|0908|spices|herbs)%'
+                        else:
+                            product_pattern = f'%{product}%'
+
+                        count_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+                        contact_sql += " AND (LOWER(product) SIMILAR TO :pattern OR LOWER(product_description) SIMILAR TO :pattern)"
+
+                        params['country_type'] = location
+                        params['pattern'] = product_pattern
+
+            # Add ordering and limit for contact query
+            contact_sql += " ORDER BY RANDOM() LIMIT 10"
+
+            logging.info(f"Executing category query with params: {params}")
+
+            with self.engine.connect() as conn:
+                # Get total count
+                total_count = conn.execute(text(count_sql), params).scalar() or 0
+                logging.info(f"Found {total_count} total contacts for category")
+
+                # Get contacts
+                results = conn.execute(text(contact_sql), params).fetchall()
+                contacts = []
+                for row in results:
+                    contact = {
+                        'name': row.name,
+                        'country': row.country,
+                        'contact': row.contact,
+                        'website': row.website,
+                        'email': row.email,
+                        'wa_available': row.wa_availability,
+                        'product': row.product,
+                        'product_description': row.product_description
+                    }
+                    contacts.append(contact)
+
+                logging.info(f"Returning {len(contacts)} contacts")
+                return contacts, total_count
+
+        except Exception as e:
+            logging.error(f"Error in get_contacts_by_category: {str(e)}", exc_info=True)
+            return [], 0
+
+    def search_importers_by_pattern(self, pattern: str, page: int = 0, per_page: int = 2) -> tuple[List[Dict], int]:
+        """Search importers by specific pattern (e.g., 'ID 1511')"""
+        try:
+            offset = page * per_page
+
+            # Extract the search type and value
+            pattern_parts = pattern.split(' ')
+            if len(pattern_parts) != 2:
+                return [], 0
+
+            search_type, search_value = pattern_parts
+
+            # Build the query based on the search type
+            base_query = """
+                SELECT * FROM importers 
+                WHERE 1=1
+            """
+
+            if search_type == 'ID':
+                base_query += " AND country_type = :search_value"
+            elif search_type == 'WW':
+                base_query += " AND country_type != 'ID'"
+
+            # Count total results
+            count_query = f"SELECT COUNT(*) FROM ({base_query}) as count_query"
+
+            # Add pagination to the main query
+            main_query = base_query + """
+                ORDER BY name
+                LIMIT :limit OFFSET :offset
+            """
+
+            with self.engine.connect() as conn:
+                # Get total count
+                total_count = conn.execute(
+                    text(count_query),
+                    {"search_value": search_value}
+                ).scalar() or 0
+
+                # Get paginated results
+                results = conn.execute(
+                    text(main_query),
+                    {
+                        "search_value": search_value,
+                        "limit": per_page,
+                        "offset": offset
+                    }
+                ).fetchall()
+
+                # Convert to list of dicts and censor sensitive data
+                contacts = []
+                for row in results:
+                    contact = dict(row)
+                    # Censor sensitive data
+                    if 'email' in contact:
+                        email = contact['email']
+                        contact['email'] = f"{email[:3]}...@{email.split('@')[1]}" if '@' in email else "***@***.com"
+                    if 'contact' in contact:
+                        phone = contact['contact']
+                        contact['contact'] = f"{phone[:4]}..." if phone else "***"
+                    contacts.append(contact)
+
+                logging.info(f"Found {total_count} results for pattern {pattern}, returning page {page + 1}")
+                return contacts, total_count
+
+        except Exception as e:
+            logging.error(f"Error searching importers by pattern: {str(e)}", exc_info=True)
+            return [], 0
+
+    def format_saved_contacts_to_csv(self, user_id: int) -> str:
+        """Format saved contacts into CSV string"""
+        try:
+            # Get saved contacts
+            contacts = self.get_saved_contacts(user_id)
+            if not contacts:
+                return "No saved contacts found"
+
+            # Define CSV header
+            header = ["Name", "Country", "Phone", "Email", "Website", "WhatsApp Available", "Saved Date", "HS Code", "Product Description", "Role"]
+
+            # Format rows
+            rows = [header]
+            for contact in contacts:
+                row = [
+                    contact['name'],
+                    contact['country'],
+                    contact['contact'],
+                    contact['email'],
+                    contact['website'],
+                    'Yes' if contact['wa_available'] else 'No',
+                    contact['saved_at'],
+                    contact['hs_code'],
+                    contact['product_description'],
+                    contact['role']
+                ]
+                rows.append(row)
+
+            # Convert to CSV string
+            import csv
+            from io import StringIO
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerows(rows)
+            return output.getvalue()
+
+        except Exception as e:
+            logging.error(f"Error formatting contacts to CSV: {str(e)}")
+            return "Error generating CSV"
+
+    def format_orders_to_csv(self, user_id: int) -> str:
+        """Format credit orders into CSV string"""
+        try:
+            # Get orders from database
+            with self.engine.connect() as conn:
+                orders = conn.execute(text("""
+                    SELECT order_id, credits, amount, status, created_at, fulfilled_at
+                    FROM credit_orders
+                    WHERE user_id = :user_id
+                    ORDER BY created_at DESC
+                """), {"user_id": user_id}).fetchall()
+
+            if not orders:
+                return "No orders found"
+
+            # Define CSV header
+            header = ["Order ID", "Credits", "Amount", "Status", "Created At", "Fulfilled At"]
+
+            # Format rows
+            rows = [header]
+            for order in orders:
+                row = [
+                    order.order_id,
+                    order.credits,
+                    f"Rp {order.amount:,}",
+                    order.status,
+                    order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    order.fulfilled_at.strftime("%Y-%m-%d %H:%M:%S") if order.fulfilled_at else "Not fulfilled"
+                ]
+                rows.append(row)
+
+            # Convert to CSV string
+            import csv
+            from io import StringIO
+            output = StringIO()
+            writer = csv.writer(output)
+            writer.writerows(rows)
+            return output.getvalue()
+
+        except Exception as e:
+            logging.error(f"Error formatting orders to CSV: {str(e)}")
+            return "Error generating CSV"

@@ -2,6 +2,21 @@ import logging
 import asyncio
 from bot import TelegramBot
 from app import app
+import coloredlogs
+
+# Configure colored logging for ERROR only
+coloredlogs.install(
+    level='DEBUG',
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level_styles={
+        'ERROR': {'color': 'red', 'bold': True},
+    },
+    field_styles={
+        'asctime': {'color': 'white'},
+        'name': {'color': 'white'},
+        'levelname': {'color': 'white'},
+    }
+)
 
 # Configure logging
 logging.basicConfig(
