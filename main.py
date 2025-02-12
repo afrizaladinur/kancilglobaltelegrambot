@@ -9,12 +9,16 @@ coloredlogs.install(
     level='DEBUG',
     fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level_styles={
+        'DEBUG': {'color': 'blue'},
+        'INFO': {'color': 'green'},
+        'WARNING': {'color': 'yellow'},
         'ERROR': {'color': 'red', 'bold': True},
+        'CRITICAL': {'color': 'magenta', 'bold': True},
     },
     field_styles={
-        'asctime': {'color': 'white'},
+        'asctime': {'color': 'cyan'},
         'name': {'color': 'white'},
-        'levelname': {'color': 'white'},
+        'levelname': {'color': 'white', 'bold': True},
     }
 )
 
