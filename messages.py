@@ -314,7 +314,7 @@ Setiap pengguna baru mendapat 20 kredit gratis!
                     message_parts.append(f"🌐 Website: {clean_url}")
     
             message_parts.append(f"📱 WhatsApp: {wa_status}")
-            whatsapp_number = None
+            whatsapp_number = Messages._format_phone_for_whatsapp(importer.get('contact', ''))
             callback_data = None
             
             if not saved:
