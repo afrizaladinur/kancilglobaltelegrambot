@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List, Optional
 import os
 from sqlalchemy import create_engine, text
+from messages import Messages
 
 class DataStore:
     def __init__(self):
@@ -16,6 +17,7 @@ class DataStore:
         )
         self._init_tables()
         logging.info("DataStore initialized with PostgreSQL")
+        self.Messages = Messages()
 
     def _init_tables(self):
         """Initialize required tables"""
@@ -128,26 +130,6 @@ class DataStore:
         except Exception as e:
             logging.error(f"Error initializing user credits: {str(e)}")
 
-    def calculate_credit_cost(self, importer: Dict) -> float:
-        """Calculate credit cost based on contact information availability"""
-        try:
-            has_whatsapp = importer.get('wa_available', False)
-            # WhatsApp available = 3 credits
-            if has_whatsapp:
-                return 3.0
-            # Check if has other contact methods
-            has_website = bool(importer.get('website', '').strip())
-            has_email = bool(importer.get('email', '').strip())
-            has_phone = bool(importer.get('contact', '').strip())
-
-            # Complete contact info without WA = 2 credits
-            if has_website and has_email and has_phone:
-                return 2.0
-            # Partial contact info = 1 credit
-            return 1.0
-        except Exception as e:
-            logging.error(f"Error calculating credit cost: {str(e)}", exc_info=True)
-            return 0.5  # Default to minimum cost if error occurs
 
     def use_credit(self, user_id: int, amount: int) -> bool:
         """Use specified amount of credits for the user. Returns True if successful."""
@@ -246,7 +228,7 @@ class DataStore:
         """Save an importer contact for a user"""
         try:
             logging.info(f"Starting save contact process for user {user_id}")
-            credit_cost = self.calculate_credit_cost(importer)
+            credit_cost = Messages._calculate_credit_cost(importer)
             logging.info(f"Calculated credit cost for contact: {credit_cost}")
 
             with self.engine.begin() as conn:
@@ -290,7 +272,7 @@ class DataStore:
                             "user_id": user_id,
                             "name": importer['importer_name'],
                             "country": importer['country'],
-                            "phone": importer['phone'],
+                            "phone": importer['contact'],
                             "email": importer['email'],
                             "website": importer['website'],
                             "wa_available": importer['wa_available'],
