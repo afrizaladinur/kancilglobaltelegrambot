@@ -249,20 +249,20 @@ Setiap pengguna baru mendapat 20 kredit gratis!
             return ""
 
     @staticmethod
-    def _calculate_credit_cost(importer: dict) -> float:
+    def _calculate_credit_cost(importer: dict) -> int:
         has_whatsapp = importer.get('wa_available', False)
 
         if has_whatsapp:
-            return 3.0
+            return 3
 
         has_website = bool(importer.get('website'))
         has_email = bool(importer.get('email'))
         has_phone = bool(importer.get('contact'))
 
         if has_website and has_email and has_phone:
-            return 2.0
+            return 2
         else:
-            return 1.0
+            return 1
 
     @staticmethod
     def format_search_results(results, page, items_per_page=2):
@@ -321,9 +321,9 @@ Setiap pengguna baru mendapat 20 kredit gratis!
                 credit_cost = Messages._calculate_credit_cost(importer)
                 message_parts.append("\n💳 Biaya kredit yang diperlukan:")
                 cost_text = {
-                    3.0: "3 kredit - Kontak lengkap dengan WhatsApp",
-                    2.0: "2 kredit - Kontak lengkap tanpa WhatsApp",
-                    1.0: "1 kredit - Kontak tidak lengkap tanpa WhatsApp"
+                    3: "3 kredit - Kontak lengkap dengan WhatsApp",
+                    2: "2 kredit - Kontak lengkap tanpa WhatsApp",
+                    1: "1 kredit - Kontak tidak lengkap tanpa WhatsApp"
                 }.get(credit_cost, "1 kredit - Kontak tidak lengkap tanpa WhatsApp")
                 message_parts.append(cost_text)
                 message_parts.append("\n💡 Simpan kontak untuk melihat informasi lengkap")
