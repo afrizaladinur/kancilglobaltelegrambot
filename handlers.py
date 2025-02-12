@@ -2,7 +2,7 @@ import logging
 import os
 import time
 import asyncio
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, CallbackContext
 from telegram.error import BadRequest  # Add this import
@@ -1252,7 +1252,7 @@ class CommandHandler:
                             )
                             return
                     except BadRequest as e:
-                        if "Chat not found" in str(e):
+                        if "Chat not found a" in str(e):
                             logging.error(f"Group not found: {group_id}")
                             await query.message.reply_text(
                                 "Maaf, grup tidak ditemukan. Silakan hubungi admin."
@@ -1359,7 +1359,7 @@ class CommandHandler:
             return member.status not in ['left', 'kicked']
             
         except telegram.error.BadRequest as e:
-            if "Chat not found" in str(e):
+            if "Chat not found b" in str(e):
                 logging.error(f"Community group not found or bot not added to group. ID: {group_id}")
                 return False
         except Exception as e:
@@ -1382,6 +1382,7 @@ class CommandHandler:
                     WHERE status = 'pending'
                     ORDER BY created_at DESC
                 """)).fetchall()
+                logging.info(f"Pending orders: {pending_orders}")
 
                 if not pending_orders:
                     await message.reply_text("No pending orders found.")
@@ -1402,8 +1403,12 @@ class CommandHandler:
                     f"👤 User ID: `{current_order.user_id}`\n"
                 )
 
-                user = await context.bot.get_chat(current_order.user_id)
-                username = f"@{user.username}" if user.username else "No username"
+                try:
+                    user = await context.bot.get_chat(current_order.user_id)
+                    username = f"@{user.username}" if user.username else "No username"
+                except Exception as e:
+                    username = "No username"
+
                 message_text += f"Username: {username}\n"
                 message_text += (
                     f"💳 Credits: {current_order.credits}\n"
