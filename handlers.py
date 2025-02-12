@@ -187,7 +187,7 @@ class CommandHandler:
                 message_text, whatsapp_number, _ = Messages.format_importer(contact, saved=True)
                 buttons = []
                 
-                if whatsapp_number:
+                if contact['wa_available']:
                     buttons.append([
                         InlineKeyboardButton("💬 Chat WhatsApp", url=f"https://wa.me/{whatsapp_number}")
                     ])
