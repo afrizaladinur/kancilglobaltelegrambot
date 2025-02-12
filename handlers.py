@@ -1500,12 +1500,25 @@ class CommandHandler:
             with self.engine.connect() as conn:
                 results = conn.execute(
                     text("""
-                    SELECT * FROM importers 
+                    SELECT 
+                        id,
+                        name as importer_name,
+                        phone as contact,
+                        email_1 as email,
+                        website,
+                        product,
+                        product_description as role,
+                        country,
+                        CASE 
+                            WHEN wa_availability = 'Available' THEN true
+                            ELSE false
+                        END as wa_available
+                    FROM importers 
                     WHERE LOWER(product) SIMILAR TO :pattern
-                    OR LOWER(name) SIMILAR TO :pattern
-                    OR LOWER(country) SIMILAR TO :pattern
+                    AND phone IS NOT NULL AND phone != ''
+                    AND country IS NOT NULL AND country != ''
                     ORDER BY RANDOM()  -- Randomize results
-                    LIMIT 100
+                    LIMIT 10
                     """), {
                         "pattern": f"%{search_pattern.lower()}%"
                     }).fetchall()
@@ -1607,7 +1620,7 @@ class CommandHandler:
                     SELECT 
                         id,
                         name as importer_name,
-                        phone,                      
+                        phone as contact,                      
                         website,
                         email_1 as email,
                         product as hs_code,
@@ -1635,9 +1648,6 @@ class CommandHandler:
 
                 # Save contact with transaction
                 try:
-                    # Deduct credit first
-                    self.data_store.use_credit(user_id, 1)
-
                     # Then save contact
                     success = await self.data_store.save_contact(
                         user_id=user_id, importer=importer)

@@ -251,15 +251,13 @@ Setiap pengguna baru mendapat 20 kredit gratis!
     @staticmethod
     def _calculate_credit_cost(importer: dict) -> int:
         has_whatsapp = importer.get('wa_available', False)
-
-        if has_whatsapp:
-            return 3
-
         has_website = bool(importer.get('website'))
         has_email = bool(importer.get('email'))
         has_phone = bool(importer.get('contact'))
 
-        if has_website and has_email and has_phone:
+        if has_whatsapp:
+            return 3
+        elif has_website and has_email and has_phone:
             return 2
         else:
             return 1
