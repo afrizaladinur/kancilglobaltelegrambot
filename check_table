@@ -1,0 +1,20 @@
+-- Get all tables
+SELECT 
+    table_name,
+    pg_size_pretty(pg_total_relation_size(quote_ident(table_name))) as size,
+    pg_stat_get_live_tuples(to_regclass(quote_ident(table_name))) as rows
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+-- Get table columns
+SELECT 
+    t.table_name, 
+    c.column_name, 
+    c.data_type,
+    c.is_nullable
+FROM information_schema.tables t
+JOIN information_schema.columns c 
+    ON t.table_name = c.table_name
+WHERE t.table_schema = 'public'
+ORDER BY t.table_name, c.ordinal_position;

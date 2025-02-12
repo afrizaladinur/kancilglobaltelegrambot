@@ -1,0 +1,35 @@
+{
+    // Theme & Terminal Base Colors
+    "workbench.colorTheme": "Default Dark+",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.fontFamily": "MesloLGS NF",
+    "terminal.integrated.fontSize": 13,
+
+    // Terminal Color Customizations
+    "workbench.colorCustomizations": {
+        "terminal.background": "#1E1E1E",
+        "terminal.foreground": "#D4D4D4",
+        
+        // Log Levels
+        "terminal.ansiRed": "#FF3333",    // ERROR
+        "terminal.ansiYellow": "#FFB366", // WARN
+        "terminal.ansiBlue": "#66B2FF",   // INFO
+        "terminal.ansiGray": "#808080",   // DEBUG
+        
+        // Timestamps & Module names
+        "terminal.ansiGreen": "#4EC9B0",  // Timestamps
+        "terminal.ansiMagenta": "#C586C0", // Module names
+        
+        // Request/Response
+        "terminal.ansiCyan": "#4DC1FF",   // HTTP methods & URLs
+        "terminal.ansiBrightWhite": "#FFFFFF", // Response codes
+        
+        // Bright variants
+        "terminal.ansiBrightRed": "#FF6666",
+        "terminal.ansiBrightGreen": "#6ACEA6",
+        "terminal.ansiBrightYellow": "#FFCC66",
+        "terminal.ansiBrightBlue": "#99CCFF",
+        "terminal.ansiBrightMagenta": "#D4A6D4",
+        "terminal.ansiBrightCyan": "#80D4FF"
+    }
+}
