@@ -149,7 +149,7 @@ class DataStore:
             logging.error(f"Error calculating credit cost: {str(e)}", exc_info=True)
             return 0.5  # Default to minimum cost if error occurs
 
-    def use_credit(self, user_id: int, amount: float) -> bool:
+    def use_credit(self, user_id: int, amount: int) -> bool:
         """Use specified amount of credits for the user. Returns True if successful."""
         try:
             use_credit_sql = """
@@ -167,7 +167,7 @@ class DataStore:
                 with conn.begin():
                     result = conn.execute(
                         text(use_credit_sql),
-                        {"user_id": user_id, "amount": float(amount)}
+                        {"user_id": user_id, "amount": int(amount)}
                     ).scalar()
                     if result is not None:
                         logging.info(f"Credit used for user {user_id}. Amount: {amount}, Remaining credits: {result}")
@@ -293,7 +293,7 @@ class DataStore:
                             "phone": importer['phone'],
                             "email": importer['email'],
                             "website": importer['website'],
-                            "wa_available": importer['wa_available'].lower() == 'available',
+                            "wa_available": importer['wa_available'],
                             "hs_code": importer.get('hs_code', ''),
                             "product_description": importer.get('product_description', ''),
                             "role": importer.get('role', '')

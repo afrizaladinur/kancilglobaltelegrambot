@@ -189,7 +189,7 @@ class CommandHandler:
                 
                 if whatsapp_number:
                     buttons.append([
-                        InlineKeyboardButton("💬 Chat WhatsApp", url=whatsapp_number)
+                        InlineKeyboardButton("💬 Chat WhatsApp", url=f"https://wa.me/{whatsapp_number}")
                     ])
                     
                 sent_msg = await message.reply_text(
@@ -486,7 +486,7 @@ class CommandHandler:
                             InlineKeyboardButton(
                                 "💾 Simpan Kontak",
                                 callback_data=
-                                f"save_{result['name']}"  # Using name instead of id
+                                f"save_{result['id']}" 
                             )
                         ]]
 
@@ -1152,7 +1152,7 @@ class CommandHandler:
                                 InlineKeyboardButton(
                                     "💾 Simpan Kontak",
                                     callback_data=
-                                    f"save_{result['name']}"  # Use name instead of id
+                                    f"save_{result['id']}"  # Use name instead of id
                                 )
                             ]]
 
@@ -1612,7 +1612,10 @@ class CommandHandler:
                         email_1 as email,
                         product as hs_code,
                         country,
-                        wa_availability as wa_available,
+                        CASE 
+                            WHEN wa_availability = 'Available' THEN true
+                            ELSE false
+                        END as wa_available,
                         role as product_description,
                         CURRENT_TIMESTAMP as saved_at
                     FROM importers 

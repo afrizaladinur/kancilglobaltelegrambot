@@ -4,24 +4,26 @@ from bot import TelegramBot
 from app import app
 import coloredlogs
 
-# Configure colored logging for ERROR only
-coloredlogs.install(
-    level='DEBUG',
-    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level_styles={
-        'ERROR': {'color': 'red', 'bold': True},
-    },
-    field_styles={
-        'asctime': {'color': 'white'},
-        'name': {'color': 'white'},
-        'levelname': {'color': 'white'},
-    }
-)
-
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG)
+
+# Configure coloredlogs
+coloredlogs.install(
+    level='DEBUG',
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Add custom logging for specific messages
+class CustomFilter(logging.Filter):
+    def filter(self, record):
+        if record.getMessage().startswith('Received callback query:'):
+            record.levelname = 'ORANGE'
+            record.msg = f'\033[1;33m{record.msg}\033[0m'  # Orange and bold
+        return True
+
+logger = logging.getLogger(__name__)
+logger.addFilter(CustomFilter())
 
 logger = logging.getLogger(__name__)
 
