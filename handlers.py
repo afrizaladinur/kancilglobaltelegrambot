@@ -1512,7 +1512,7 @@ class CommandHandler:
                         email_1 as email,
                         website,
                         product,
-                        product_description as role,
+                        role as product_description,
                         country,
                         CASE 
                             WHEN wa_availability = 'Available' THEN true
