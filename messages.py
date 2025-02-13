@@ -274,11 +274,11 @@ Setiap pengguna baru mendapat 20 kredit gratis!
     def format_importer(importer: dict, saved: bool = False):
         try:
             # Basic info formatting
-            name = Messages._censor_contact(importer.get('name', ''), 'name', saved)
+            name = Messages._censor_contact(importer.get('name', '') or importer.get('importer_name', ''), 'name', saved)
             email = Messages._censor_contact(importer.get('email', ''), 'email', saved)
             phone = Messages._censor_contact(importer.get('contact', ''), 'phone', saved)
             website = Messages._censor_contact(importer.get('website', ''), 'website', saved)
-            role = importer.get('role', '')
+            role = importer.get('role', '') or importer.get('product_description', '')
             product = importer.get('product', '')
             country = importer.get('country', '')
             wa_status = "✅ Tersedia" if importer.get('wa_available') else "❌ Tidak Tersedia"
