@@ -243,7 +243,7 @@ class CommandHandler:
             # Check member status
             group_id = -1002349486618
             try:
-                member = await self.bot.get_chat_member(
+                member = await context.bot.get_chat_member(
                     chat_id=group_id,
                     user_id=user_id
                 )
@@ -374,6 +374,31 @@ class CommandHandler:
             elif query.data == "export_orders":
                 await self.export_orders(update, context)
 
+            elif query.data.startswith('delete_order_'):
+                try:
+                    order_id = query.data.replace('delete_order_', '')
+                    
+                    # Delete from database
+                    with self.engine.begin() as conn:
+                        conn.execute(
+                            text("""
+                            DELETE FROM credit_orders 
+                            WHERE order_id = :order_id
+                            """), {
+                                "order_id": order_id
+                            })
+
+                    # Show confirmation message
+                    await query.answer("Order deleted successfully!")
+                    
+                    # Refresh orders page
+                    await self.orders(update, context, reply_to=query.message)
+
+                except Exception as e:
+                    logging.error(f"Error deleting order: {str(e)}")
+                    await query.message.reply_text(
+                        "Failed to delete order. Please try again."
+                    )
             elif query.data == "orders_prev" or query.data == "orders_next":
                 try:
                     page = context.user_data.get('order_page', 0)
@@ -383,8 +408,15 @@ class CommandHandler:
                         await query.message.reply_text("No pending orders found.")
                         return
 
-                    # Update page
+                    # Update page and handle edge cases
                     total_pages = len(pending_orders)
+                    if total_pages == 0:
+                        await query.message.edit_text("No more pending orders.")
+                        return
+                        
+                    if page >= total_pages:
+                        page = total_pages - 1
+                        
                     if query.data == "orders_prev":
                         page = max(0, page - 1)
                     else:
@@ -393,16 +425,31 @@ class CommandHandler:
                     context.user_data['order_page'] = page
                     current_order = pending_orders[page]
 
-                    # Format message
+                    # Format message with basic info
                     message_text = (
                         f"📦 Pending Order {page + 1}/{total_pages}\n\n"
                         f"🔖 Order ID: `{current_order['order_id']}`\n"
                         f"👤 User ID: `{current_order['user_id']}`\n"
                     )
 
-                    user = await context.bot.get_chat(current_order['user_id'])
-                    username = f"@{user.username}" if user.username else "No username"
-                    message_text += f"Username: {username}\n"
+                    # Single chat lookup with proper error handling
+                    try:
+                        user = await context.bot.get_chat(current_order['user_id'])
+                        name_parts = []
+                        if user.username:
+                            name_parts.append(f"@{user.username}")
+                        if user.first_name:
+                            name_parts.append(user.first_name)
+                        if user.last_name:
+                            name_parts.append(user.last_name)
+                        username = " | ".join(name_parts) if name_parts else f"User_{current_order['user_id']}"
+                        chat_link = f"tg://user?id={current_order['user_id']}"
+                        message_text += f"Username: [{username}]({chat_link})\n"
+                    except Exception as e:
+                        logging.warning(f"Could not fetch chat for user {current_order['user_id']}: {e}")
+                        message_text += f"Username: User ID: {current_order['user_id']}\n"
+
+                    # Add remaining order details
                     message_text += (
                         f"💳 Credits: {current_order['credits']}\n"
                         f"💰 Amount: Rp {current_order['amount']:,}\n"
@@ -421,10 +468,9 @@ class CommandHandler:
 
                     keyboard.append([
                         InlineKeyboardButton("✅ Fulfill Order", 
-                            callback_data=f"give_{current_order['user_id']}_{current_order['credits']}")
-                    ])
-                    keyboard.append([
-                        InlineKeyboardButton("📥 Export to CSV", callback_data="export_orders")
+                            callback_data=f"give_{current_order['user_id']}_{current_order['credits']}"),
+                        InlineKeyboardButton("❌ Delete Order",
+                            callback_data=f"delete_order_{current_order['order_id']}")
                     ])
 
                     await query.message.edit_text(
@@ -437,7 +483,6 @@ class CommandHandler:
                 except Exception as e:
                     logging.error(f"Error in orders pagination: {str(e)}")
                     await query.message.reply_text("Error navigating orders. Please try again.")
-
             elif query.data == "next_page" or query.data == "prev_page":
                 try:
                     results = context.user_data.get('search_results', [])
@@ -1426,7 +1471,9 @@ class CommandHandler:
 
                 keyboard.append([
                     InlineKeyboardButton("✅ Fulfill Order", 
-                        callback_data=f"give_{current_order.user_id}_{current_order.credits}")
+                        callback_data=f"give_{current_order.user_id}_{current_order.credits}"),
+                    InlineKeyboardButton("❌ Delete Order",
+                        callback_data=f"delete_order_{current_order.order_id}")
                 ])
                 keyboard.append([
                     InlineKeyboardButton("📥 Export to CSV", callback_data="export_orders")
