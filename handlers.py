@@ -1502,46 +1502,68 @@ class CommandHandler:
                                         filename='saved_contacts.csv')
 
     async def export_orders(self, update: Update,
-                            context: ContextTypes.DEFAULT_TYPE):
+                          context: ContextTypes.DEFAULT_TYPE):
+        from io import StringIO
+        from datetime import datetime
+
         query = update.callback_query
         if update.effective_user.id not in [6422072438]:
             await update.message.reply_text("Unauthorized")
             return
+            
         try:
-            user_id = query.from_user.id
-            csv_data = self.data_store.format_orders_to_csv(user_id)
-            
-            if csv_data == "No orders found":
-                await query.message.reply_text("Tidak ada pesanan untuk diekspor.")
-                return
-            
-            # Create temp file
-            with tempfile.NamedTemporaryFile(
-                mode='w+', 
-                suffix='.csv',
-                delete=False,
-                encoding='utf-8'
-            ) as tmp:
-                tmp.write(csv_data)
-                tmp.flush()
-                tmp_path = tmp.name
+            # Get all orders from database
+            with self.engine.connect() as conn:
+                orders = conn.execute(text("""
+                    SELECT * FROM credit_orders 
+                    ORDER BY created_at DESC
+                """)).fetchall()
 
-            # Send file
-            with open(tmp_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=query.message.chat_id,
-                    document=file,
-                    filename=f'orders_{user_id}.csv',
-                    caption="📥 Daftar pesanan kredit"
+                if not orders:
+                    await query.answer("No orders to export") 
+                    return
+
+                # Generate CSV
+                output = StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['User ID', 'Username', 'Time', 'Credits', 'Amount (Rp)', 'Status', 'Fulfilled At'])
+
+                for order in orders:
+                    # Get username for each user
+                    try:
+                        user = await context.bot.get_chat(order.user_id)
+                        username = f"@{user.username}" if user.username else "No username"
+                    except Exception:
+                        username = "Unknown"
+
+                    writer.writerow([
+                        f"User_{order.user_id}",
+                        username,
+                        order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        order.credits, 
+                        f"{order.amount:,}",
+                        order.status,
+                        order.fulfilled_at.strftime('%Y-%m-%d %H:%M:%S') if order.fulfilled_at else '-'
+                    ])
+
+                # Save and send file
+                temp_file = f"orders_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    f.write(output.getvalue())
+
+                await query.message.reply_document(
+                    document=open(temp_file, 'rb'),
+                    filename=f"orders_export.csv",
+                    caption="All orders export file"
                 )
-
-            # Cleanup
-            os.unlink(tmp_path)
-            await query.answer("CSV berhasil diekspor!")
+                
+                # Cleanup
+                #os.remove(temp_file)
+                #await query.answer("Export complete!")
 
         except Exception as e:
-            logging.error(f"Error exporting orders: {str(e)}")
-            await query.message.reply_text("Maaf, terjadi kesalahan saat ekspor.")
+            logging.error(f"Error exporting orders: {e}")
+            await query.answer("Failed to export orders")
 
     async def show_results(self, update: Update,
                         context: ContextTypes.DEFAULT_TYPE,
