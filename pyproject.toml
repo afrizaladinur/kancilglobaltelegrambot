@@ -22,4 +22,5 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "aiohttp>=3.11.12",
     "python-dotenv>=1.0.1",
+    "coloredlogs==15.0.1",
 ]
